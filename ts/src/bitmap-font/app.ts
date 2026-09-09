@@ -23,7 +23,7 @@ import { createScene3DContext } from './renderer';
 const ctx = createScene3DContext({
   width: innerWidth,
   height: innerHeight,
-  backgroundColor: 0x111827ff,
+  backgroundColor: 0x000000ff,
   effects: [createToneMapEffect(), createFxaaEffect()],
 });
 const scene = createScene3D();
