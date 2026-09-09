@@ -78,10 +78,6 @@ replaced with something unrelated, undocumented anywhere until now.
   frame-animation API, plus a pulsing "button" mesh and an autonomous Actuate-tweened camera; port
   draws live Canvas-2D text onto a texture each second (no sprite-sheet machinery at all), has no
   button animation, and uses a static user-drag camera instead of the autonomous tween.
-- `particle-trails` — original reuses one `ParticleAnimationSet` across animators with
-  `ParticleFollowNode` trailing a moving target (real GPU particle lifecycle: spawn time, velocity,
-  fade); port manually overwrites fixed particle positions every frame with a hand-computed spiral —
-  no spawn/fade lifecycle, no follow target, a card-suit texture swapped for flat colors.
 
 **Drops a real, named subsystem — undocumented (fix next):**
 - `bitmap-font` — drops the 3D rotating text ring (14 meshes on a spinning radial arrangement,
@@ -101,7 +97,7 @@ replaced with something unrelated, undocumented anywhere until now.
   is replaced with a closed-form sine-ripple formula; the environment-map goal is dropped outright.
 
 **Faithful** (camera/material/lighting modernized, core technique intact): `basic-sprite-sheet`,
-`mip-mapping`, `particles`, `stereo`, `tweening-3d`, `light-probes`,
+`mip-mapping`, `particle-trails`, `particles`, `stereo`, `tweening-3d`, `light-probes`,
 `onkba-awd-animation`, `planar-reflections` (within the documented capture gap),
 `real-time-env-map`, `terrain-demo`.
 The 13 "Reused" samples pulled from `flighthq-ports/awayjs-examples` were not in scope for this audit.
