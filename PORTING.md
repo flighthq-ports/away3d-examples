@@ -64,22 +64,31 @@ it does not close the remaining `planar-reflections` gap.
 ## Fidelity audit (2026-09-09)
 
 An audit against the real `openfl/away3d-samples` sources (not just the general subject each sample
-covers) found that "Remastered" has drifted from "current APIs, same demonstrated technique" toward
-"same subject, sometimes a different technique" for several samples. Camera framing, materials, and
-lighting are expected to modernize in a remaster and are not fidelity issues by themselves; the items
-below are cases where the sample's actual demonstrated technique or a named subsystem was dropped or
-replaced with something unrelated, undocumented anywhere until now.
+covers) found eleven places where a remaster had replaced the demonstrated technique or dropped a
+named subsystem. Those gaps are now corrected:
 
-**Invented mechanism — same asset/subject, unrelated technique (fix first):**
-
-**Drops a real, named subsystem — undocumented (fix next):**
-- `shallow-water-demo` — the original's namesake technique, a real shallow-water-equations grid solver,
-  is replaced with a closed-form sine-ripple formula; the environment-map goal is dropped outright.
+- `lines`, `particles`, and `particle-trails` use Flight particle lifecycles for the original spray,
+  sparks, and moving-target trails; `lines` also restores scrolling simplex terrain and its autonomous
+  camera.
+- `sprite-sheet-animation` selects frames from generated digit, delimiter, and pulse atlases, including
+  the animated button and autonomous camera, rather than redrawing live text into textures.
+- `bitmap-font` renders fourteen real textured 3D text meshes in the original rotating radial layout.
+- `uv-animation` keeps its continuous upper pair and restores the two explicit lower keyframe clips.
+- `head` provides the original A/B shading comparison through wrapped subsurface diffuse and PBR
+  Fresnel/specular extensions versus a basic material.
+- `polar-bear-awd-animation` restores the 3,000-particle snow field, visible sky environment, shadow
+  map, depth fog, and keyboard animation controls.
+- `real-time-env-map` restores the heightmap desert, keyboard vehicle physics, following camera, and
+  live six-face environment capture.
+- `fractal-tree-demo` places twenty-five GPU-instanced copies of the generated tree across elevated,
+  three-layer splat-composited terrain.
+- `shallow-water-demo` now advances displacement and velocity grids with a fixed-step finite-difference
+  shallow-water solver; pointer and rain impulses propagate through the field, and the snow environment
+  is visible and reflected by the water.
 
 **Faithful** (camera/material/lighting modernized, core technique intact): `basic-sprite-sheet`, `bitmap-font`,
 `fractal-tree-demo`, `head`, `lines`, `mip-mapping`, `particle-trails`, `particles`,
-`polar-bear-awd-animation`,
-`sprite-sheet-animation`, `stereo`,
+`polar-bear-awd-animation`, `shallow-water-demo`, `sprite-sheet-animation`, `stereo`,
 `tweening-3d`, `uv-animation`, `light-probes`,
 `onkba-awd-animation`, `planar-reflections` (within the documented capture gap),
 `real-time-env-map`, `terrain-demo`.

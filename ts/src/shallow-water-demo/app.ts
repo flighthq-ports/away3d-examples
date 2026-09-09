@@ -1,9 +1,11 @@
 import type { MeshGeometry, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
+  bakeGlEnvironmentIbl,
   computeMeshGeometryNormals,
   computeMeshGeometryTangents,
   createBoxMeshGeometry,
+  createEnvironment,
   createFxaaEffect,
   createMesh,
   createPlaneMeshGeometry,
@@ -17,11 +19,13 @@ import {
   getMeshGeometryVertexPosition,
   invalidateMeshGeometry,
   invalidateNodeLocalTransform,
+  loadImageResourceFromUrl,
   pickScene3D,
   setMeshGeometryVertexPosition,
   setVector3,
 } from '@flighthq/sdk';
 import { bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
+import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
 import { createDirectionalLightFromAway } from '../../shared/lighting';
 import { createScene3DContext } from './renderer';
 
@@ -40,11 +44,22 @@ const light = createDirectionalLightFromAway({
 });
 const lights = createScene3DLights({ ambient: light.ambient, directional: light.directional });
 
+const skyFaces = await Promise.all(
+  ['positive_x', 'negative_x', 'positive_y', 'negative_y', 'positive_z', 'negative_z'].map((face) =>
+    loadImageResourceFromUrl(ctx.host, `skybox/snow_${face}.jpg`),
+  ),
+);
+const environment = createEnvironment({
+  environment: createCubeTextureFromAwayFaces(ctx.host, skyFaces),
+  intensity: 1,
+});
+bakeGlEnvironmentIbl(ctx.state, environment);
+
 const waterGeometry: MeshGeometry = createPlaneMeshGeometry(900, 900, 72, 72);
 const waterMaterial = createStandardPbrMaterial({
   baseColor: 0x5cbde0c8,
-  metallic: 0.55,
-  roughness: 0.12,
+  metallic: 0.68,
+  roughness: 0.06,
   alphaMode: 'blend',
   doubleSided: true,
 });
@@ -73,11 +88,57 @@ for (let i = 0; i < vertexCount; i++) {
   baseX[i] = point.x; baseZ[i] = point.z;
 }
 
-interface Ripple { born: number; x: number; z: number }
-const ripples: Ripple[] = [];
-function addRipple(x: number, z: number, born = performance.now()): void {
-  ripples.push({ x, z, born });
-  if (ripples.length > 16) ripples.shift();
+const gridWidth = 73;
+const gridHeight = 73;
+const gridSpacing = 900 / (gridWidth - 1);
+const gravity = 980;
+const fluidDepth = 8;
+const viscosity = 0.3;
+const fixedStep = 1 / 120;
+let displacement = new Float32Array(gridWidth * gridHeight);
+let nextDisplacement = new Float32Array(gridWidth * gridHeight);
+const velocity = new Float32Array(gridWidth * gridHeight);
+const vertexCell = new Uint32Array(vertexCount);
+for (let i = 0; i < vertexCount; i++) {
+  const column = Math.round((baseX[i]! / 900 + 0.5) * (gridWidth - 1));
+  const row = Math.round((baseZ[i]! / 900 + 0.5) * (gridHeight - 1));
+  vertexCell[i] = row * gridWidth + column;
+}
+
+function disturb(x: number, z: number, strength = 18): void {
+  const centerX = Math.round((x / 900 + 0.5) * (gridWidth - 1));
+  const centerZ = Math.round((z / 900 + 0.5) * (gridHeight - 1));
+  const brushRadius = 4;
+  for (let dz = -brushRadius; dz <= brushRadius; dz++) {
+    for (let dx = -brushRadius; dx <= brushRadius; dx++) {
+      const column = centerX + dx;
+      const row = centerZ + dz;
+      if (column <= 0 || column >= gridWidth - 1 || row <= 0 || row >= gridHeight - 1) continue;
+      const distance = Math.hypot(dx, dz);
+      if (distance > brushRadius) continue;
+      const falloff = 1 - distance / brushRadius;
+      displacement[row * gridWidth + column] += strength * falloff * falloff;
+    }
+  }
+}
+
+function solveShallowWater(deltaTime: number): void {
+  const accelerationScale = gravity * fluidDepth / (gridSpacing * gridSpacing);
+  const damping = Math.exp(-viscosity * deltaTime);
+  nextDisplacement.fill(0);
+  for (let row = 1; row < gridHeight - 1; row++) {
+    for (let column = 1; column < gridWidth - 1; column++) {
+      const index = row * gridWidth + column;
+      const laplacian = displacement[index - 1]! + displacement[index + 1]!
+        + displacement[index - gridWidth]! + displacement[index + gridWidth]!
+        - 4 * displacement[index]!;
+      velocity[index] = (velocity[index]! + accelerationScale * laplacian * deltaTime) * damping;
+      nextDisplacement[index] = displacement[index]! + velocity[index]! * deltaTime;
+    }
+  }
+  const previous = displacement;
+  displacement = nextDisplacement;
+  nextDisplacement = previous;
 }
 
 const hit = createScene3DHit();
@@ -86,36 +147,40 @@ ctx.canvas.addEventListener('pointerup', (event) => {
   const screenX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   const screenY = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
   const picked = pickScene3D(scene.root, camera, screenX, screenY, hit);
-  if (picked?.node === water) addRipple(picked.pointX, picked.pointZ);
+  if (picked?.node === water) disturb(picked.pointX, picked.pointZ, -24);
 });
 
 let nextRain = 0;
+let previousTime = performance.now();
+let simulationAccumulator = 0;
 function frame(ts: number): void {
   if (ts >= nextRain) {
-    addRipple((Math.random() - 0.5) * 760, (Math.random() - 0.5) * 760, ts);
-    nextRain = ts + 520;
+    disturb((Math.random() - 0.5) * 760, (Math.random() - 0.5) * 760);
+    nextRain = ts + 350;
+  }
+  simulationAccumulator += Math.min(0.05, (ts - previousTime) / 1000);
+  previousTime = ts;
+  while (simulationAccumulator >= fixedStep) {
+    solveShallowWater(fixedStep);
+    simulationAccumulator -= fixedStep;
   }
   for (let i = 0; i < vertexCount; i++) {
-    const x = baseX[i]!; const z = baseZ[i]!;
-    let y = Math.sin(x * 0.025 + ts * 0.0018) * 2.4 + Math.cos(z * 0.021 - ts * 0.0014) * 2;
-    for (const ripple of ripples) {
-      const age = (ts - ripple.born) / 1000;
-      if (age < 0 || age > 4) continue;
-      const distance = Math.hypot(x - ripple.x, z - ripple.z);
-      const ring = distance - age * 145;
-      y += Math.sin(ring * 0.12) * Math.exp(-Math.abs(ring) * 0.035) * (1 - age / 4) * 22;
-    }
-    setMeshGeometryVertexPosition(waterGeometry, i, x, y, z);
+    setMeshGeometryVertexPosition(
+      waterGeometry,
+      i,
+      baseX[i]!,
+      displacement[vertexCell[i]!]!,
+      baseZ[i]!,
+    );
   }
-  while (ripples[0] && ts - ripples[0].born > 4000) ripples.shift();
   computeMeshGeometryNormals(waterGeometry, waterGeometry);
   computeMeshGeometryTangents(waterGeometry, waterGeometry);
   invalidateMeshGeometry(waterGeometry);
-  orbit.update(); ctx.render(scene.root, camera, lights); requestAnimationFrame(frame);
+  orbit.update(); ctx.render(scene.root, camera, lights, environment); requestAnimationFrame(frame);
 }
 
 const help = document.createElement('div');
-help.textContent = 'Click the water to make a ripple · drag to orbit · wheel to zoom';
+help.textContent = 'Click the water to disturb the finite-difference shallow-water solver · rain enabled';
 Object.assign(help.style, { position: 'fixed', left: '18px', top: '16px', color: '#e8faff', font: '14px system-ui', textShadow: '0 1px 5px #000', pointerEvents: 'none' });
 document.body.appendChild(help);
 window.addEventListener('resize', () => {
