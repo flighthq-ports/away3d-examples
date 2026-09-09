@@ -1,69 +1,133 @@
-import type { BitmapText } from '@flighthq/sdk';
+import type { BitmapFont, MeshGeometry, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
-  BitmapTextKind,
-  createBitmapText,
-  createDisplayObject,
-  createGlCanvasElement,
-  createGlContextFromCanvasElement,
-  createGlContextState,
-  createEmptyGlRegistries,
-  createGlPipeline,
-  createGlRenderState,
-  createGlyphSourceFromBitmapFont,
+  createFxaaEffect,
+  createMesh,
+  createMeshGeometry,
+  createScene3D,
+  createScene3DLights,
+  createTexture,
   createTextureAtlasFromImageResource,
-  defaultGlBitmapTextRenderer,
+  createToneMapEffect,
+  createUnlitMaterial,
   invalidateNodeLocalTransform,
   loadImageResourceFromUrl,
   parseBitmapFontFnt,
-  prepareScene2DRender,
-  registerGlStandardMaterial,
-  registerRenderer,
-  registerStandardGlTextureResolvers,
-  renderGlBackground,
-  renderGlScene2D,
+  setQuaternionFromEuler,
+  setVector3,
 } from '@flighthq/sdk';
-import { enableHostWebGlRenderSurface, webHost } from '@flighthq/host-web';
+import { createCameraFromAway } from '../../shared/camera';
+import { createScene3DContext } from './renderer';
 
-let width = innerWidth; let height = innerHeight; const pixelRatio = devicePixelRatio || 1;
-enableHostWebGlRenderSurface();
-const canvas = createGlCanvasElement(width, height, pixelRatio);
-document.getElementById('app')?.replaceWith(canvas);
-const gl = createGlContextFromCanvasElement(canvas, {
-  contextAttributes: { alpha: false, depth: true, preserveDrawingBuffer: false },
+const ctx = createScene3DContext({
+  width: innerWidth,
+  height: innerHeight,
+  backgroundColor: 0x111827ff,
+  effects: [createToneMapEffect(), createFxaaEffect()],
 });
-const state = createGlRenderState(
-  createGlContextState(gl), createGlPipeline(createEmptyGlRegistries()), { backgroundColor: 0x111827ff, pixelRatio },
-);
-registerStandardGlTextureResolvers(state); registerGlStandardMaterial(state);
-registerRenderer(state, BitmapTextKind, defaultGlBitmapTextRenderer);
+const scene = createScene3D();
+const camera = createCameraFromAway({ y: 200, z: -600, near: 20, far: 3000 });
+const lights = createScene3DLights();
 
-const image = await loadImageResourceFromUrl(webHost, 'away3d/BitmapFont/fonts/BerberRevKC_260.png');
+const assetRoot = 'away3d/BitmapFont/fonts/';
+const image = await loadImageResourceFromUrl(ctx.host, `${assetRoot}BerberRevKC_260.png`);
 const atlas = createTextureAtlasFromImageResource(image);
-const fnt = await fetch('away3d/BitmapFont/fonts/BerberRevKC_260.fnt').then((r) => r.text());
+const fnt = await fetch(`${assetRoot}BerberRevKC_260.fnt`).then((response) => response.text());
 const font = parseBitmapFontFnt(fnt, { resolvePage: () => atlas });
 if (!font) throw new Error('Could not parse BerberRevKC_260.fnt');
-const glyphs = createGlyphSourceFromBitmapFont(font);
-const root = createDisplayObject(); const labels: BitmapText[] = [];
-for (let i = 0; i < 12; i++) {
-  const text = createBitmapText(glyphs, { text: i % 2 ? 'Away3D' : 'Bitmap Font' });
-  addNodeChild(root, text); labels.push(text);
-}
-function frame(ts: number): void {
-  const t = ts / 1000;
-  for (let i = 0; i < labels.length; i++) {
-    const item = labels[i]!; const angle = t * 0.35 + (i / labels.length) * Math.PI * 2;
-    const depth = 0.55 + (Math.cos(angle) + 1) * 0.32;
-    item.x = width / 2 + Math.sin(angle) * Math.min(width * 0.38, 430);
-    item.y = height / 2 + Math.sin(angle * 2) * Math.min(height * 0.32, 220);
-    item.scaleX = depth; item.scaleY = depth; item.alpha = 0.4 + depth * 0.65;
-    invalidateNodeLocalTransform(item);
+
+function createTextGeometry(bitmapFont: Readonly<BitmapFont>, text: string, fontSize: number): MeshGeometry {
+  const scale = fontSize / 260;
+  let width = 0;
+  for (const character of text) width += (bitmapFont.glyphs.get(character.codePointAt(0)!)?.advance ?? 0) * scale;
+
+  const vertices: number[] = [];
+  const indices: number[] = [];
+  let cursor = -width / 2;
+  for (const character of text) {
+    const glyph = bitmapFont.glyphs.get(character.codePointAt(0)!);
+    if (!glyph) continue;
+    const x0 = cursor + glyph.bearingX * scale;
+    const x1 = x0 + glyph.width * scale;
+    const y0 = (bitmapFont.metrics.ascent - glyph.bearingY) * scale;
+    const y1 = y0 - glyph.height * scale;
+    const u0 = glyph.x / image.width;
+    const v0 = glyph.y / image.height;
+    const u1 = (glyph.x + glyph.width) / image.width;
+    const v1 = (glyph.y + glyph.height) / image.height;
+    const base = vertices.length / 5;
+    vertices.push(
+      x0, y0, 0, u0, v0,
+      x0, y1, 0, u0, v1,
+      x1, y1, 0, u1, v1,
+      x1, y0, 0, u1, v0,
+    );
+    indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    cursor += glyph.advance * scale;
   }
-  prepareScene2DRender(state, root); renderGlBackground(state); renderGlScene2D(state, root); requestAnimationFrame(frame);
+
+  return createMeshGeometry({
+    layout: {
+      stride: 20,
+      attributes: [
+        { semantic: 'position', format: 'float32x3', byteOffset: 0 },
+        { semantic: 'uv0', format: 'float32x2', byteOffset: 12 },
+      ],
+    },
+    topology: 'triangle-list',
+    vertices: new Float32Array(vertices),
+    indices: new Uint32Array(indices),
+  });
 }
-window.addEventListener('resize', () => {
-  width = innerWidth; height = innerHeight; const pr = devicePixelRatio || 1;
-  canvas.width = width * pr; canvas.height = height * pr; canvas.style.width = `${width}px`; canvas.style.height = `${height}px`;
-  state.pixelRatio = pr; state.gl.viewport(0, 0, canvas.width, canvas.height);
+
+const labelGeometry = createTextGeometry(font, 'THIS IS A TEST', 100);
+const fontTexture = createTexture({ source: image });
+const labelCount = 14;
+for (let i = 0; i < labelCount; i++) {
+  const angle = i / labelCount * Math.PI * 2;
+  const color = ((Math.random() * 0xffffff) << 8 | 0xff) >>> 0;
+  const label = createMesh(labelGeometry, [createUnlitMaterial({
+    baseColor: color,
+    baseColorMap: fontTexture,
+    alphaMode: 'blend',
+    doubleSided: true,
+  })]);
+  setVector3(label.position, -Math.cos(angle) * 400, -300 + i * 60, Math.sin(angle) * 400);
+  setQuaternionFromEuler(label.rotation, 0, angle, 0);
+  invalidateNodeLocalTransform(label);
+  addNodeChild(scene.root, label);
+}
+
+let rotation = 0;
+let previousTime = performance.now();
+function frame(timestamp: number): void {
+  const deltaTime = Math.min(0.1, (timestamp - previousTime) / 1000);
+  previousTime = timestamp;
+  rotation += deltaTime * Math.PI / 3;
+  setQuaternionFromEuler(scene.root.rotation, 0, rotation, 0);
+  invalidateNodeLocalTransform(scene.root);
+  ctx.render(scene.root, camera, lights);
+  requestAnimationFrame(frame);
+}
+
+const note = document.createElement('div');
+note.textContent = '14 bitmap-font meshes · rotating 3D radial layout';
+Object.assign(note.style, {
+  position: 'fixed', left: '16px', top: '14px', color: '#fff', font: '14px system-ui',
+  textShadow: '0 1px 4px #000', pointerEvents: 'none',
 });
+document.body.appendChild(note);
+
+window.addEventListener('resize', () => {
+  const width = innerWidth;
+  const height = innerHeight;
+  const pixelRatio = devicePixelRatio || 1;
+  ctx.canvas.width = width * pixelRatio;
+  ctx.canvas.height = height * pixelRatio;
+  ctx.canvas.style.width = `${width}px`;
+  ctx.canvas.style.height = `${height}px`;
+  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
+  (camera.projection as PerspectiveProjection).aspect = width / height;
+});
+
 requestAnimationFrame(frame);
