@@ -34,7 +34,7 @@ lighting treatment.
 | PerelithKnightMD2 | `perelith-knight` | Reused Flight port |
 | PlanarReflections | `planar-reflections` | Remastered with mirrored-scene fallback |
 | PolarBearAWDAnimation | `polar-bear-awd-animation` | Remastered |
-| RealTimeEnvMap | `real-time-env-map` | Remastered with static IBL fallback |
+| RealTimeEnvMap | `real-time-env-map` | Remastered with live environment capture |
 | SpriteSheetAnimation | `sprite-sheet-animation` | Remastered |
 | FractalTreeDemo | `fractal-tree-demo` | Remastered |
 | MultiPassSponzaDemo | `sponza-demo` | Reused Flight port |
@@ -48,10 +48,6 @@ The samples keep these gaps visible instead of silently converting the input or 
 - **Planar reflection capture:** The scene renderer has no Away3D-style planar reflection texture with
   an oblique clip plane. `planar-reflections` keeps the moving reflected subject and mirror composition
   through an explicit mirrored-scene fallback.
-- **Dynamic environment capture:** Flight can upload cube faces and bake static IBL, but it has no
-  scene-level helper that renders six views into a live environment cube. `real-time-env-map` uses the
-  original sky cube as static IBL while preserving the moving subject and reflective PBR head.
-
 Compressed AWD assets in the Onkba, polar bear, and clock samples are supported. Those examples call
 `registerDeflateDecompressor()` before parsing, then use the imported skeleton clips or named clock
 meshes directly.
@@ -60,11 +56,10 @@ meshes directly.
 local light-probe volumes, and dynamic environment capture. `load-dae` now parses and renders the
 original carousel directly with `parseCollada()`, while `light-probes` projects all four source
 environment maps into spherical harmonics and interpolates them through a real `LightProbeGrid`.
-The real dynamic six-face environment-cube capture pipeline
-(`createGlCubeRenderTarget` + `renderGlEnvironmentCapture` + `getGlEnvironmentCaptureTexture`, plus
-`getCubeCaptureFaceCamera3D`). The cube-capture pipeline unblocks `real-time-env-map` directly; it is
-not a literal oblique-clip-plane planar mirror, so it only partially helps `planar-reflections`. The
-remaining gaps above still describe the code as it stands until those samples are integrated.
+`real-time-env-map` uses the new six-face pipeline (`createGlCubeRenderTarget` +
+`renderGlEnvironmentCapture` + `bakeGlEnvironmentCaptureIbl`) to update the reflective head from the
+live terrain and moving R2D2 scene. Cube capture is not a literal oblique-clip-plane planar mirror, so
+it does not close the remaining `planar-reflections` gap.
 
 ## Fidelity audit (2026-09-09)
 
@@ -102,9 +97,6 @@ replaced with something unrelated, undocumented anywhere until now.
   toggle.
 - `polar-bear-awd-animation` — drops the original's 3000-particle falling-snow system, skybox, shadow
   mapping, and fog; only the skeletal-clip switching survives.
-- `real-time-env-map` — beyond the documented static-IBL swap, also drops the heightmap terrain
-  entirely (head and R2D2 float over bare skybox) and replaces WASD physics-driven R2D2 control with a
-  scripted auto-orbit.
 - `fractal-tree-demo` — the recursive tree-branching technique is genuinely ported, but the original's
   Perlin-noise/splat-blended terrain is replaced with a flat textured plane, and the 25-tree forest
   (demonstrating GPU-efficient cloning) is dropped to a single tree.
@@ -113,5 +105,6 @@ replaced with something unrelated, undocumented anywhere until now.
 
 **Faithful** (camera/material/lighting modernized, core technique intact): `basic-sprite-sheet`,
 `mip-mapping`, `stereo`, `tweening-3d`, `light-probes`,
-`onkba-awd-animation`, `planar-reflections` (within the documented capture gap), `terrain-demo`.
+`onkba-awd-animation`, `planar-reflections` (within the documented capture gap),
+`real-time-env-map`, `terrain-demo`.
 The 13 "Reused" samples pulled from `flighthq-ports/awayjs-examples` were not in scope for this audit.
