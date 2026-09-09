@@ -41,7 +41,7 @@ lighting treatment.
 | ShallowWaterDemo | `shallow-water-demo` | Remastered |
 | TerrainDemo | `terrain-demo` | Remastered |
 
-## Flight capability gaps
+## Flight capability gaps (as of SDK 0.5.1-next.1019.1274ec5 — see update below)
 
 The samples keep these gaps visible instead of silently converting the input or dropping the feature:
 
@@ -61,3 +61,63 @@ The samples keep these gaps visible instead of silently converting the input or 
 Compressed AWD assets in the Onkba, polar bear, and clock samples are supported. Those examples call
 `registerDeflateDecompressor()` before parsing, then use the imported skeleton clips or named clock
 meshes directly.
+
+**Update (SDK 0.5.1-next.1047.858b9b6):** the SDK bump this project now uses adds real APIs for three
+of the four gaps above — `parseCollada()` (`@flighthq/scene3d-formats`, usable via the same
+`createScene3DFromDocument()` pattern already used for AWD), local light-probe volumes with spherical-
+harmonics interpolation (`createLightProbe`/`createLightProbeGrid`/`sampleLightProbeGrid` in
+`@flighthq/lighting`), and a real dynamic six-face environment-cube capture pipeline
+(`createGlCubeRenderTarget` + `renderGlEnvironmentCapture` + `getGlEnvironmentCaptureTexture`, plus
+`getCubeCaptureFaceCamera3D`). The cube-capture pipeline unblocks `real-time-env-map` directly; it is
+not a literal oblique-clip-plane planar mirror, so it only partially helps `planar-reflections`. The
+gaps above still describe the code as it stands until these are integrated.
+
+## Fidelity audit (2026-09-09)
+
+An audit against the real `openfl/away3d-samples` sources (not just the general subject each sample
+covers) found that "Remastered" has drifted from "current APIs, same demonstrated technique" toward
+"same subject, sometimes a different technique" for several samples. Camera framing, materials, and
+lighting are expected to modernize in a remaster and are not fidelity issues by themselves; the items
+below are cases where the sample's actual demonstrated technique or a named subsystem was dropped or
+replaced with something unrelated, undocumented anywhere until now.
+
+**Invented mechanism — same asset/subject, unrelated technique (fix first):**
+- `lines` — original scrolls a simplex-noise terrain with an auto-panning camera and a 500-particle
+  additive spark emitter; port is a static orbit-camera grid on a hand-written sin/cos wave with three
+  orbiting spheres and no particle system at all.
+- `particles` — original's own doc comment: "a random spray of particles emanating from a central
+  point," 20000 particles launched outward on random spherical vectors with a 5s respawn loop; port
+  pre-scatters 500 particles at fixed positions that only jitter in place — no emission, no travel.
+- `sprite-sheet-animation` — original's whole point is the `SpriteSheetAnimator`/`SpriteSheetHelper`
+  frame-animation API, plus a pulsing "button" mesh and an autonomous Actuate-tweened camera; port
+  draws live Canvas-2D text onto a texture each second (no sprite-sheet machinery at all), has no
+  button animation, and uses a static user-drag camera instead of the autonomous tween.
+- `particle-trails` — original reuses one `ParticleAnimationSet` across animators with
+  `ParticleFollowNode` trailing a moving target (real GPU particle lifecycle: spawn time, velocity,
+  fade); port manually overwrites fixed particle positions every frame with a hand-computed spiral —
+  no spawn/fade lifecycle, no follow target, a card-suit texture swapped for flat colors.
+
+**Drops a real, named subsystem — undocumented (fix next):**
+- `bitmap-font` — drops the 3D rotating text ring (14 meshes on a spinning radial arrangement,
+  "THIS IS A TEST") for an unrelated 2D screen-space Lissajous bounce showing different text.
+- `uv-animation` — original demonstrates two techniques side by side (continuous scroll vs. keyframed
+  `UVAnimationFrame` sequences); port's keyframe half is replaced with more continuous procedural
+  motion, dropping the technique the bottom two panels exist to teach.
+- `head` — original's stated purpose is subsurface-scattering + Fresnel skin shading with an A/B
+  toggle against basic shading; port uses a generic PBR material with no SSS, no Fresnel method, no
+  toggle.
+- `polar-bear-awd-animation` — drops the original's 3000-particle falling-snow system, skybox, shadow
+  mapping, and fog; only the skeletal-clip switching survives.
+- `real-time-env-map` — beyond the documented static-IBL swap, also drops the heightmap terrain
+  entirely (head and R2D2 float over bare skybox) and replaces WASD physics-driven R2D2 control with a
+  scripted auto-orbit.
+- `fractal-tree-demo` — the recursive tree-branching technique is genuinely ported, but the original's
+  Perlin-noise/splat-blended terrain is replaced with a flat textured plane, and the 25-tree forest
+  (demonstrating GPU-efficient cloning) is dropped to a single tree.
+- `shallow-water-demo` — the original's namesake technique, a real shallow-water-equations grid solver,
+  is replaced with a closed-form sine-ripple formula; the environment-map goal is dropped outright.
+
+**Faithful** (camera/material/lighting modernized, core technique intact): `basic-sprite-sheet`,
+`mip-mapping`, `stereo`, `tweening-3d`, `light-probes` (within the documented probe→point-light gap),
+`onkba-awd-animation`, `planar-reflections` (within the documented capture gap), `terrain-demo`.
+The 13 "Reused" samples pulled from `flighthq-ports/awayjs-examples` were not in scope for this audit.
