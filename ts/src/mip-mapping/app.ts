@@ -57,9 +57,11 @@ Object.assign(label.style, {
 document.body.appendChild(label);
 function applyMode(): void {
   const next = modes[mode]!;
-  sampler.mipmaps = next.mipmaps;
-  sampler.minFilter = next.mipmaps ? 'linear-mipmap-linear' : 'linear';
-  sampler.anisotropy = next.anisotropy;
+  // createTexture() clones the sampler passed to it, so the live sampler the renderer reads is
+  // texture.sampler, not this module's own `sampler` reference — mutate that clone directly.
+  texture.sampler.mipmaps = next.mipmaps;
+  texture.sampler.minFilter = next.mipmaps ? 'linear-mipmap-linear' : 'linear';
+  texture.sampler.anisotropy = next.anisotropy;
   label.textContent = `Click anywhere to change\n${next.label}`;
 }
 applyMode();
