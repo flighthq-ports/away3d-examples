@@ -4,6 +4,7 @@ import {
   createFxaaEffect,
   createMesh,
   createMeshGeometry,
+  createNode3D,
   createScene3D,
   createScene3DLights,
   createTexture,
@@ -85,6 +86,17 @@ const fontTexture = createTexture({ source: image });
 const labelCount = 14;
 for (let i = 0; i < labelCount; i++) {
   const angle = i / labelCount * Math.PI * 2;
+  // Matches the original's two-level layout: a container swept to this label's heading around the
+  // ring, holding a text plane offset along its own local -X and tipped flat (rotationX = 90) to lie
+  // like a floor sign. Composing it as two single-axis rotations (rather than one combined Euler
+  // angle) avoids ambiguity over this SDK's Euler axis-order convention. Both angles are negated
+  // versus the original's literal values: Away3D's rotation direction is left-handed, this SDK's is
+  // right-handed, and reusing the same numeric angle in the opposite handedness mirrors the text.
+  const container = createNode3D();
+  setQuaternionFromEuler(container.rotation, 0, -angle, 0);
+  invalidateNodeLocalTransform(container);
+  addNodeChild(scene.root, container);
+
   const color = ((Math.random() * 0xffffff) << 8 | 0xff) >>> 0;
   const label = createMesh(labelGeometry, [createUnlitMaterial({
     baseColor: color,
@@ -92,10 +104,10 @@ for (let i = 0; i < labelCount; i++) {
     alphaMode: 'blend',
     doubleSided: true,
   })]);
-  setVector3(label.position, -Math.cos(angle) * 400, -300 + i * 60, Math.sin(angle) * 400);
-  setQuaternionFromEuler(label.rotation, Math.PI / 2, angle, 0, 'YXZ');
+  setVector3(label.position, -400, -300 + i * 60, 0);
+  setQuaternionFromEuler(label.rotation, -Math.PI / 2, 0, 0);
   invalidateNodeLocalTransform(label);
-  addNodeChild(scene.root, label);
+  addNodeChild(container, label);
 }
 
 const idleFrameLimit = 600;
@@ -135,14 +147,6 @@ function frame(timestamp: number): void {
   ctx.render(scene.root, camera, lights);
   requestAnimationFrame(frame);
 }
-
-const note = document.createElement('div');
-note.textContent = '14 bitmap-font meshes · move the mouse to wake the display';
-Object.assign(note.style, {
-  position: 'fixed', left: '16px', top: '14px', zIndex: '1', color: '#fff', font: '14px system-ui',
-  textShadow: '0 1px 4px #000', pointerEvents: 'none',
-});
-document.body.appendChild(note);
 
 window.addEventListener('resize', () => {
   const width = innerWidth;
