@@ -5,7 +5,6 @@ import type {
 } from '@flighthq/sdk';
 import {
   addNodeChild,
-  appendMatrix4,
   createFxaaEffect,
   createMatrix4,
   createScene3D,
@@ -17,6 +16,7 @@ import {
   findNode,
   getNodeLocalMatrix4,
   isMesh,
+  prependMatrix4,
   rotateMatrix4,
   scaleMatrix4,
   setMatrix4Identity,
@@ -76,7 +76,7 @@ function frame(): void {
   translateMatrix4(scratchMatrix, scratchMatrix, 0, -300, 0);
   rotateMatrix4(scratchMatrix, scratchMatrix, yAxis, rotationAngle);
   scaleMatrix4(scratchMatrix, scratchMatrix, 900, 900, 900);
-  appendMatrix4(scratchMatrix, scratchMatrix, orient);
+  prependMatrix4(scratchMatrix, scratchMatrix, orient);
   setNodeLocalMatrix4(templateMesh!, scratchMatrix);
 
   ctx.render(scene.root, camera, lights);
