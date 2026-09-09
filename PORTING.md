@@ -71,10 +71,6 @@ below are cases where the sample's actual demonstrated technique or a named subs
 replaced with something unrelated, undocumented anywhere until now.
 
 **Invented mechanism — same asset/subject, unrelated technique (fix first):**
-- `sprite-sheet-animation` — original's whole point is the `SpriteSheetAnimator`/`SpriteSheetHelper`
-  frame-animation API, plus a pulsing "button" mesh and an autonomous Actuate-tweened camera; port
-  draws live Canvas-2D text onto a texture each second (no sprite-sheet machinery at all), has no
-  button animation, and uses a static user-drag camera instead of the autonomous tween.
 
 **Drops a real, named subsystem — undocumented (fix next):**
 - `bitmap-font` — drops the 3D rotating text ring (14 meshes on a spinning radial arrangement,
@@ -94,7 +90,8 @@ replaced with something unrelated, undocumented anywhere until now.
   is replaced with a closed-form sine-ripple formula; the environment-map goal is dropped outright.
 
 **Faithful** (camera/material/lighting modernized, core technique intact): `basic-sprite-sheet`,
-`lines`, `mip-mapping`, `particle-trails`, `particles`, `stereo`, `tweening-3d`, `light-probes`,
+`lines`, `mip-mapping`, `particle-trails`, `particles`, `sprite-sheet-animation`, `stereo`,
+`tweening-3d`, `light-probes`,
 `onkba-awd-animation`, `planar-reflections` (within the documented capture gap),
 `real-time-env-map`, `terrain-demo`.
 The 13 "Reused" samples pulled from `flighthq-ports/awayjs-examples` were not in scope for this audit.
