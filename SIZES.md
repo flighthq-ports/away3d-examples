@@ -8,7 +8,7 @@ Measured against `@flighthq/sdk` **0.5.1-next.1047.858b9b6** on 2026-09-09. Rege
 | Sample | default |
 |---|---|
 | `basic-sprite-sheet` | 70.6 KB |
-| `bitmap-font` | 70.4 KB |
+| `bitmap-font` | 70.6 KB |
 | `fire` | 76.9 KB |
 | `fractal-tree-demo` | 79.9 KB |
 | `globe` | 71.7 KB |
