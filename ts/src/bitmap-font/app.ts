@@ -12,7 +12,7 @@ import {
   createUnlitMaterial,
   invalidateNodeLocalTransform,
   loadImageResourceFromUrl,
-  parseBitmapFontFnt,
+  parseBitmapFontXml,
   setQuaternionFromEuler,
   setVector3,
 } from '@flighthq/sdk';
@@ -33,7 +33,7 @@ const assetRoot = 'away3d/BitmapFont/fonts/';
 const image = await loadImageResourceFromUrl(ctx.host, `${assetRoot}BerberRevKC_260.png`);
 const atlas = createTextureAtlasFromImageResource(image);
 const fnt = await fetch(`${assetRoot}BerberRevKC_260.fnt`).then((response) => response.text());
-const font = parseBitmapFontFnt(fnt, { resolvePage: () => atlas });
+const font = parseBitmapFontXml(fnt, { resolvePage: () => atlas });
 if (!font) throw new Error('Could not parse BerberRevKC_260.fnt');
 
 function createTextGeometry(bitmapFont: Readonly<BitmapFont>, text: string, fontSize: number): MeshGeometry {
