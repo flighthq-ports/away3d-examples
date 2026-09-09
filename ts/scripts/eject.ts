@@ -116,7 +116,7 @@ writeFileSync(
         noEmit: true,
         skipLibCheck: true,
       },
-      include: ['.'],
+      include: ['**/*.ts'],
     },
     null,
     2,
