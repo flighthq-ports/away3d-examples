@@ -1,4 +1,4 @@
-import type { PerspectiveProjection, Texture, UnlitMaterial } from '@flighthq/sdk';
+import type { PerspectiveProjection, Texture } from '@flighthq/sdk';
 import {
   addNodeChild,
   createBuiltInScene3DResourceResolver,
@@ -15,6 +15,7 @@ import {
   loadScene3DResources,
   registerDeflateDecompressor,
   registerWebImageDecoders,
+  setTextureSource,
   walkNodeDescendants,
 } from '@flighthq/sdk';
 import { bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
@@ -37,26 +38,30 @@ const doc = await loadScene3DDocumentFromAwd2Url('away3d/SpriteSheetAnimation/ti
 if (!doc) throw new Error('Could not load compressed tictac AWD');
 const clock = createScene3DFromDocument(doc); await loadScene3DResources(clock, createBuiltInScene3DResourceResolver());
 addNodeChild(scene.root, clock.root);
-const digitMaterials = new Map<string, UnlitMaterial>();
+const digitTextures = new Map<string, Texture>();
 walkNodeDescendants(clock.root, (node) => {
-  if (isMesh(node) && ['hours', 'minutes', 'seconds', 'delimiter'].includes(node.name ?? '')) {
-    const material = createUnlitMaterial({ baseColor: 0xffffffff }); node.materials = [material]; digitMaterials.set(node.name!, material);
+  if (isMesh(node) && ['hours', 'minutes', 'delimiter'].includes(node.name ?? '')) {
+    const texture = createTexture();
+    const material = createUnlitMaterial({ baseColor: 0xffffffff, baseColorMap: texture });
+    node.materials = [material]; digitTextures.set(node.name!, texture);
   }
   return true;
 });
-function clockTexture(text: string, accent: string): Texture {
+for (const name of ['hours', 'minutes', 'delimiter']) {
+  if (!digitTextures.has(name)) throw new Error(`The clock AWD is missing its ${name} display mesh`);
+}
+function clockImage(text: string, accent: string) {
   const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 256;
   const g = canvas.getContext('2d')!; g.clearRect(0, 0, 512, 256); g.shadowColor = accent; g.shadowBlur = 28;
   g.fillStyle = accent; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = 'bold 170px ui-monospace, monospace'; g.fillText(text, 256, 132);
-  return createTexture({ source: createImageResource(canvas) });
+  return createImageResource(canvas);
 }
 let shownSecond = -1;
 function updateClock(): void {
   const now = new Date(); if (shownSecond === now.getSeconds()) return; shownSecond = now.getSeconds();
-  digitMaterials.get('hours')!.baseColorMap = clockTexture(String(now.getHours()).padStart(2, '0'), '#ff5a40');
-  digitMaterials.get('minutes')!.baseColorMap = clockTexture(String(now.getMinutes()).padStart(2, '0'), '#ffc44d');
-  digitMaterials.get('seconds')!.baseColorMap = clockTexture(String(now.getSeconds()).padStart(2, '0'), '#53d8ff');
-  digitMaterials.get('delimiter')!.baseColorMap = clockTexture(now.getSeconds() % 2 ? ':' : ' ', '#ffffff');
+  setTextureSource(digitTextures.get('hours')!, clockImage(String(now.getHours()).padStart(2, '0'), '#ff5a40'));
+  setTextureSource(digitTextures.get('minutes')!, clockImage(String(now.getMinutes()).padStart(2, '0'), '#ffc44d'));
+  setTextureSource(digitTextures.get('delimiter')!, clockImage(now.getSeconds() % 2 ? ':' : ' ', '#ffffff'));
 }
 function frame(): void { updateClock(); orbit.update(); ctx.render(scene.root, camera, lights); requestAnimationFrame(frame); }
 window.addEventListener('resize', () => {
