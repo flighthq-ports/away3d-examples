@@ -1,20 +1,28 @@
-import type { Image, ParticleEmitter3D, ParticleEmitterConfig, ParticleEmitterState, Scene3D } from '@flighthq/sdk';
+import type { Image, ParticleEmitter3D, ParticleEmitterConfig, ParticleEmitterState, Scene3D, TextureAtlas } from '@flighthq/sdk';
 import {
+  addTextureAtlasRegion,
   addNodeChild,
   createImageResource,
   createParticleEmitter3D,
   createParticleEmitterConfig,
   createParticleEmitterState,
+  createTexture,
+  createTextureAtlas,
   invalidateNodeLocalTransform,
   loadImageResourceFromUrl,
   setVector3,
 } from '@flighthq/sdk';
 
-import { createSingleSpriteAtlas } from '../../shared/particles';
-
 const NUM_FIRES = 10;
 const FIRE_RADIUS = 400;
 const FIRE_SPRITE_SIZE = 38;
+
+// Kept local so this sample contains the complete particle bootstrap it depends on.
+function createSingleSpriteAtlas(image: Image): TextureAtlas {
+  const atlas = createTextureAtlas({ texture: createTexture({ source: image }) });
+  addTextureAtlasRegion(atlas, 0, 0, image.width, image.height);
+  return atlas;
+}
 
 export interface FireEntry {
   emitter: ParticleEmitter3D;

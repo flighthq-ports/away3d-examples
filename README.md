@@ -23,9 +23,12 @@ npm run dev
 | `npm run sizes` | Regenerate `SIZES.md` and gallery size metadata |
 | `npm run dist` | Generate publishing metadata and build the site |
 
-Examples live in `ts/src/<name>/`, shared camera and rendering helpers live in `ts/shared/`, and
-runtime-loaded files live in `assets/`. All examples target WebGL because their 3D content has no
-Canvas or DOM equivalent.
+Examples live in `ts/src/<name>/`, and runtime-loaded files live in `assets/`. Each example owns its
+canvas, renderer registration, scene setup, controls, and animation loop. Duplication is deliberate:
+you can read, debug, or eject one sample without learning a gallery framework. `ts/shared/` is limited
+to translation of foreign Away3D conventions such as handedness, camera controls, light energy, and
+legacy material parameters. All examples target WebGL because their 3D content has no Canvas or DOM
+equivalent.
 
 ## Provenance
 
@@ -33,3 +36,6 @@ The mature Flight ports in
 [flighthq-ports/awayjs-examples](https://github.com/flighthq-ports/awayjs-examples) are reused where
 the AwayJS and Away3D sample lineages overlap. Remaining examples are based on the corresponding
 OpenFL sample. See [NOTICE.md](NOTICE.md) for attribution.
+
+[PORTING.md](PORTING.md) maps all 33 upstream examples to their Flight versions and records the
+remaining SDK capability gaps.

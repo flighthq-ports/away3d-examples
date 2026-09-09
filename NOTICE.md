@@ -19,6 +19,14 @@ Examples, which are available under an "Apache 2.0" license. For details, see
 This product bundles the Sponza scene, which is available under a
 "CC BY 3.0" license. For details, see https://www.cryengine.com
 
+### Away3D Samples for OpenFL
+
+Copyright (c) Joshua Granick and other contributors
+
+This product includes remastered example code and assets derived from Away3D Samples for OpenFL,
+available under the Apache License, Version 2.0. For details, see
+https://github.com/openfl/away3d-samples
+
 -------
 
 The full text of the Apache License, Version 2.0 follows.

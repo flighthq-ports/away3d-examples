@@ -9,9 +9,9 @@ const assetsDir = resolve(here, '../assets');
 const outDir = resolve(here, 'dist');
 
 /**
- * Every directory under src/ is an example. The shared 3D helpers deliberately live in ts/shared/
- * rather than src/_shared/ so this stays true with no denylist — see the README for why this repo
- * has shared code at all when the sibling ports do not.
+ * Every directory under src/ is an example. The Away3D convention adapters deliberately live in
+ * ts/shared/ rather than src/_shared/ so this stays true with no denylist. Renderer and application
+ * bootstrap remain duplicated inside each example.
  */
 export function listExamples(): string[] {
   return readdirSync(srcDir, { withFileTypes: true })

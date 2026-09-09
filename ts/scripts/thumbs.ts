@@ -150,11 +150,14 @@ try {
         await page.waitForTimeout(120);
       }
 
-      // Some examples create scratch canvases for bitmap work; the first is the stage.
-      await page
-        .locator('canvas')
-        .first()
-        .screenshot({ path: join(outDir, `${id}.png`), timeout: SHOT_TIMEOUT, animations: 'disabled' });
+      // Some examples create scratch canvases for bitmap work; the first is the stage. A capability
+      // report may intentionally have no canvas, in which case capture the page itself.
+      const stage = page.locator('canvas').first();
+      if (await stage.count()) {
+        await stage.screenshot({ path: join(outDir, `${id}.png`), timeout: SHOT_TIMEOUT, animations: 'disabled' });
+      } else {
+        await page.screenshot({ path: join(outDir, `${id}.png`), timeout: SHOT_TIMEOUT, animations: 'disabled' });
+      }
       ok++;
       process.stdout.write(`  ${id}\n`);
     } catch (err) {

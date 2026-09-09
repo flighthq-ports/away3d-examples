@@ -29,7 +29,8 @@ const EXT =
 const ASSET_RE = new RegExp(`['"\`]([a-z0-9_][a-z0-9_/.-]*\\.(?:${EXT}))['"\`]`, 'gi');
 
 /** Template literals with interpolation — `images/${SIZE}/0.png` — matched as a glob. */
-const TEMPLATE_RE = new RegExp(`\`([a-z0-9_][a-z0-9_/.\${}-]*\\.(?:${EXT}))\``, 'gi');
+const TEMPLATE_RE = new RegExp(`\`([^\`\\n]*\\.(?:${EXT}))\``, 'gi');
+const STRING_CONSTANT_RE = /const\s+([a-z_$][a-z0-9_$]*)\s*=\s*['"]([^'"]+)['"]/gi;
 
 function walk(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
@@ -74,15 +75,20 @@ for (const entry of readdirSync(srcDir, { withFileTypes: true }).filter((e) => e
   for (const file of walk(join(srcDir, entry.name))) {
     if (!/\.(ts|html|css)$/.test(file)) continue;
     const text = await readFile(file, 'utf8');
+    const stringConstants = new Map<string, string>();
+    for (const [, name, value] of text.matchAll(STRING_CONSTANT_RE)) stringConstants.set(name, value);
 
     for (const [, tpl] of text.matchAll(TEMPLATE_RE)) {
       if (!tpl.includes('${')) continue; // plain literal, handled below
-      const hits = globMatches(tpl);
+      // Resolve local string prefixes such as `${assetRoot}tree/bark.jpg`, leaving data-dependent
+      // expressions such as `${face}` as wildcards for globMatches.
+      const pattern = tpl.replace(/\$\{([a-z_$][a-z0-9_$]*)\}/gi, (token, name: string) => stringConstants.get(name) ?? token);
+      const hits = globMatches(pattern);
       if (hits.length) {
         for (const h of hits) referenced.add(h);
         composed++;
       } else {
-        missing.push({ sample: entry.name, asset: tpl });
+        missing.push({ sample: entry.name, asset: pattern });
       }
     }
 

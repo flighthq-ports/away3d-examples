@@ -123,8 +123,8 @@ writeFileSync(
       <h1>Away3D Examples (Flight SDK)</h1>
       <p class="lede">${samples.length} examples remastered from openfl/away3d-samples. Each is
         self-contained and registers only the renderer pieces it uses, which is what keeps the
-        bundles small. These are WebGL only — 3D content has no Canvas or DOM equivalent. Hover a name
-        for its bundle size, or see SIZES.md for the full table.</p>
+        bundles small. Rendered examples use WebGL; the DAE capability report stays in the DOM because
+        Flight has no COLLADA importer. Hover a name for its bundle size, or see SIZES.md for the full table.</p>
       <div class="grid">
 ${items}
       </div>
