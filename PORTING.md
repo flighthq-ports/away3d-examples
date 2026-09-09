@@ -23,7 +23,7 @@ lighting treatment.
 | View | `view` | Reused Flight port |
 | Globe | `globe` | Reused Flight port |
 | Head | `head` | Remastered |
-| LightProbes | `light-probes` | Remastered with current probe fallback |
+| LightProbes | `light-probes` | Remastered with interpolated SH probe grid |
 | Lines | `lines` | Remastered |
 | MD5Animation | `md5-animation` | Reused Flight port |
 | MonsterHeadShading | `monster-head-shading` | Reused Flight port |
@@ -45,9 +45,6 @@ lighting treatment.
 
 The samples keep these gaps visible instead of silently converting the input or dropping the feature:
 
-- **Spatial light probes:** Flight can bake a global image-based-lighting environment and create point
-  lights, but the scene API has no local probe volumes with spatial interpolation. `light-probes`
-  combines the original environment with four local colored point lights.
 - **Planar reflection capture:** The scene renderer has no Away3D-style planar reflection texture with
   an oblique clip plane. `planar-reflections` keeps the moving reflected subject and mirror composition
   through an explicit mirrored-scene fallback.
@@ -61,9 +58,9 @@ meshes directly.
 
 **Update (SDK 0.5.1-next.1047.858b9b6):** the SDK bump this project now uses adds COLLADA import,
 local light-probe volumes, and dynamic environment capture. `load-dae` now parses and renders the
-original carousel directly with `parseCollada()`. Local light-probe volumes with spherical-
-harmonics interpolation (`createLightProbe`/`createLightProbeGrid`/`sampleLightProbeGrid` in
-`@flighthq/lighting`), and a real dynamic six-face environment-cube capture pipeline
+original carousel directly with `parseCollada()`, while `light-probes` projects all four source
+environment maps into spherical harmonics and interpolates them through a real `LightProbeGrid`.
+The real dynamic six-face environment-cube capture pipeline
 (`createGlCubeRenderTarget` + `renderGlEnvironmentCapture` + `getGlEnvironmentCaptureTexture`, plus
 `getCubeCaptureFaceCamera3D`). The cube-capture pipeline unblocks `real-time-env-map` directly; it is
 not a literal oblique-clip-plane planar mirror, so it only partially helps `planar-reflections`. The
@@ -115,6 +112,6 @@ replaced with something unrelated, undocumented anywhere until now.
   is replaced with a closed-form sine-ripple formula; the environment-map goal is dropped outright.
 
 **Faithful** (camera/material/lighting modernized, core technique intact): `basic-sprite-sheet`,
-`mip-mapping`, `stereo`, `tweening-3d`, `light-probes` (within the documented probe→point-light gap),
+`mip-mapping`, `stereo`, `tweening-3d`, `light-probes`,
 `onkba-awd-animation`, `planar-reflections` (within the documented capture gap), `terrain-demo`.
 The 13 "Reused" samples pulled from `flighthq-ports/awayjs-examples` were not in scope for this audit.
