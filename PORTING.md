@@ -71,9 +71,6 @@ below are cases where the sample's actual demonstrated technique or a named subs
 replaced with something unrelated, undocumented anywhere until now.
 
 **Invented mechanism — same asset/subject, unrelated technique (fix first):**
-- `lines` — original scrolls a simplex-noise terrain with an auto-panning camera and a 500-particle
-  additive spark emitter; port is a static orbit-camera grid on a hand-written sin/cos wave with three
-  orbiting spheres and no particle system at all.
 - `sprite-sheet-animation` — original's whole point is the `SpriteSheetAnimator`/`SpriteSheetHelper`
   frame-animation API, plus a pulsing "button" mesh and an autonomous Actuate-tweened camera; port
   draws live Canvas-2D text onto a texture each second (no sprite-sheet machinery at all), has no
@@ -97,7 +94,7 @@ replaced with something unrelated, undocumented anywhere until now.
   is replaced with a closed-form sine-ripple formula; the environment-map goal is dropped outright.
 
 **Faithful** (camera/material/lighting modernized, core technique intact): `basic-sprite-sheet`,
-`mip-mapping`, `particle-trails`, `particles`, `stereo`, `tweening-3d`, `light-probes`,
+`lines`, `mip-mapping`, `particle-trails`, `particles`, `stereo`, `tweening-3d`, `light-probes`,
 `onkba-awd-animation`, `planar-reflections` (within the documented capture gap),
 `real-time-env-map`, `terrain-demo`.
 The 13 "Reused" samples pulled from `flighthq-ports/awayjs-examples` were not in scope for this audit.
