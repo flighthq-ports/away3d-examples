@@ -36,7 +36,7 @@ const textures: Texture[] = [
 ];
 const positions = [[-300, 300], [300, 300], [300, -300], [-300, -300]] as const;
 for (let i = 0; i < 4; i++) {
-  const mesh = createMesh(createPlaneMeshGeometry(500, 500), [createUnlitMaterial({ baseColor: 0xffffffff, baseColorMap: textures[i]! })]);
+  const mesh = createMesh(createPlaneMeshGeometry(500, 500), [createUnlitMaterial({ baseColor: 0xffffffff, baseColorMap: textures[i]!, alphaMode: 'blend' })]);
   setVector3(mesh.position, positions[i]![0], positions[i]![1], 0);
   setQuaternionFromEuler(mesh.rotation, Math.PI / 2, 0, 0);
   invalidateNodeLocalTransform(mesh); addNodeChild(scene.root, mesh);
