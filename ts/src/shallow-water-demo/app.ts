@@ -179,10 +179,6 @@ function frame(ts: number): void {
   orbit.update(); ctx.render(scene.root, camera, lights, environment); requestAnimationFrame(frame);
 }
 
-const help = document.createElement('div');
-help.textContent = 'Click the water to disturb the finite-difference shallow-water solver · rain enabled';
-Object.assign(help.style, { position: 'fixed', left: '18px', top: '16px', color: '#e8faff', font: '14px system-ui', textShadow: '0 1px 5px #000', pointerEvents: 'none' });
-document.body.appendChild(help);
 window.addEventListener('resize', () => {
   const width = innerWidth; const height = innerHeight; const pixelRatio = devicePixelRatio || 1;
   ctx.canvas.width = width * pixelRatio; ctx.canvas.height = height * pixelRatio;

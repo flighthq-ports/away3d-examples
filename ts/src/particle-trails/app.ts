@@ -112,19 +112,6 @@ function frame(timestamp: number): void {
   requestAnimationFrame(frame);
 }
 
-const note = document.createElement('div');
-note.textContent = 'Two animators · one shared lifecycle · world-space follow trails';
-Object.assign(note.style, {
-  position: 'fixed',
-  left: '16px',
-  top: '14px',
-  color: '#fff',
-  font: '14px system-ui',
-  textShadow: '0 1px 4px #000',
-  pointerEvents: 'none',
-});
-document.body.appendChild(note);
-
 window.addEventListener('resize', () => {
   const width = innerWidth;
   const height = innerHeight;

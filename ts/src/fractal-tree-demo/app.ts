@@ -296,14 +296,6 @@ for (let treeIndex = 0; treeIndex < TREE_COUNT; treeIndex++) {
 addNodeChild(scene.root, branches);
 addNodeChild(scene.root, crowns);
 
-const help = document.createElement('div');
-help.textContent = `One recursive tree · ${TREE_COUNT} GPU-instanced clones · heightmap + three-layer splat terrain`;
-Object.assign(help.style, {
-  position: 'fixed', left: '18px', top: '16px', color: '#eef6e8', font: '14px system-ui',
-  textShadow: '0 1px 5px #000', pointerEvents: 'none',
-});
-document.body.appendChild(help);
-
 function frame(): void {
   orbit.update();
   ctx.render(scene.root, camera, lights, environment);
