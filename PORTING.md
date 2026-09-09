@@ -73,9 +73,6 @@ replaced with something unrelated, undocumented anywhere until now.
 **Invented mechanism — same asset/subject, unrelated technique (fix first):**
 
 **Drops a real, named subsystem — undocumented (fix next):**
-- `head` — original's stated purpose is subsurface-scattering + Fresnel skin shading with an A/B
-  toggle against basic shading; port uses a generic PBR material with no SSS, no Fresnel method, no
-  toggle.
 - `polar-bear-awd-animation` — drops the original's 3000-particle falling-snow system, skybox, shadow
   mapping, and fog; only the skeletal-clip switching survives.
 - `fractal-tree-demo` — the recursive tree-branching technique is genuinely ported, but the original's
@@ -85,7 +82,7 @@ replaced with something unrelated, undocumented anywhere until now.
   is replaced with a closed-form sine-ripple formula; the environment-map goal is dropped outright.
 
 **Faithful** (camera/material/lighting modernized, core technique intact): `basic-sprite-sheet`, `bitmap-font`,
-`lines`, `mip-mapping`, `particle-trails`, `particles`, `sprite-sheet-animation`, `stereo`,
+`head`, `lines`, `mip-mapping`, `particle-trails`, `particles`, `sprite-sheet-animation`, `stereo`,
 `tweening-3d`, `uv-animation`, `light-probes`,
 `onkba-awd-animation`, `planar-reflections` (within the documented capture gap),
 `real-time-env-map`, `terrain-demo`.

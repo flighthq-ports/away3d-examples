@@ -27,6 +27,7 @@ import {
   registerGlRenderEffect,
   registerGlShadedMaterial,
   registerGlSpecularPbrExtension,
+  registerGlWrappedDiffusePbrExtension,
   registerStandardGlTextureResolvers,
   registerGlStandardPbrMaterial,
   registerGlUnlitMaterial,
@@ -86,6 +87,7 @@ export function createScene3DContext(options: Readonly<Scene3DOptions> = {}): Sc
   registerGlStandardPbrMaterial(state);
   registerGlExtendedPbrMaterial(state);
   registerGlSpecularPbrExtension(state);
+  registerGlWrappedDiffusePbrExtension(state);
   registerGlShadedMaterial(state);
   registerBuiltInGlModifierSnippets(state);
   const effects = options.effects ?? [createToneMapEffect()];
