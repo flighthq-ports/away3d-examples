@@ -26,8 +26,8 @@ const scene = createScene3D();
 const camera = createCameraFromAway({ x: 500, y: 500, z: -1500, far: 5000 });
 const lights = createScene3DLights();
 const [wheelImage, roadImage] = await Promise.all([
-  loadImageResourceFromUrl('away3d/UVAnimation/wheel.png'),
-  loadImageResourceFromUrl('away3d/UVAnimation/road.jpg'),
+  loadImageResourceFromUrl(ctx.host, 'away3d/UVAnimation/wheel.png'),
+  loadImageResourceFromUrl(ctx.host, 'away3d/UVAnimation/road.jpg'),
 ]);
 const sampler = createTilingSampler();
 const textures: Texture[] = [

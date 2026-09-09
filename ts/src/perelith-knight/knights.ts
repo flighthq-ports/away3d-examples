@@ -1,4 +1,4 @@
-import type { AnimationPlayer, AnimationTrack, Environment, Image, Mesh, Scene3D, StandardPbrMaterial } from '@flighthq/sdk';
+import type { AnimationPlayer, AnimationTrack, Environment, HasGraphicsImage, ImageResource, Mesh, Scene3D, StandardPbrMaterial } from '@flighthq/sdk';
 
 import {
   addNodeChild,
@@ -117,7 +117,7 @@ const PAINT_ROUGHNESS = 0.62;
  *
  * glTF packs roughness in G and metallic in B.
  */
-function buildMetalnessMap(skin: Image): Image | null {
+function buildMetalnessMap(skin: ImageResource): ImageResource | null {
   const source = skin.source;
   if (!source) return null;
   const canvas = document.createElement('canvas');
@@ -145,7 +145,7 @@ function buildMetalnessMap(skin: Image): Image | null {
   return createImageResourceFromCanvas(canvas);
 }
 
-export async function loadKnights(scene: Readonly<Scene3D>): Promise<KnightsResult> {
+export async function loadKnights(host: Readonly<HasGraphicsImage>, scene: Readonly<Scene3D>): Promise<KnightsResult> {
   const environment = buildGradientEnvironment();
   const knightMaterials: StandardPbrMaterial[] = [];
   for (let i = 0; i < 4; i++) {
@@ -160,10 +160,10 @@ export async function loadKnights(scene: Readonly<Scene3D>): Promise<KnightsResu
   }
 
   const knightImages = await Promise.all([
-    loadImageResourceFromUrl('pknight1.png'),
-    loadImageResourceFromUrl('pknight2.png'),
-    loadImageResourceFromUrl('pknight3.png'),
-    loadImageResourceFromUrl('pknight4.png'),
+    loadImageResourceFromUrl(host, 'pknight1.png'),
+    loadImageResourceFromUrl(host, 'pknight2.png'),
+    loadImageResourceFromUrl(host, 'pknight3.png'),
+    loadImageResourceFromUrl(host, 'pknight4.png'),
   ]);
 
   for (let i = 0; i < 4; i++) {

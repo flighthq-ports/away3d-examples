@@ -23,7 +23,7 @@ const scene = createScene3D();
 const camera = createCameraFromAway({ y: 500, z: -600, far: 3000 });
 const lights = createScene3DLights();
 const [floorImage, cubeImage] = await Promise.all([
-  loadImageResourceFromUrl('floor_diffuse.jpg'), loadImageResourceFromUrl('trinket_diffuse.jpg'),
+  loadImageResourceFromUrl(ctx.host, 'floor_diffuse.jpg'), loadImageResourceFromUrl(ctx.host, 'trinket_diffuse.jpg'),
 ]);
 const floor = createMesh(createPlaneMeshGeometry(700, 700), [
   createUnlitMaterial({ baseColor: 0xffffffff, baseColorMap: createTexture({ source: floorImage }) }),

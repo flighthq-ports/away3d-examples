@@ -21,6 +21,10 @@ import {
   createEnvironment,
   createFxaaEffect,
   createGlCanvasElement,
+  createGlContextFromCanvasElement,
+  createGlContextState,
+  createEmptyGlRegistries,
+  createGlPipeline,
   createGlRenderState,
   createImageResourceFromCanvas,
   createMesh,
@@ -61,6 +65,7 @@ import {
   setQuaternionFromAxisAngle,
   setVector3,
 } from '@flighthq/sdk';
+import { enableHostWebGlRenderSurface, webHost } from '@flighthq/host-web';
 
 import { bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
 import { awayIntensity } from '../../shared/lighting';
@@ -72,6 +77,7 @@ import { renderSkyboxScene } from './skybox';
 const pixelRatio = window.devicePixelRatio || 1;
 
 const mount = document.getElementById('app');
+enableHostWebGlRenderSurface();
 const canvas = createGlCanvasElement(window.innerWidth, window.innerHeight, pixelRatio);
 if (mount) {
   mount.replaceWith(canvas);
@@ -80,11 +86,14 @@ if (mount) {
 }
 document.body.style.margin = '0';
 
-const state = createGlRenderState(canvas, {
-  backgroundColor: 0x000005ff,
+const gl = createGlContextFromCanvasElement(canvas, {
   contextAttributes: { alpha: false, depth: true, preserveDrawingBuffer: false },
-  pixelRatio,
 });
+const state = createGlRenderState(
+  createGlContextState(gl),
+  createGlPipeline(createEmptyGlRegistries()),
+  { backgroundColor: 0x000005ff, pixelRatio },
+);
 
 // The earth/clouds use the composable shaded lit base (@flighthq/shading, mirroring the original
 // AwayJS MethodMaterial), the sun is a self-lit disc via an EmissiveModifier, and the atmosphere is
@@ -167,7 +176,7 @@ addNodeChild(scene.root, tiltContainer);
 const earthSunDir: number[] = [-1, 0, 0];
 const earthMaterial = createCustomShaderMaterial({ shaderKey: 'globeEarth', uniforms: { u_sunDir: earthSunDir } });
 
-const cloudMaterial = await loadCloudTexture();
+const cloudMaterial = await loadCloudTexture(webHost);
 
 const { mesh: atmosphere } = createAtmosphere();
 
@@ -200,7 +209,7 @@ const flareTextures = new Map<string, Texture>();
 const flareUrls = [...new Set(FLARE_SPECS.map((spec) => spec.url))];
 await Promise.all(
   flareUrls.map(async (url) => {
-    const sourceImage = await loadImageResourceFromUrl(url);
+    const sourceImage = await loadImageResourceFromUrl(webHost, url);
     let maskSource = sourceImage;
     // flare7 supplies the large ring sprites, where its 128px source reveals a stairstepped edge.
     // Prefilter it once at upload resolution so magnification stays smooth without changing its shape.
@@ -217,7 +226,8 @@ await Promise.all(
         maskSource = createImageResourceFromCanvas(smoothCanvas);
       }
     }
-    const sourceBitmap = captureBitmapFromImageResource(maskSource);
+    const sourceBitmap = captureBitmapFromImageResource(webHost, maskSource);
+    if (!sourceBitmap) throw new Error(`Unable to read flare image ${url}.`);
     const maskedBitmap = createBitmap(sourceBitmap.width, sourceBitmap.height, 0xffffffff);
     copyBitmapChannel(
       createBitmapRegion(maskedBitmap),
@@ -251,13 +261,13 @@ const flares: FlareObject[] = FLARE_SPECS.map((spec) => {
 });
 
 const [dayImage, specImage] = await Promise.all([
-  loadImageResourceFromUrl('globe/land_ocean_ice_2048_match.jpg'),
-  loadImageResourceFromUrl('globe/earth_specular_2048.jpg'),
+  loadImageResourceFromUrl(webHost, 'globe/land_ocean_ice_2048_match.jpg'),
+  loadImageResourceFromUrl(webHost, 'globe/earth_specular_2048.jpg'),
 ]);
 
 // Night-lights texture: the source is a 16384-wide JPG, so downscale it into a 2048x1024 canvas to
 // keep GPU memory sane, then bind day/night/specular to the earth shader's samplers.
-const nightSource = await loadImageResourceFromUrl('globe/land_lights_16384.jpg');
+const nightSource = await loadImageResourceFromUrl(webHost, 'globe/land_lights_16384.jpg');
 const nightCanvas = document.createElement('canvas');
 nightCanvas.width = 2048;
 nightCanvas.height = 1024;
@@ -283,10 +293,11 @@ const skyboxFaceUrls = [
   'skybox/space_posZ.jpg',
   'skybox/space_negZ.jpg',
 ];
-const skyboxFaces = await Promise.all(skyboxFaceUrls.map((url) => loadImageResourceFromUrl(url)));
+const skyboxFaces = await Promise.all(skyboxFaceUrls.map((url) => loadImageResourceFromUrl(webHost, url)));
 const skyboxTexture = createCubeTexture();
 for (let i = 0; i < 6; i++) {
-  const face = captureBitmapFromImageResource(skyboxFaces[i]!);
+  const face = captureBitmapFromImageResource(webHost, skyboxFaces[i]!);
+  if (!face) throw new Error(`Unable to read skybox face ${i}.`);
   const region = createBitmapRegion(face);
   if (i === 2 || i === 3) flipBitmapVertical(region, region);
   else flipBitmapHorizontal(region, region);

@@ -42,10 +42,10 @@ const light = createDirectionalLightFromAway({
 const lights = createScene3DLights({ ambient: light.ambient, directional: light.directional });
 const assetRoot = 'away3d/TerrainDemo/';
 const [heightImage, terrainImage, normalImage, waterNormalImage] = await Promise.all([
-  loadImageResourceFromUrl(`${assetRoot}terrain/terrain_heights.jpg`),
-  loadImageResourceFromUrl(`${assetRoot}terrain/terrain_diffuse.jpg`),
-  loadImageResourceFromUrl(`${assetRoot}terrain/terrain_normals.jpg`),
-  loadImageResourceFromUrl(`${assetRoot}water_normals.jpg`),
+  loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/terrain_heights.jpg`),
+  loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/terrain_diffuse.jpg`),
+  loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/terrain_normals.jpg`),
+  loadImageResourceFromUrl(ctx.host, `${assetRoot}water_normals.jpg`),
 ]);
 
 if (!heightImage.source) throw new Error('The terrain heightmap has no drawable image source');

@@ -35,13 +35,13 @@ const orbit = createOrbitControllerFromAway(camera, { distance: 1050, panAngle: 
 const { directional, ambient } = createDirectionalLightFromAway({ direction: { x: -1, y: -1, z: -0.4 }, diffuse: 1.4, ambient: 0.35, ambientColor: 0xbad9ef });
 const lights = createScene3DLights({ ambient, directional });
 const [diffuse, normal, snow] = await Promise.all([
-  loadImageResourceFromUrl('away3d/PolarBearAWDAnimation/polarbear_diffuse.jpg'),
-  loadImageResourceFromUrl('away3d/PolarBearAWDAnimation/polarbear_normals.jpg'),
-  loadImageResourceFromUrl('away3d/PolarBearAWDAnimation/snow_diffuse.png'),
+  loadImageResourceFromUrl(ctx.host, 'away3d/PolarBearAWDAnimation/polarbear_diffuse.jpg'),
+  loadImageResourceFromUrl(ctx.host, 'away3d/PolarBearAWDAnimation/polarbear_normals.jpg'),
+  loadImageResourceFromUrl(ctx.host, 'away3d/PolarBearAWDAnimation/snow_diffuse.png'),
 ]);
-const document3d = await loadScene3DDocumentFromAwd2Url('away3d/PolarBearAWDAnimation/PolarBear.awd');
+const document3d = await loadScene3DDocumentFromAwd2Url(ctx.host, 'away3d/PolarBearAWDAnimation/PolarBear.awd');
 if (!document3d) throw new Error('Could not load PolarBear.awd');
-const model = createScene3DFromDocument(document3d); await loadScene3DResources(model, createBuiltInScene3DResourceResolver());
+const model = createScene3DFromDocument(document3d); await loadScene3DResources(model, createBuiltInScene3DResourceResolver(ctx.host));
 const bearMaterial = createStandardPbrMaterial({ baseColor: 0xffffffff, baseColorMap: createTexture({ source: diffuse }), normalMap: createTexture({ source: normal }), metallic: 0, roughness: 0.78 });
 const skinned: Mesh[] = [];
 walkNodeDescendants(model.root, (node) => { if (isMesh(node)) { node.materials = [bearMaterial]; if (node.skin) { prepareMeshSkinning(node); skinned.push(node); } } return true; });

@@ -35,12 +35,12 @@ const probes = probeColors.map((color, i) => {
 });
 const lights = createScene3DLights({ ambient: createAmbientLight({ intensity: 0.08 }), point: probes });
 const base = 'away3d/LightProbes/';
-const faces = await Promise.all(['posX', 'negX', 'posY', 'negY', 'posZ', 'negZ'].map((face) => loadImageResourceFromUrl(`${base}cornellEnvMap/posXposZ/${face}.jpg`)));
-bakeGlEnvironmentIbl(ctx.state, createEnvironment({ environment: createCubeTextureFromAwayFaces(faces), intensity: 0.4 }));
+const faces = await Promise.all(['posX', 'negX', 'posY', 'negY', 'posZ', 'negZ'].map((face) => loadImageResourceFromUrl(ctx.host, `${base}cornellEnvMap/posXposZ/${face}.jpg`)));
+bakeGlEnvironmentIbl(ctx.state, createEnvironment({ environment: createCubeTextureFromAwayFaces(ctx.host, faces), intensity: 0.4 }));
 const [roomObj, headObj, roomImage, diffuse, normal, ao] = await Promise.all([
   fetch(`${base}cornell.obj`).then((r) => r.text()), fetch(`${base}head.obj`).then((r) => r.text()),
-  loadImageResourceFromUrl(`${base}cornell_baked.jpg`), loadImageResourceFromUrl(`${base}head_diffuse.jpg`),
-  loadImageResourceFromUrl(`${base}head_normals.jpg`), loadImageResourceFromUrl(`${base}head_AO.jpg`),
+  loadImageResourceFromUrl(ctx.host, `${base}cornell_baked.jpg`), loadImageResourceFromUrl(ctx.host, `${base}head_diffuse.jpg`),
+  loadImageResourceFromUrl(ctx.host, `${base}head_normals.jpg`), loadImageResourceFromUrl(ctx.host, `${base}head_AO.jpg`),
 ]);
 const roomScene = createScene3DFromObj(roomObj);
 const room = findNode(roomScene.root, isMesh) as Mesh | null;

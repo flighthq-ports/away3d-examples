@@ -1,17 +1,18 @@
-import type { BitmapText, GlyphSource } from '@flighthq/sdk';
+import type { BitmapText } from '@flighthq/sdk';
 import {
   addNodeChild,
   BitmapTextKind,
   createBitmapText,
   createDisplayObject,
   createGlCanvasElement,
+  createGlContextFromCanvasElement,
+  createGlContextState,
+  createEmptyGlRegistries,
+  createGlPipeline,
   createGlRenderState,
+  createGlyphSourceFromBitmapFont,
   createTextureAtlasFromImageResource,
   defaultGlBitmapTextRenderer,
-  getBitmapFontGlyph,
-  getBitmapFontKerning,
-  getBitmapFontMetrics,
-  getBitmapFontPage,
   invalidateNodeLocalTransform,
   loadImageResourceFromUrl,
   parseBitmapFontFnt,
@@ -22,25 +23,27 @@ import {
   renderGlBackground,
   renderGlScene2D,
 } from '@flighthq/sdk';
+import { enableHostWebGlRenderSurface, webHost } from '@flighthq/host-web';
 
 let width = innerWidth; let height = innerHeight; const pixelRatio = devicePixelRatio || 1;
+enableHostWebGlRenderSurface();
 const canvas = createGlCanvasElement(width, height, pixelRatio);
 document.getElementById('app')?.replaceWith(canvas);
-const state = createGlRenderState(canvas, { backgroundColor: 0x111827ff, pixelRatio });
+const gl = createGlContextFromCanvasElement(canvas, {
+  contextAttributes: { alpha: false, depth: true, preserveDrawingBuffer: false },
+});
+const state = createGlRenderState(
+  createGlContextState(gl), createGlPipeline(createEmptyGlRegistries()), { backgroundColor: 0x111827ff, pixelRatio },
+);
 registerStandardGlTextureResolvers(state); registerGlStandardMaterial(state);
 registerRenderer(state, BitmapTextKind, defaultGlBitmapTextRenderer);
 
-const image = await loadImageResourceFromUrl('away3d/BitmapFont/fonts/BerberRevKC_260.png');
+const image = await loadImageResourceFromUrl(webHost, 'away3d/BitmapFont/fonts/BerberRevKC_260.png');
 const atlas = createTextureAtlasFromImageResource(image);
 const fnt = await fetch('away3d/BitmapFont/fonts/BerberRevKC_260.fnt').then((r) => r.text());
 const font = parseBitmapFontFnt(fnt, { resolvePage: () => atlas });
 if (!font) throw new Error('Could not parse BerberRevKC_260.fnt');
-const glyphs: GlyphSource = {
-  getGlyphAtlasImage: (page = 0) => getBitmapFontPage(font, page)?.texture?.source ?? null,
-  getGlyphEntry: (codepoint) => getBitmapFontGlyph(font, codepoint),
-  getGlyphKerning: (left, right) => getBitmapFontKerning(font, left, right),
-  getGlyphMetrics: () => getBitmapFontMetrics(font),
-};
+const glyphs = createGlyphSourceFromBitmapFont(font);
 const root = createDisplayObject(); const labels: BitmapText[] = [];
 for (let i = 0; i < 12; i++) {
   const text = createBitmapText(glyphs, { text: i % 2 ? 'Away3D' : 'Bitmap Font' });

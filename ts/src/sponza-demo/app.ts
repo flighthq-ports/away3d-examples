@@ -109,9 +109,9 @@ const skyboxFaceFiles = [
 
 const [awdBuffer, sponzaTextureImages, skyboxFaceImages, fireImage] = await Promise.all([
   fetch('sponza/sponza.awd').then((r) => r.arrayBuffer()),
-  loadSponzaTextures(sponzaTextureFiles),
-  Promise.all(skyboxFaceFiles.map((file) => loadImageResourceFromUrl(`skybox/${file}`))),
-  loadImageResourceFromUrl('fire.png'),
+  loadSponzaTextures(ctx.host, sponzaTextureFiles),
+  Promise.all(skyboxFaceFiles.map((file) => loadImageResourceFromUrl(ctx.host, `skybox/${file}`))),
+  loadImageResourceFromUrl(ctx.host, 'fire.png'),
 ]);
 
 const textureMap = createTextureMap(sponzaTextureFiles, sponzaTextureImages);
@@ -156,7 +156,7 @@ drawGlScene3DShadowMap(ctx.state, shadowScene.root, shadowCamera, directional);
 const torches = createSponzaTorches(scene.root, fireImage);
 const lights = createScene3DLights({ ambient, directional, point: torches.lights });
 
-const cubeTexture = createCubeTextureFromAwayFaces(skyboxFaceImages);
+const cubeTexture = createCubeTextureFromAwayFaces(ctx.host, skyboxFaceImages);
 const environment = createEnvironment({
   environment: cubeTexture,
   // The original skybox was only a backdrop. This is the scene's entire fill: baking an IBL supersedes

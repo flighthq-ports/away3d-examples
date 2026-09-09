@@ -42,7 +42,7 @@ const lights = createScene3DLights();
 const yAxis = createVector3(0, 1, 0);
 const scratchQuat = createQuaternion();
 
-const image = await loadImageResourceFromUrl('floor_diffuse.jpg');
+const image = await loadImageResourceFromUrl(ctx.host, 'floor_diffuse.jpg');
 const texture = createTexture({ source: image });
 material.baseColorMap = texture;
 

@@ -49,9 +49,9 @@ const light = createDirectionalLightFromAway({
 const lights = createScene3DLights({ ambient: light.ambient, directional: light.directional });
 const assetRoot = 'away3d/FractalTreeDemo/';
 const [bark, leaf, grass] = await Promise.all([
-  loadImageResourceFromUrl(`${assetRoot}tree/bark0.jpg`),
-  loadImageResourceFromUrl(`${assetRoot}tree/leaf4.jpg`),
-  loadImageResourceFromUrl(`${assetRoot}terrain/grass.jpg`),
+  loadImageResourceFromUrl(ctx.host, `${assetRoot}tree/bark0.jpg`),
+  loadImageResourceFromUrl(ctx.host, `${assetRoot}tree/leaf4.jpg`),
+  loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/grass.jpg`),
 ]);
 
 const barkMaterial = createStandardPbrMaterial({

@@ -1,4 +1,4 @@
-import type { Image, ParticleEmitter3D, ParticleEmitterConfig, ParticleEmitterState, Scene3D, TextureAtlas } from '@flighthq/sdk';
+import type { HasGraphicsImage, ImageResource, ParticleEmitter3D, ParticleEmitterConfig, ParticleEmitterState, Scene3D, TextureAtlas } from '@flighthq/sdk';
 import {
   addTextureAtlasRegion,
   addNodeChild,
@@ -18,7 +18,7 @@ const FIRE_RADIUS = 400;
 const FIRE_SPRITE_SIZE = 38;
 
 // Kept local so this sample contains the complete particle bootstrap it depends on.
-function createSingleSpriteAtlas(image: Image): TextureAtlas {
+function createSingleSpriteAtlas(image: ImageResource): TextureAtlas {
   const atlas = createTextureAtlas({ texture: createTexture({ source: image }) });
   addTextureAtlasRegion(atlas, 0, 0, image.width, image.height);
   return atlas;
@@ -39,7 +39,7 @@ export interface FireEmittersResult {
 // AwayJS applies its ParticleColorNode as a ColorTransform with zero RGB multipliers and color offsets.
 // In other words, blue.png supplies coverage, not hue: the start/end fire colors replace its blue RGB.
 // Flight's particle tint multiplies texture RGB, so first reduce the source to the same white alpha mask.
-function createFireSpriteMask(source: Readonly<Image>): Image {
+function createFireSpriteMask(source: Readonly<ImageResource>): ImageResource {
   const canvas = document.createElement('canvas');
   canvas.width = source.width;
   canvas.height = source.height;
@@ -51,8 +51,11 @@ function createFireSpriteMask(source: Readonly<Image>): Image {
   return createImageResource(canvas);
 }
 
-export async function createFireEmitters(scene: Readonly<Scene3D>): Promise<FireEmittersResult> {
-  const fireImage = await loadImageResourceFromUrl('blue.png');
+export async function createFireEmitters(
+  host: Readonly<HasGraphicsImage>,
+  scene: Readonly<Scene3D>,
+): Promise<FireEmittersResult> {
+  const fireImage = await loadImageResourceFromUrl(host, 'blue.png');
   const fireAtlas = createSingleSpriteAtlas(createFireSpriteMask(fireImage));
 
   const config: ParticleEmitterConfig = createParticleEmitterConfig({

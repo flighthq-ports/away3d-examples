@@ -9,6 +9,10 @@ import {
   createExtendedPbrMaterial,
   createFxaaEffect,
   createGlCanvasElement,
+  createGlContextFromCanvasElement,
+  createGlContextState,
+  createEmptyGlRegistries,
+  createGlPipeline,
   createGlRenderEffectPipeline,
   createGlRenderState,
   createMesh,
@@ -38,6 +42,7 @@ import {
   invalidateNodeLocalTransform,
   setVector3,
 } from '@flighthq/sdk';
+import { enableHostWebGlRenderSurface, webHost } from '@flighthq/host-web';
 
 import {
   awayDirection,
@@ -51,6 +56,7 @@ import { createAwayMatteMaterial } from '../../shared/materials';
 const pixelRatio = window.devicePixelRatio || 1;
 
 const mount = document.getElementById('app');
+enableHostWebGlRenderSurface();
 const canvas = createGlCanvasElement(window.innerWidth, window.innerHeight, pixelRatio);
 if (mount) {
   mount.replaceWith(canvas);
@@ -59,11 +65,14 @@ if (mount) {
 }
 document.body.style.margin = '0';
 
-const state = createGlRenderState(canvas, {
-  backgroundColor: 0x000000ff,
+const gl = createGlContextFromCanvasElement(canvas, {
   contextAttributes: { alpha: false, depth: true, preserveDrawingBuffer: false },
-  pixelRatio,
 });
+const state = createGlRenderState(
+  createGlContextState(gl),
+  createGlPipeline(createEmptyGlRegistries()),
+  { backgroundColor: 0x000000ff, pixelRatio },
+);
 
 // Textured materials resolve their maps through the backing-kind registry; without this every
 // texture resolves to null and the scene renders untextured.
@@ -121,8 +130,8 @@ addNodeChild(scene.root, ground);
 
 const [modelBuffer, antImage, sandImage] = await Promise.all([
   fetch('soldier_ant.3ds').then((r) => r.arrayBuffer()),
-  loadImageResourceFromUrl('soldier_ant.jpg'),
-  loadImageResourceFromUrl('CoarseRedSand.jpg'),
+  loadImageResourceFromUrl(webHost, 'soldier_ant.jpg'),
+  loadImageResourceFromUrl(webHost, 'CoarseRedSand.jpg'),
 ]);
 
 groundMaterial.standard.baseColorMap = createTexture({ source: sandImage });

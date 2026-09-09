@@ -11,7 +11,7 @@ export function createAnimationController(
   let player: AnimationPlayer = createAnimationPlayer(clip, { loop: true });
   function play(name: string): void {
     const next = animations[name]; if (!next) return;
-    player = createAnimationPlayer(next, { loop: name === initial });
+    player = createAnimationPlayer(next, { loop: true });
   }
   document.addEventListener('keydown', (event) => {
     const index = Number(event.key) - 1; if (index >= 0 && index < keys.length) play(keys[index]!);
@@ -20,7 +20,6 @@ export function createAnimationController(
     play,
     step(dt) {
       advanceAnimationPlayer(player, dt); applyAnimationClipToScene3D(player.clip, player.time);
-      if (!player.playing) play(initial);
     },
   };
 }

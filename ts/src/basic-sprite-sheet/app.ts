@@ -1,4 +1,4 @@
-import type { Image, PerspectiveProjection, Texture } from '@flighthq/sdk';
+import type { ImageResource, PerspectiveProjection, Texture } from '@flighthq/sdk';
 import {
   addNodeChild,
   createFxaaEffect,
@@ -23,9 +23,9 @@ import { createScene3DContext } from './renderer';
 const ctx = createScene3DContext({ width: innerWidth, height: innerHeight, effects: [createToneMapEffect(), createFxaaEffect()] });
 const scene = createScene3D(); const camera = createCameraFromAway({ y: 200, z: -1500, far: 4000 });
 const lights = createScene3DLights();
-const sheets: Image[] = await Promise.all([
-  loadImageResourceFromUrl('away3d/BasicSpriteSheet/testSheet1.jpg'),
-  loadImageResourceFromUrl('away3d/BasicSpriteSheet/testSheet2.jpg'),
+const sheets: ImageResource[] = await Promise.all([
+  loadImageResourceFromUrl(ctx.host, 'away3d/BasicSpriteSheet/testSheet1.jpg'),
+  loadImageResourceFromUrl(ctx.host, 'away3d/BasicSpriteSheet/testSheet2.jpg'),
 ]);
 const textures: Texture[] = [createTexture({ source: sheets[0]! }), createTexture({ source: sheets[0]! })];
 for (let i = 0; i < 2; i++) {

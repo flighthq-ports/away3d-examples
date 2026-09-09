@@ -34,20 +34,20 @@ const lights = createScene3DLights({ point: [
 lights.point![0]!.position.x = -12000; lights.point![0]!.position.y = 9000;
 lights.point![1]!.position.x = 12000; lights.point![1]!.position.y = 6000;
 
-const doc = await loadScene3DDocumentFromAwd2Url('away3d/SpriteSheetAnimation/tictac/tictac.awd');
+const doc = await loadScene3DDocumentFromAwd2Url(ctx.host, 'away3d/SpriteSheetAnimation/tictac/tictac.awd');
 if (!doc) throw new Error('Could not load compressed tictac AWD');
-const clock = createScene3DFromDocument(doc); await loadScene3DResources(clock, createBuiltInScene3DResourceResolver());
+const clock = createScene3DFromDocument(doc); await loadScene3DResources(clock, createBuiltInScene3DResourceResolver(ctx.host));
 addNodeChild(scene.root, clock.root);
 const digitTextures = new Map<string, Texture>();
 walkNodeDescendants(clock.root, (node) => {
-  if (isMesh(node) && ['hours', 'minutes', 'delimiter'].includes(node.name ?? '')) {
+  if (isMesh(node) && ['hours', 'minutes', 'seconds', 'delimiter'].includes(node.name ?? '')) {
     const texture = createTexture();
     const material = createUnlitMaterial({ baseColor: 0xffffffff, baseColorMap: texture });
     node.materials = [material]; digitTextures.set(node.name!, texture);
   }
   return true;
 });
-for (const name of ['hours', 'minutes', 'delimiter']) {
+for (const name of ['hours', 'minutes', 'seconds', 'delimiter']) {
   if (!digitTextures.has(name)) throw new Error(`The clock AWD is missing its ${name} display mesh`);
 }
 function clockImage(text: string, accent: string) {
@@ -61,6 +61,7 @@ function updateClock(): void {
   const now = new Date(); if (shownSecond === now.getSeconds()) return; shownSecond = now.getSeconds();
   setTextureSource(digitTextures.get('hours')!, clockImage(String(now.getHours()).padStart(2, '0'), '#ff5a40'));
   setTextureSource(digitTextures.get('minutes')!, clockImage(String(now.getMinutes()).padStart(2, '0'), '#ffc44d'));
+  setTextureSource(digitTextures.get('seconds')!, clockImage(String(now.getSeconds()).padStart(2, '0'), '#73d9ff'));
   setTextureSource(digitTextures.get('delimiter')!, clockImage(now.getSeconds() % 2 ? ':' : ' ', '#ffffff'));
 }
 function frame(): void { updateClock(); orbit.update(); ctx.render(scene.root, camera, lights); requestAnimationFrame(frame); }

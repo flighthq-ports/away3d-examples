@@ -1,4 +1,4 @@
-import type { BlinnPhongMaterial, Image, Texture } from '@flighthq/sdk';
+import type { BlinnPhongMaterial, HasGraphicsImage, ImageResource, Texture } from '@flighthq/sdk';
 import {
   createBlinnPhongMaterial,
   createSampler,
@@ -24,7 +24,7 @@ export function createFloorMaterial(): BlinnPhongMaterial {
   return material;
 }
 
-function createFloorTexture(image: Image, colorSpace: 'linear' | 'srgb' = 'srgb'): Texture {
+function createFloorTexture(image: ImageResource, colorSpace: 'linear' | 'srgb' = 'srgb'): Texture {
   // The AwayJS sample explicitly requests repeat + smooth filtering with mipmaps disabled. Flight's
   // tiling preset enables trilinear mipmaps, which selects a visibly soft mip over this oblique floor.
   const sampler = createSampler({
@@ -39,11 +39,14 @@ function createFloorTexture(image: Image, colorSpace: 'linear' | 'srgb' = 'srgb'
   return tex;
 }
 
-export async function loadFloorTextures(material: BlinnPhongMaterial): Promise<void> {
+export async function loadFloorTextures(
+  host: Readonly<HasGraphicsImage>,
+  material: BlinnPhongMaterial,
+): Promise<void> {
   const [diffuseImg, normalImg, specularImg] = await Promise.all([
-    loadImageResourceFromUrl('floor_diffuse.jpg'),
-    loadImageResourceFromUrl('floor_normal.jpg'),
-    loadImageResourceFromUrl('floor_specular.jpg'),
+    loadImageResourceFromUrl(host, 'floor_diffuse.jpg'),
+    loadImageResourceFromUrl(host, 'floor_normal.jpg'),
+    loadImageResourceFromUrl(host, 'floor_specular.jpg'),
   ]);
   material.diffuseMap = createFloorTexture(diffuseImg);
   material.normalMap = createFloorTexture(normalImg, 'linear');

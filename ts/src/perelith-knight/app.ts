@@ -8,6 +8,10 @@ import {
   createCamera3D,
   createFxaaEffect,
   createGlCanvasElement,
+  createGlContextFromCanvasElement,
+  createGlContextState,
+  createEmptyGlRegistries,
+  createGlPipeline,
   createGlRenderEffectPipeline,
   createGlRenderState,
   createMesh,
@@ -33,6 +37,7 @@ import {
   setTextureUvScale,
   updateMeshMorph,
 } from '@flighthq/sdk';
+import { enableHostWebGlRenderSurface, webHost } from '@flighthq/host-web';
 
 import {
   awayDirection,
@@ -46,6 +51,7 @@ import { loadKnights } from './knights';
 const pixelRatio = window.devicePixelRatio || 1;
 
 const mount = document.getElementById('app');
+enableHostWebGlRenderSurface();
 const canvas = createGlCanvasElement(window.innerWidth, window.innerHeight, pixelRatio);
 if (mount) {
   mount.replaceWith(canvas);
@@ -54,11 +60,14 @@ if (mount) {
 }
 document.body.style.margin = '0';
 
-const state = createGlRenderState(canvas, {
-  backgroundColor: 0x000000ff,
+const gl = createGlContextFromCanvasElement(canvas, {
   contextAttributes: { alpha: false, depth: true, preserveDrawingBuffer: false },
-  pixelRatio,
 });
+const state = createGlRenderState(
+  createGlContextState(gl),
+  createGlPipeline(createEmptyGlRegistries()),
+  { backgroundColor: 0x000000ff, pixelRatio },
+);
 
 // Textured materials resolve their maps through the backing-kind registry; without this every
 // texture resolves to null and the scene renders untextured.
@@ -114,7 +123,7 @@ const floorMaterial = createStandardPbrMaterial({
 });
 floorMaterial.doubleSided = true;
 
-const floorImage = await loadImageResourceFromUrl('floor_diffuse.jpg');
+const floorImage = await loadImageResourceFromUrl(webHost, 'floor_diffuse.jpg');
 const floorTex = createTexture({ source: floorImage, sampler: createTilingSampler() });
 setTextureUvScale(floorTex, 5, 5);
 floorMaterial.baseColorMap = floorTex;
@@ -123,7 +132,7 @@ const floorGeometry = createPlaneMeshGeometry(5000, 5000, 1, 1);
 const floor = createMesh(floorGeometry, [floorMaterial]);
 addNodeChild(scene.root, floor);
 
-const { animationBuckets, environment } = await loadKnights(scene);
+const { animationBuckets, environment } = await loadKnights(webHost, scene);
 bakeGlEnvironmentIbl(state, environment);
 
 const orbit = createOrbitControllerFromAway(camera, {

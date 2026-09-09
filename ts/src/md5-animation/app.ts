@@ -10,6 +10,10 @@ import {
   createCamera3D,
   createSmaaEffect,
   createGlCanvasElement,
+  createGlContextFromCanvasElement,
+  createGlContextState,
+  createEmptyGlRegistries,
+  createGlPipeline,
   createGlRenderEffectPipeline,
   createGlRenderState,
   createOrthographicProjection,
@@ -35,6 +39,7 @@ import {
   setVector3,
   updateMeshSkin,
 } from '@flighthq/sdk';
+import { enableHostWebGlRenderSurface, webHost } from '@flighthq/host-web';
 
 import { awayPosition, createCameraFromAway } from '../../shared/camera';
 import { ANIM_NAMES, IDLE_NAME, WALK_NAME, loadCharacter } from './character';
@@ -55,6 +60,7 @@ const height = window.innerHeight;
 const pixelRatio = window.devicePixelRatio || 1;
 
 const mount = document.getElementById('app');
+enableHostWebGlRenderSurface();
 const canvas = createGlCanvasElement(width, height, pixelRatio);
 if (mount) {
   mount.replaceWith(canvas);
@@ -63,11 +69,14 @@ if (mount) {
 }
 document.body.style.margin = '0';
 
-const glState = createGlRenderState(canvas, {
-  backgroundColor: 0x000000ff,
+const gl = createGlContextFromCanvasElement(canvas, {
   contextAttributes: { alpha: false, depth: true, preserveDrawingBuffer: false },
-  pixelRatio,
 });
+const glState = createGlRenderState(
+  createGlContextState(gl),
+  createGlPipeline(createEmptyGlRegistries()),
+  { backgroundColor: 0x000000ff, pixelRatio },
+);
 // Textured materials resolve their maps through the backing-kind registry; without this every
 // texture resolves to null and the scene renders untextured.
 registerStandardGlTextureResolvers(glState);
@@ -101,7 +110,10 @@ function updateCamera(): void {
   setCamera3DViewMatrix4FromLookAt(camera, eye, cameraTarget, up);
 }
 
-const [{ environment, groundMesh, fogEffect }, character] = await Promise.all([loadEnvironment(), loadCharacter()]);
+const [{ environment, groundMesh, fogEffect }, character] = await Promise.all([
+  loadEnvironment(webHost),
+  loadCharacter(webHost),
+]);
 addNodeChild(scene.root, groundMesh);
 // The tone map runs on its default operator, which is ACES — measured byte-identical to passing 'aces'
 // explicitly. That is also the best of the five here: agx and filmic both wash the ground out and drain

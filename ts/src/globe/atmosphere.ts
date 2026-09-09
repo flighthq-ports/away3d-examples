@@ -1,4 +1,4 @@
-import type { Billboard, ShadedMaterial, UnlitMaterial } from '@flighthq/sdk';
+import type { Billboard, HasGraphicsImage, ShadedMaterial, UnlitMaterial } from '@flighthq/sdk';
 import {
   createBillboard,
   createImageResourceFromCanvas,
@@ -45,7 +45,7 @@ export function createAtmosphere(): AtmosphereBillboard {
 // opaque JPG, so an alpha channel is derived from its luminance below (transparent where there is no
 // cloud); a plain 'blend' material over the opaque earth then composites correctly in the renderer's
 // sorted transparent pass.
-export async function loadCloudTexture(): Promise<ShadedMaterial> {
+export async function loadCloudTexture(host: Readonly<HasGraphicsImage>): Promise<ShadedMaterial> {
   const cloudMaterial: ShadedMaterial = createShadedMaterial({
     diffuse: 0xffffffff,
     specular: 0x000000ff,
@@ -54,7 +54,7 @@ export async function loadCloudTexture(): Promise<ShadedMaterial> {
   cloudMaterial.alphaMode = 'blend';
   cloudMaterial.doubleSided = false;
 
-  const cloudSource = await loadImageResourceFromUrl('globe/cloud_combined_2048.jpg');
+  const cloudSource = await loadImageResourceFromUrl(host, 'globe/cloud_combined_2048.jpg');
   const cloudCanvas = document.createElement('canvas');
   cloudCanvas.width = cloudSource.width;
   cloudCanvas.height = cloudSource.height;

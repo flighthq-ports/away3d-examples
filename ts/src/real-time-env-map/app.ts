@@ -29,9 +29,9 @@ const scene = createScene3D(); const camera = createCameraFromAway({ far: 4000 }
 const { directional, ambient } = createDirectionalLightFromAway({ direction: { x: -1, y: -1, z: -1 }, diffuse: 1.1, ambient: 0.2 });
 const lights = createScene3DLights({ ambient: ambient ?? createAmbientLight({ intensity: 0.1 }), directional });
 const root = 'away3d/RealTimeEnvMap/';
-const faceImages = await Promise.all(['posX', 'negX', 'posY', 'negY', 'posZ', 'negZ'].map((face) => loadImageResourceFromUrl(`${root}skybox/sky_${face}.jpg`)));
-bakeGlEnvironmentIbl(ctx.state, createEnvironment({ environment: createCubeTextureFromAwayFaces(faceImages), intensity: 1.2 }));
-const [headObj, r2Obj, r2Image] = await Promise.all([fetch(`${root}head.obj`).then((r) => r.text()), fetch(`${root}R2D2.obj`).then((r) => r.text()), loadImageResourceFromUrl(`${root}r2d2_diffuse.jpg`)]);
+const faceImages = await Promise.all(['posX', 'negX', 'posY', 'negY', 'posZ', 'negZ'].map((face) => loadImageResourceFromUrl(ctx.host, `${root}skybox/sky_${face}.jpg`)));
+bakeGlEnvironmentIbl(ctx.state, createEnvironment({ environment: createCubeTextureFromAwayFaces(ctx.host, faceImages), intensity: 1.2 }));
+const [headObj, r2Obj, r2Image] = await Promise.all([fetch(`${root}head.obj`).then((r) => r.text()), fetch(`${root}R2D2.obj`).then((r) => r.text()), loadImageResourceFromUrl(ctx.host, `${root}r2d2_diffuse.jpg`)]);
 const headScene = createScene3DFromObj(headObj); const head = findNode(headScene.root, isMesh) as Mesh | null;
 if (!head) throw new Error('head.obj contains no mesh');
 head.materials = [createStandardPbrMaterial({ baseColor: 0x18202aff, metallic: 1, roughness: 0.08 })]; setVector3(head.scale, 60, 60, 60); setVector3(head.position, 0, 180, 0); setQuaternionFromEuler(head.rotation, 0, -Math.PI / 2, 0); invalidateNodeLocalTransform(head); addNodeChild(scene.root, head);

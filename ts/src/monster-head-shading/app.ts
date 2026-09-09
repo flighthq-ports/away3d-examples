@@ -7,6 +7,10 @@ import {
   createCamera3D,
   createFxaaEffect,
   createGlCanvasElement,
+  createGlContextFromCanvasElement,
+  createGlContextState,
+  createEmptyGlRegistries,
+  createGlPipeline,
   createGlRenderEffectPipeline,
   createGlRenderState,
   createOrthographicProjection,
@@ -31,6 +35,7 @@ import {
   renderGlBackground,
   setVector3,
 } from '@flighthq/sdk';
+import { enableHostWebGlRenderSurface, webHost } from '@flighthq/host-web';
 
 import { bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
 import { createDirectionalLightFromAway, createPointLightFromAway } from '../../shared/lighting';
@@ -38,6 +43,7 @@ import { createDirectionalLightFromAway, createPointLightFromAway } from '../../
 const pixelRatio = window.devicePixelRatio || 1;
 
 const mount = document.getElementById('app');
+enableHostWebGlRenderSurface();
 const canvas = createGlCanvasElement(window.innerWidth, window.innerHeight, pixelRatio);
 if (mount) {
   mount.replaceWith(canvas);
@@ -46,11 +52,14 @@ if (mount) {
 }
 document.body.style.margin = '0';
 
-const state = createGlRenderState(canvas, {
-  backgroundColor: 0x000000ff,
+const gl = createGlContextFromCanvasElement(canvas, {
   contextAttributes: { alpha: false, depth: true, preserveDrawingBuffer: false },
-  pixelRatio,
 });
+const state = createGlRenderState(
+  createGlContextState(gl),
+  createGlPipeline(createEmptyGlRegistries()),
+  { backgroundColor: 0x000000ff, pixelRatio },
+);
 
 // Textured materials resolve their maps through the backing-kind registry; without this every
 // texture resolves to null and the scene renders untextured.
@@ -136,7 +145,7 @@ const headMaterial = createShadedMaterial({
 
 async function tryLoadImage(url: string): Promise<Awaited<ReturnType<typeof loadImageResourceFromUrl>> | null> {
   try {
-    return await loadImageResourceFromUrl(url);
+    return await loadImageResourceFromUrl(webHost, url);
   } catch {
     return null;
   }

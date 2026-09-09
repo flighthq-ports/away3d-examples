@@ -1,4 +1,4 @@
-import type { Environment, Image, Mesh, ScreenSpaceFogEffect } from '@flighthq/sdk';
+import type { Environment, HasGraphicsBitmapReadback, HasGraphicsImage, ImageResource, Mesh, ScreenSpaceFogEffect } from '@flighthq/sdk';
 import {
   createEnvironment,
   createImageResourceFromCanvas,
@@ -30,7 +30,7 @@ const GROUND_TINT = [0.78, 0.80, 0.98] as const;
  * texture is so red-dominant that a multiply strong enough to neutralise it also crushes the ground
  * into darkness.
  */
-function coolGroundDiffuse(rock: Image): Image | null {
+function coolGroundDiffuse(rock: ImageResource): ImageResource | null {
   const source = rock.source;
   if (!source) return null;
   const canvas = document.createElement('canvas');
@@ -61,19 +61,21 @@ export interface EnvironmentData {
   fogEffect: ScreenSpaceFogEffect;
 }
 
-export async function loadEnvironment(): Promise<EnvironmentData> {
+export async function loadEnvironment(
+  host: Readonly<HasGraphicsBitmapReadback & HasGraphicsImage>,
+): Promise<EnvironmentData> {
   const skyFaceNames = ['posX', 'negX', 'posY', 'negY', 'posZ', 'negZ'];
   const skyImages = await Promise.all(
-    skyFaceNames.map((face) => loadImageResourceFromUrl(`skybox/grimnight_${face}.png`)),
+    skyFaceNames.map((face) => loadImageResourceFromUrl(host, `skybox/grimnight_${face}.png`)),
   );
-  const skyTexture = createCubeTextureFromAwayFaces(skyImages);
+  const skyTexture = createCubeTextureFromAwayFaces(host, skyImages);
   // Keep the sky as the backdrop while restraining its IBL contribution: a strong environment fill
   // washes out both the directional contact shadow and the ground normal-map response.
   const environment = createEnvironment({ environment: skyTexture, intensity: 0.45 });
 
   const [rockDiffuse, rockNormal] = await Promise.all([
-    loadImageResourceFromUrl('rockbase_diffuse.jpg'),
-    loadImageResourceFromUrl('rockbase_normals.png'),
+    loadImageResourceFromUrl(host, 'rockbase_diffuse.jpg'),
+    loadImageResourceFromUrl(host, 'rockbase_normals.png'),
   ]);
 
   const groundSampler = createTilingSampler();

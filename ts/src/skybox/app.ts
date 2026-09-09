@@ -13,6 +13,10 @@ import {
   createEnvironment,
   createFxaaEffect,
   createGlCanvasElement,
+  createGlContextFromCanvasElement,
+  createGlContextState,
+  createEmptyGlRegistries,
+  createGlPipeline,
   createGlRenderState,
   createMesh,
   createQuaternion,
@@ -36,6 +40,7 @@ import {
   setQuaternionFromAxisAngle,
   setVector3,
 } from '@flighthq/sdk';
+import { enableHostWebGlRenderSurface, webHost } from '@flighthq/host-web';
 
 import { awayDirection, createCameraFromAway, setAwayPosition } from '../../shared/camera';
 import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
@@ -46,6 +51,7 @@ const height = window.innerHeight;
 const pixelRatio = window.devicePixelRatio || 1;
 
 const mount = document.getElementById('app');
+enableHostWebGlRenderSurface();
 const canvas = createGlCanvasElement(width, height, pixelRatio);
 
 if (mount) {
@@ -56,11 +62,14 @@ if (mount) {
 
 document.body.style.margin = '0';
 
-const state = createGlRenderState(canvas, {
-  backgroundColor: 0xffff00ff,
+const gl = createGlContextFromCanvasElement(canvas, {
   contextAttributes: { alpha: false, depth: true, preserveDrawingBuffer: false },
-  pixelRatio,
 });
+const state = createGlRenderState(
+  createGlContextState(gl),
+  createGlPipeline(createEmptyGlRegistries()),
+  { backgroundColor: 0xffff00ff, pixelRatio },
+);
 
 // Textured materials resolve their maps through the backing-kind registry; without this every
 // texture resolves to null and the scene renders untextured.
@@ -134,8 +143,8 @@ const faceUrls = [
   'skybox/snow_negative_z.jpg',
 ];
 
-const faceImages = await Promise.all(faceUrls.map((url) => loadImageResourceFromUrl(url)));
-const cubeTexture = createCubeTextureFromAwayFaces(faceImages);
+const faceImages = await Promise.all(faceUrls.map((url) => loadImageResourceFromUrl(webHost, url)));
+const cubeTexture = createCubeTextureFromAwayFaces(webHost, faceImages);
 
 const environment = createEnvironment({ environment: cubeTexture, intensity: 1 });
 bakeGlEnvironmentIbl(state, environment);

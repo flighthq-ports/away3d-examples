@@ -21,7 +21,7 @@ const ctx = createScene3DContext({ width: innerWidth, height: innerHeight, effec
 const scene = createScene3D(); const camera = createCameraFromAway({ far: 4000 });
 const orbit = createOrbitControllerFromAway(camera, { distance: 1000, panAngle: 45, tiltAngle: 20 });
 bindOrbitDrag(ctx.canvas, orbit); const lights = createScene3DLights();
-const image = await loadImageResourceFromUrl('blue.png');
+const image = await loadImageResourceFromUrl(ctx.host, 'blue.png');
 const atlas = createTextureAtlas({ texture: createTexture({ source: image }) });
 addTextureAtlasRegion(atlas, 0, 0, image.width, image.height);
 const emitter = createParticleEmitter3D(); emitter.blendMode = 'add'; emitter.data.atlas = atlas;

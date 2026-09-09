@@ -14,7 +14,6 @@ import {
   createEnvironment,
   createFxaaEffect,
   createHemisphereLight,
-  createImageResourceFromBitmap,
   createMesh,
   createOrthographicProjection,
   createPlaneMeshGeometry,
@@ -66,7 +65,7 @@ for (let i = 0; i < studioEnvironmentFaces.length; i++) {
   setCubeTextureFace(
     studioEnvironmentCube,
     i,
-    createImageResourceFromBitmap(createBitmap(8, 8, studioEnvironmentFaces[i])),
+    createBitmap(8, 8, studioEnvironmentFaces[i]),
   );
 }
 const studioEnvironment = createEnvironment({ environment: studioEnvironmentCube, intensity: 0.35 });
@@ -159,7 +158,7 @@ copyQuaternion(torus.rotation, torusRotation);
 invalidateNodeLocalTransform(torus);
 addNodeChild(scene.root, torus);
 
-await loadSceneTextures({ planeMaterial, sphereMaterial, cubeMaterial, torusMaterial }, tilingSampler);
+await loadSceneTextures(ctx.host, { planeMaterial, sphereMaterial, cubeMaterial, torusMaterial }, tilingSampler);
 
 const orbit = createOrbitControllerFromAway(camera, {
   distance: 1000,

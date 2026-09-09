@@ -1,4 +1,4 @@
-import type { Billboard, Image, Node3D, PointLight, Texture2D } from '@flighthq/sdk';
+import type { Billboard, ImageResource, Node3D, PointLight, Texture2D } from '@flighthq/sdk';
 import {
   addNodeChild,
   BlendMode,
@@ -28,7 +28,7 @@ export interface SponzaTorches {
   update: (timeMs: number) => void;
 }
 
-export function createSponzaTorches(root: Node3D, fireImage: Image): SponzaTorches {
+export function createSponzaTorches(root: Node3D, fireImage: ImageResource): SponzaTorches {
   const fireTexture: Texture2D = createTexture({
     source: fireImage,
     sampler: createSampler({

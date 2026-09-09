@@ -21,7 +21,7 @@ const ctx = createScene3DContext({ width: innerWidth, height: innerHeight, effec
 const scene = createScene3D(); const camera = createCameraFromAway({ far: 5000 });
 const orbit = createOrbitControllerFromAway(camera, { distance: 1000, panAngle: 45, tiltAngle: 20 });
 bindOrbitDrag(ctx.canvas, orbit); const lights = createScene3DLights();
-const image = await loadImageResourceFromUrl('away3d/ParticleTrails/cards_suit.png');
+const image = await loadImageResourceFromUrl(ctx.host, 'away3d/ParticleTrails/cards_suit.png');
 const atlas = createTextureAtlas({ texture: createTexture({ source: image }) });
 addTextureAtlasRegion(atlas, 0, 0, image.width, image.height);
 const count = 400;
@@ -42,7 +42,7 @@ function updateTrail(emitter: typeof emitters[number], time: number, mirror: num
     transforms[i * 4] = Math.cos(angle) * radius * mirror;
     transforms[i * 4 + 1] = (p - 0.5) * 620 + Math.sin(angle * 0.5) * 70;
     transforms[i * 4 + 3] = angle;
-    positionsZ[i] = Math.sin(angle) * radius;
+    positionsZ[i] = Math.sin(angle) * radius * mirror;
   }
 }
 function frame(ts: number): void {

@@ -28,8 +28,8 @@ const orbit = createOrbitControllerFromAway(camera, { distance: 800, panAngle: 4
 bindOrbitDrag(ctx.canvas, orbit, { minDistance: 300, maxDistance: 1400 });
 
 const [obj, diffuse, normal, specular] = await Promise.all([
-  fetch('head.obj').then((r) => r.text()), loadImageResourceFromUrl('head_diffuse.jpg'),
-  loadImageResourceFromUrl('head_normals.jpg'), loadImageResourceFromUrl('head_specular.jpg'),
+  fetch('head.obj').then((r) => r.text()), loadImageResourceFromUrl(ctx.host, 'head_diffuse.jpg'),
+  loadImageResourceFromUrl(ctx.host, 'head_normals.jpg'), loadImageResourceFromUrl(ctx.host, 'head_specular.jpg'),
 ]);
 const imported = createScene3DFromObj(obj);
 const head = findNode(imported.root, isMesh) as Mesh | null;

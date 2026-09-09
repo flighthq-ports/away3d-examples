@@ -55,9 +55,9 @@ plane.position.y = -20;
 invalidateNodeLocalTransform(plane);
 addNodeChild(scene.root, plane);
 
-loadFloorTextures(planeMaterial);
+loadFloorTextures(ctx.host, planeMaterial);
 
-const { fires, config } = await createFireEmitters(scene);
+const { fires, config } = await createFireEmitters(ctx.host, scene);
 startFiresSequentially(fires, FIRE_START_INTERVAL);
 
 // Light the first two sequential emitters. Each light remains dark until its own fire starts, then

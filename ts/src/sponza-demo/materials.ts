@@ -1,4 +1,4 @@
-import type { ExtendedPbrMaterial, Image, Material, Mesh, Node3D, Texture2D } from '@flighthq/sdk';
+import type { ExtendedPbrMaterial, HasGraphicsImage, ImageResource, Material, Mesh, Node3D, Texture2D } from '@flighthq/sdk';
 import {
   createExtendedPbrMaterial,
   createStandardPbrMaterialProperties,
@@ -74,13 +74,16 @@ export const materialNameToSpecularFile: Record<string, string> = {
 
 export const alphaCutoutMaterials = new Set(['chain', 'leaf', 'Material__57']);
 
-export async function loadSponzaTextures(files: readonly string[]): Promise<Image[]> {
-  return Promise.all(files.map((file) => loadImageResourceFromUrl(`sponza/${file}`)));
+export async function loadSponzaTextures(
+  host: Readonly<HasGraphicsImage>,
+  files: readonly string[],
+): Promise<ImageResource[]> {
+  return Promise.all(files.map((file) => loadImageResourceFromUrl(host, `sponza/${file}`)));
 }
 
 export function createTextureMap(
   sponzaTextureFiles: readonly string[],
-  sponzaTextureImages: readonly Image[],
+  sponzaTextureImages: readonly ImageResource[],
 ): Map<string, Texture2D> {
   const textureMap = new Map<string, Texture2D>();
   // Sponza's authored UVs deliberately extend well outside the unit square. AwayJS applies

@@ -33,14 +33,14 @@ bindOrbitDrag(ctx.canvas, orbit, { minDistance: 100, maxDistance: 2000 });
 const { directional, ambient } = createDirectionalLightFromAway({ direction: { x: -1, y: -1, z: 1 }, diffuse: 1.2, ambient: 0.18 });
 const lights = createScene3DLights({ ambient: ambient ?? createAmbientLight({ intensity: 0.15 }), directional });
 
-const document3d = await loadScene3DDocumentFromAwd2Url('away3d/OnkbaAWDAnimation/onkba/onkba.awd');
+const document3d = await loadScene3DDocumentFromAwd2Url(ctx.host, 'away3d/OnkbaAWDAnimation/onkba/onkba.awd');
 if (!document3d) throw new Error('Could not load compressed Onkba AWD');
 const model = createScene3DFromDocument(document3d);
-await loadScene3DResources(model, createBuiltInScene3DResourceResolver());
+await loadScene3DResources(model, createBuiltInScene3DResourceResolver(ctx.host));
 const [heroImage, normalImage, gunImage] = await Promise.all([
-  loadImageResourceFromUrl('away3d/OnkbaAWDAnimation/onkba/onkba_diffuse.png'),
-  loadImageResourceFromUrl('away3d/OnkbaAWDAnimation/onkba/onkba_normals.jpg'),
-  loadImageResourceFromUrl('away3d/OnkbaAWDAnimation/onkba/gun_diffuse.jpg'),
+  loadImageResourceFromUrl(ctx.host, 'away3d/OnkbaAWDAnimation/onkba/onkba_diffuse.png'),
+  loadImageResourceFromUrl(ctx.host, 'away3d/OnkbaAWDAnimation/onkba/onkba_normals.jpg'),
+  loadImageResourceFromUrl(ctx.host, 'away3d/OnkbaAWDAnimation/onkba/gun_diffuse.jpg'),
 ]);
 const heroMaterial = createStandardPbrMaterial({ baseColor: 0xffffffff, baseColorMap: createTexture({ source: heroImage }), normalMap: createTexture({ source: normalImage }), metallic: 0, roughness: 0.6 });
 const gunMaterial = createStandardPbrMaterial({ baseColor: 0xffffffff, baseColorMap: createTexture({ source: gunImage }), metallic: 0.72, roughness: 0.28 });
