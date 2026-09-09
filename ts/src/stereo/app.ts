@@ -10,6 +10,7 @@ import {
   createUnlitMaterial,
   createVector3,
   invalidateNodeLocalTransform,
+  normalizeVector3,
   setCamera3DViewMatrix4FromLookAt,
   setQuaternionFromAxisAngle,
 } from '@flighthq/sdk';
@@ -31,6 +32,7 @@ setCamera3DViewMatrix4FromLookAt(leftCamera, leftEye, target, up);
 setCamera3DViewMatrix4FromLookAt(rightCamera, rightEye, target, up);
 const lights = createScene3DLights();
 const rotation = createQuaternion(); const axis = createVector3(0.4, 1, 0.2);
+normalizeVector3(axis, axis);
 function frame(ts: number): void {
   setQuaternionFromAxisAngle(rotation, axis, ts / 1200); copyQuaternion(cube.rotation, rotation); invalidateNodeLocalTransform(cube);
   left.render(scene.root, leftCamera, lights); right.render(scene.root, rightCamera, lights); requestAnimationFrame(frame);
