@@ -73,8 +73,6 @@ replaced with something unrelated, undocumented anywhere until now.
 **Invented mechanism — same asset/subject, unrelated technique (fix first):**
 
 **Drops a real, named subsystem — undocumented (fix next):**
-- `polar-bear-awd-animation` — drops the original's 3000-particle falling-snow system, skybox, shadow
-  mapping, and fog; only the skeletal-clip switching survives.
 - `fractal-tree-demo` — the recursive tree-branching technique is genuinely ported, but the original's
   Perlin-noise/splat-blended terrain is replaced with a flat textured plane, and the 25-tree forest
   (demonstrating GPU-efficient cloning) is dropped to a single tree.
@@ -82,7 +80,8 @@ replaced with something unrelated, undocumented anywhere until now.
   is replaced with a closed-form sine-ripple formula; the environment-map goal is dropped outright.
 
 **Faithful** (camera/material/lighting modernized, core technique intact): `basic-sprite-sheet`, `bitmap-font`,
-`head`, `lines`, `mip-mapping`, `particle-trails`, `particles`, `sprite-sheet-animation`, `stereo`,
+`head`, `lines`, `mip-mapping`, `particle-trails`, `particles`, `polar-bear-awd-animation`,
+`sprite-sheet-animation`, `stereo`,
 `tweening-3d`, `uv-animation`, `light-probes`,
 `onkba-awd-animation`, `planar-reflections` (within the documented capture gap),
 `real-time-env-map`, `terrain-demo`.
