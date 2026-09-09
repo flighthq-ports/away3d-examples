@@ -75,9 +75,6 @@ replaced with something unrelated, undocumented anywhere until now.
 **Drops a real, named subsystem — undocumented (fix next):**
 - `bitmap-font` — drops the 3D rotating text ring (14 meshes on a spinning radial arrangement,
   "THIS IS A TEST") for an unrelated 2D screen-space Lissajous bounce showing different text.
-- `uv-animation` — original demonstrates two techniques side by side (continuous scroll vs. keyframed
-  `UVAnimationFrame` sequences); port's keyframe half is replaced with more continuous procedural
-  motion, dropping the technique the bottom two panels exist to teach.
 - `head` — original's stated purpose is subsurface-scattering + Fresnel skin shading with an A/B
   toggle against basic shading; port uses a generic PBR material with no SSS, no Fresnel method, no
   toggle.
@@ -91,7 +88,7 @@ replaced with something unrelated, undocumented anywhere until now.
 
 **Faithful** (camera/material/lighting modernized, core technique intact): `basic-sprite-sheet`,
 `lines`, `mip-mapping`, `particle-trails`, `particles`, `sprite-sheet-animation`, `stereo`,
-`tweening-3d`, `light-probes`,
+`tweening-3d`, `uv-animation`, `light-probes`,
 `onkba-awd-animation`, `planar-reflections` (within the documented capture gap),
 `real-time-env-map`, `terrain-demo`.
 The 13 "Reused" samples pulled from `flighthq-ports/awayjs-examples` were not in scope for this audit.

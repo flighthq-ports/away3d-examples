@@ -44,12 +44,43 @@ for (let i = 0; i < 4; i++) {
 function frame(ts: number): void {
   const seconds = ts / 1000;
   setTextureUvRotation(textures[0]!, seconds * 1.1);
-  setTextureUvOffset(textures[1]!, 0, -seconds * 0.35);
-  const pulse = 0.65 + 0.35 * (0.5 + 0.5 * Math.sin(seconds * 2));
-  setTextureUvScale(textures[2]!, pulse, pulse);
-  setTextureUvOffset(textures[2]!, (1 - pulse) / 2, (1 - pulse) / 2);
-  setTextureUvRotation(textures[3]!, Math.sin(seconds) * Math.PI * 0.45);
-  setTextureUvScale(textures[3]!, 0.75 + Math.sin(seconds * 1.7) * 0.2, 0.75 + Math.cos(seconds * 1.7) * 0.2);
+  setTextureUvOffset(textures[1]!, 0, -seconds * 0.6);
+
+  // The lower pair are explicit UVAnimationFrame sequences from the Away3D sample. They are kept
+  // separate from the continuous upper pair so the example still demonstrates both animator modes.
+  const firstKeyframes = [
+    { duration: 1, scaleU: 1, scaleV: 1, rotation: 0 },
+    { duration: 1, scaleU: 2, scaleV: 2, rotation: 0 },
+    { duration: 1, scaleU: 1, scaleV: 1, rotation: Math.PI / 2 },
+    { duration: 1, scaleU: 1, scaleV: 1, rotation: Math.PI / 2 },
+    { duration: 1, scaleU: 1, scaleV: 1, rotation: Math.PI / 2 },
+  ] as const;
+  const secondKeyframes = [
+    { duration: 0.25, scaleU: 1, scaleV: 1, rotation: 0 },
+    { duration: 1, scaleU: 4, scaleV: 4, rotation: 0 },
+  ] as const;
+
+  function applyKeyframes(texture: Texture, frames: typeof firstKeyframes | typeof secondKeyframes): void {
+    const duration = frames.reduce((sum, keyframe) => sum + keyframe.duration, 0);
+    let localTime = seconds % duration;
+    let index = 0;
+    while (localTime >= frames[index]!.duration) {
+      localTime -= frames[index]!.duration;
+      index++;
+    }
+    const current = frames[index]!;
+    const next = frames[(index + 1) % frames.length]!;
+    const amount = localTime / current.duration;
+    const scaleU = current.scaleU + (next.scaleU - current.scaleU) * amount;
+    const scaleV = current.scaleV + (next.scaleV - current.scaleV) * amount;
+    const rotation = current.rotation + (next.rotation - current.rotation) * amount;
+    setTextureUvScale(texture, scaleU, scaleV);
+    setTextureUvRotation(texture, rotation);
+    setTextureUvOffset(texture, 0, 0);
+  }
+
+  applyKeyframes(textures[2]!, firstKeyframes);
+  applyKeyframes(textures[3]!, secondKeyframes);
   ctx.render(scene.root, camera, lights); requestAnimationFrame(frame);
 }
 window.addEventListener('resize', () => {
