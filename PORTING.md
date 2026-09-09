@@ -12,7 +12,7 @@ lighting treatment.
 | Fire | `fire` | Reused Flight port |
 | Load3DS | `load-3ds` | Reused Flight port |
 | LoadAWD | `load-awd` | Reused Flight port |
-| LoadDAE | `load-dae` | Capability report; see below |
+| LoadDAE | `load-dae` | Remastered with native COLLADA import |
 | MipMapping | `mip-mapping` | Remastered |
 | Particles | `particles` | Remastered |
 | Shading | `shading` | Reused Flight port |
@@ -45,9 +45,6 @@ lighting treatment.
 
 The samples keep these gaps visible instead of silently converting the input or dropping the feature:
 
-- **COLLADA/DAE import:** Flight exposes scene importers for AWD2, OBJ, 3DS, MD2, MD5, and glTF, but
-  no COLLADA importer. `load-dae` fetches and inspects the original carousel document and reports its
-  contents. Rendering that asset remains blocked on a Flight COLLADA importer.
 - **Spatial light probes:** Flight can bake a global image-based-lighting environment and create point
   lights, but the scene API has no local probe volumes with spatial interpolation. `light-probes`
   combines the original environment with four local colored point lights.
@@ -62,15 +59,15 @@ Compressed AWD assets in the Onkba, polar bear, and clock samples are supported.
 `registerDeflateDecompressor()` before parsing, then use the imported skeleton clips or named clock
 meshes directly.
 
-**Update (SDK 0.5.1-next.1047.858b9b6):** the SDK bump this project now uses adds real APIs for three
-of the four gaps above — `parseCollada()` (`@flighthq/scene3d-formats`, usable via the same
-`createScene3DFromDocument()` pattern already used for AWD), local light-probe volumes with spherical-
+**Update (SDK 0.5.1-next.1047.858b9b6):** the SDK bump this project now uses adds COLLADA import,
+local light-probe volumes, and dynamic environment capture. `load-dae` now parses and renders the
+original carousel directly with `parseCollada()`. Local light-probe volumes with spherical-
 harmonics interpolation (`createLightProbe`/`createLightProbeGrid`/`sampleLightProbeGrid` in
 `@flighthq/lighting`), and a real dynamic six-face environment-cube capture pipeline
 (`createGlCubeRenderTarget` + `renderGlEnvironmentCapture` + `getGlEnvironmentCaptureTexture`, plus
 `getCubeCaptureFaceCamera3D`). The cube-capture pipeline unblocks `real-time-env-map` directly; it is
 not a literal oblique-clip-plane planar mirror, so it only partially helps `planar-reflections`. The
-gaps above still describe the code as it stands until these are integrated.
+remaining gaps above still describe the code as it stands until those samples are integrated.
 
 ## Fidelity audit (2026-09-09)
 
