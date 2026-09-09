@@ -8,7 +8,7 @@ Measured against `@flighthq/sdk` **0.5.1-next.1047.858b9b6** on 2026-09-09. Rege
 | Sample | default |
 |---|---|
 | `basic-sprite-sheet` | 70.6 KB |
-| `bitmap-font` | 70.6 KB |
+| `bitmap-font` | 71.7 KB |
 | `fire` | 76.9 KB |
 | `fractal-tree-demo` | 79.9 KB |
 | `globe` | 71.7 KB |
@@ -28,14 +28,14 @@ Measured against `@flighthq/sdk` **0.5.1-next.1047.858b9b6** on 2026-09-09. Rege
 | `particles` | 72.9 KB |
 | `perelith-knight` | 73.4 KB |
 | `planar-reflections` | 75.3 KB |
-| `polar-bear-awd-animation` | 103.2 KB |
+| `polar-bear-awd-animation` | 103.3 KB |
 | `real-time-env-map` | 81.2 KB |
 | `shading` | 78.2 KB |
 | `shallow-water-demo` | 79.7 KB |
 | `skybox` | 66.5 KB |
 | `sponza-demo` | 91.1 KB |
-| `sprite-sheet-animation` | 91.3 KB |
-| `stereo` | 69.7 KB |
+| `sprite-sheet-animation` | 87.8 KB |
+| `stereo` | 69.8 KB |
 | `terrain-demo` | 72.8 KB |
 | `tweening-3d` | 73.3 KB |
 | `uv-animation` | 70.7 KB |
