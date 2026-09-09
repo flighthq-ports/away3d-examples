@@ -93,9 +93,29 @@ for (let i = 0; i < labelCount; i++) {
     doubleSided: true,
   })]);
   setVector3(label.position, -Math.cos(angle) * 400, -300 + i * 60, Math.sin(angle) * 400);
-  setQuaternionFromEuler(label.rotation, 0, angle, 0);
+  setQuaternionFromEuler(label.rotation, Math.PI / 2, angle, 0, 'YXZ');
   invalidateNodeLocalTransform(label);
   addNodeChild(scene.root, label);
+}
+
+const idleFrameLimit = 600;
+let idleFrames = Math.floor(idleFrameLimit * 0.9);
+let mouseActive = true;
+const isMobile = /Android|BlackBerry|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
+const idleOverlay = document.createElement('div');
+if (!isMobile) {
+  Object.assign(idleOverlay.style, {
+    position: 'fixed', inset: '0', zIndex: '2', background: 'rgba(0, 0, 0, 0.8)',
+    pointerEvents: 'none', display: 'none',
+  });
+  document.body.appendChild(idleOverlay);
+  window.addEventListener('mousemove', () => {
+    mouseActive = true;
+    idleFrames = 0;
+  });
+  document.documentElement.addEventListener('mouseleave', () => {
+    mouseActive = false;
+  });
 }
 
 let rotation = 0;
@@ -103,17 +123,23 @@ let previousTime = performance.now();
 function frame(timestamp: number): void {
   const deltaTime = Math.min(0.1, (timestamp - previousTime) / 1000);
   previousTime = timestamp;
-  rotation += deltaTime * Math.PI / 3;
-  setQuaternionFromEuler(scene.root.rotation, 0, rotation, 0);
-  invalidateNodeLocalTransform(scene.root);
+  if (!isMobile) {
+    idleOverlay.style.display = !mouseActive || idleFrames > idleFrameLimit ? 'block' : 'none';
+    if (mouseActive) idleFrames++;
+  }
+  if (mouseActive) {
+    rotation += deltaTime * Math.PI / 3;
+    setQuaternionFromEuler(scene.root.rotation, 0, rotation, 0);
+    invalidateNodeLocalTransform(scene.root);
+  }
   ctx.render(scene.root, camera, lights);
   requestAnimationFrame(frame);
 }
 
 const note = document.createElement('div');
-note.textContent = '14 bitmap-font meshes · rotating 3D radial layout';
+note.textContent = '14 bitmap-font meshes · move the mouse to wake the display';
 Object.assign(note.style, {
-  position: 'fixed', left: '16px', top: '14px', color: '#fff', font: '14px system-ui',
+  position: 'fixed', left: '16px', top: '14px', zIndex: '1', color: '#fff', font: '14px system-ui',
   textShadow: '0 1px 4px #000', pointerEvents: 'none',
 });
 document.body.appendChild(note);

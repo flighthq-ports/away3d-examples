@@ -72,7 +72,8 @@ named subsystem. Those gaps are now corrected:
   camera.
 - `sprite-sheet-animation` selects frames from generated digit, delimiter, and pulse atlases, including
   the animated button and autonomous camera, rather than redrawing live text into textures.
-- `bitmap-font` renders fourteen real textured 3D text meshes in the original rotating radial layout.
+- `bitmap-font` renders fourteen real textured 3D text meshes as the original flat radial signs and
+  restores its desktop mouse-idle dimming overlay.
 - `uv-animation` keeps its continuous upper pair and restores the two explicit lower keyframe clips.
 - `head` provides the original A/B shading comparison through wrapped subsurface diffuse and PBR
   Fresnel/specular extensions versus a basic material.
