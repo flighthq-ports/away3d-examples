@@ -1,0 +1,64 @@
+name: Pages
+
+# Publishes the gallery to https://flighthq-ports.github.io/<repo>/
+#
+# GitHub Pages serves a project site from a subpath, so the build needs BASE_PATH — it sets Vite's
+# base for chunk URLs and the <base href> the samples' relative asset URLs resolve against. Without
+# it every asset would be looked up at the domain root.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two publishes race; queue rather than cancel so a deploy is not left half-done.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ts
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ts/package-lock.json
+
+      - run: npm ci
+
+      # Thumbnails are captured in a real browser; the package is a devDependency but the browser
+      # binary is a separate download.
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run typecheck
+      - run: npm run lint:assets
+
+      # thumbs -> sizes -> gallery -> build
+      - run: npm run dist
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ts/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

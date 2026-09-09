@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <mask id="fold">
+    <rect width="24" height="24" fill="white"/>
+    <line x1="23.56" y1="0.44" x2="9.44" y2="14.56" stroke="black" stroke-width="1.1" stroke-linecap="butt"/>
+  </mask>
+  <g mask="url(#fold)">
+    <polygon points="22,2 15,22 11,13 2,9" fill="#7ab8ff"/>
+    <polygon points="22,2 15,22 11,13" fill="#548ee8"/>
+  </g>
+</svg>

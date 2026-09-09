@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Away3D Examples (Flight SDK)</title>
+    <style>
+      :root { color-scheme: light dark; --fg: #16181d; --dim: #6b7280; --bg: #fbfbfc; --card: #fff;
+              --line: #e5e7eb; --shot: #eef0f3; }
+      @media (prefers-color-scheme: dark) {
+        :root { --fg: #e8eaed; --dim: #9aa0aa; --bg: #131417; --card: #1b1d22; --line: #2a2d34;
+                --shot: #23262c; }
+      }
+      body { margin: 0; padding: 3rem 1.5rem; background: var(--bg); color: var(--fg);
+             font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif; }
+      main { max-width: 62rem; margin: 0 auto; }
+      h1 { font-size: 1.5rem; margin: 0 0 .35rem; letter-spacing: -.01em; }
+      p.lede { color: var(--dim); margin: 0 0 2.5rem; max-width: 46rem; }
+      /* Row gap is deliberately larger than the space between a picture and its own caption, so
+         each block reads as one item rather than the text floating between two rows. */
+      .grid { display: grid; column-gap: .9rem; row-gap: 1.8rem;
+              grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); }
+      .item { display: flex; flex-direction: column; }
+      /* The border frames the picture and nothing else — caption and detail sit on the page, so
+         the eye lands on the thumbnails rather than on a grid of boxed text. */
+      .frame { display: block; background: var(--card); border: 1px solid var(--line);
+               border-radius: .5rem; overflow: hidden; transition: border-color .12s; }
+      .frame:hover { border-color: var(--dim); }
+      .shot { display: block; aspect-ratio: 4 / 3; background: var(--shot) center/cover no-repeat; }
+      /* The frame's corner radius pulls its visible edge inward, so text set at x=0 optically
+         hangs left of the picture. A few pixels puts the two back in line. */
+      .cap, .det { padding-left: 3px; }
+      .cap { display: block; margin-top: .65rem; font-weight: 600; color: var(--fg);
+             text-decoration: none; }
+      .cap:hover { text-decoration: underline; }
+      .det { margin-top: .2rem; font-size: .7rem; font-family: ui-monospace, monospace; }
+      .det a { color: var(--dim); text-decoration: none; }
+      .det a:hover { color: var(--fg); }
+      .sep { color: var(--dim); opacity: .4; margin: 0 .12rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Away3D Examples (Flight SDK)</h1>
+      <p class="lede">13 examples remastered from openfl/away3d-samples. Each is
+        self-contained and registers only the renderer pieces it uses, which is what keeps the
+        bundles small. These are WebGL only — 3D content has no Canvas or DOM equivalent. Hover a name
+        for its bundle size, or see SIZES.md for the full table.</p>
+      <div class="grid">
+      <div class="item">
+        <a class="frame" href="fire/">
+          <span class="shot" style="background-image:url('thumbs/fire.png')"></span>
+        </a>
+        <a class="cap" href="fire/" data-id="fire">Fire</a>
+        
+      </div>
+      <div class="item">
+        <a class="frame" href="globe/">
+          <span class="shot" style="background-image:url('thumbs/globe.png')"></span>
+        </a>
+        <a class="cap" href="globe/" data-id="globe">Globe</a>
+        
+      </div>
+      <div class="item">
+        <a class="frame" href="load-3ds/">
+          <span class="shot" style="background-image:url('thumbs/load-3ds.png')"></span>
+        </a>
+        <a class="cap" href="load-3ds/" data-id="load-3ds">Load 3ds</a>
+        
+      </div>
+      <div class="item">
+        <a class="frame" href="load-awd/">
+          <span class="shot" style="background-image:url('thumbs/load-awd.png')"></span>
+        </a>
+        <a class="cap" href="load-awd/" data-id="load-awd">Load Awd</a>
+        
+      </div>
+      <div class="item">
+        <a class="frame" href="md5-animation/">
+          <span class="shot" style="background-image:url('thumbs/md5-animation.png')"></span>
+        </a>
+        <a class="cap" href="md5-animation/" data-id="md5-animation">Md5 Animation</a>
+        
+      </div>
+      <div class="item">
+        <a class="frame" href="monster-head-shading/">
+          <span class="shot" style="background-image:url('thumbs/monster-head-shading.png')"></span>
+        </a>
+        <a class="cap" href="monster-head-shading/" data-id="monster-head-shading">Monster Head Shading</a>
+        
+      </div>
+      <div class="item">
+        <a class="frame" href="mouse-interaction/">
+          <span class="shot" style="background-image:url('thumbs/mouse-interaction.png')"></span>
+        </a>
+        <a class="cap" href="mouse-interaction/" data-id="mouse-interaction">Mouse Interaction</a>
+        
+      </div>
+      <div class="item">
+        <a class="frame" href="particle-explosions/">
+          <span class="shot" style="background-image:url('thumbs/particle-explosions.png')"></span>
+        </a>
+        <a class="cap" href="particle-explosions/" data-id="particle-explosions">Particle Explosions</a>
+        
+      </div>
+      <div class="item">
+        <a class="frame" href="perelith-knight/">
+          <span class="shot" style="background-image:url('thumbs/perelith-knight.png')"></span>
+        </a>
+        <a class="cap" href="perelith-knight/" data-id="perelith-knight">Perelith Knight</a>
+        
+      </div>
+      <div class="item">
+        <a class="frame" href="shading/">
+          <span class="shot" style="background-image:url('thumbs/shading.png')"></span>
+        </a>
+        <a class="cap" href="shading/" data-id="shading">Shading</a>
+        
+      </div>
+      <div class="item">
+        <a class="frame" href="skybox/">
+          <span class="shot" style="background-image:url('thumbs/skybox.png')"></span>
+        </a>
+        <a class="cap" href="skybox/" data-id="skybox">Skybox</a>
+        
+      </div>
+      <div class="item">
+        <a class="frame" href="sponza-demo/">
+          <span class="shot" style="background-image:url('thumbs/sponza-demo.png')"></span>
+        </a>
+        <a class="cap" href="sponza-demo/" data-id="sponza-demo">Sponza Demo</a>
+        
+      </div>
+      <div class="item">
+        <a class="frame" href="view/">
+          <span class="shot" style="background-image:url('thumbs/view.png')"></span>
+        </a>
+        <a class="cap" href="view/" data-id="view">View</a>
+        
+      </div>
+      </div>
+    </main>
+    <script>
+      // Sizes are deliberately not printed on the cards -- they would crowd out the pictures. They
+      // ride along as tooltips instead, filled from the optional sizes.json that npm run sizes
+      // writes. Absent in a plain clone, in which case the links simply have no tooltip.
+      fetch('sizes.json')
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (!data) return;
+          // No renderer split here, so the size hangs off the name rather than a backend link.
+          document.querySelectorAll('.cap').forEach(function (a) {
+            var entry = data.samples && data.samples[a.dataset.id];
+            var bytes = entry && entry.renderers && Object.values(entry.renderers)[0];
+            if (typeof bytes === 'number') a.title = (bytes / 1024).toFixed(1) + ' KB';
+          });
+        })
+        .catch(function () {});
+    </script>
+  </body>
+</html>

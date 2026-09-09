@@ -1,1 +1,12 @@
+node_modules/
+dist/
+out/
+.sizes/
+*.tsbuildinfo
+.DS_Store
+
+# generated for publishing by `npm run thumbs`
+ts/src/thumbs/
+ts/src/sizes.json
+
 .quimby

@@ -1,0 +1,36 @@
+{
+  "name": "@flighthq-ports/away3d-examples",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "description": "The Away3D examples, remastered for Flight.",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "gallery": "tsx scripts/gallery.ts",
+    "thumbs": "tsx scripts/thumbs.ts",
+    "eject": "tsx scripts/eject.ts",
+    "sizes": "tsx scripts/size-table.ts",
+    "dist": "npm run thumbs && npm run sizes && npm run gallery && npm run build",
+    "lint:assets": "tsx scripts/lint-assets.ts",
+    "check": "npm run typecheck && npm run lint:assets && npm run build"
+  },
+  "dependencies": {
+    "@flighthq/effects-gl": "^0.3.1-next.617.89baf58",
+    "@flighthq/render-gl": "^0.3.1-next.617.89baf58",
+    "@flighthq/sdk": "^0.3.1-next.617.89baf58"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "playwright": "^1.61.1",
+    "tsx": "^4.22.4",
+    "typescript": "^5.9.2",
+    "vite": "^7.0.2"
+  }
+}
