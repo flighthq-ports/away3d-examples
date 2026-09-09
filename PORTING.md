@@ -81,6 +81,13 @@ named subsystem. Those gaps are now corrected:
   map, depth fog, and keyboard animation controls.
 - `real-time-env-map` restores the heightmap desert, keyboard vehicle physics, following camera, and
   live six-face environment capture.
+
+The original PolarBear and tictac AWD files tag their tightly packed 16-bit triangle-index streams as
+32-bit. Away3D ignores that tag and always reads these indices as unsigned shorts, while Flight honors
+it. The copied assets normalize those stream tags to 16-bit so both standalone samples render. Run
+`npm run normalize:awd-indices` after refreshing either asset from upstream. Flight's AWD parser also
+uses an external texture block's display name instead of its URL payload; `sprite-sheet-animation`
+therefore assigns its shipped textures explicitly while that importer gap remains.
 - `fractal-tree-demo` places twenty-five GPU-instanced copies of the generated tree across elevated,
   three-layer splat-composited terrain.
 - `shallow-water-demo` now advances displacement and velocity grids with a fixed-step finite-difference

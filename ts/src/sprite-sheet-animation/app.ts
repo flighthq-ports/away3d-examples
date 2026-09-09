@@ -2,7 +2,6 @@ import type { Mesh, PerspectiveProjection, Texture } from '@flighthq/sdk';
 import {
   addNodeChild,
   bakeGlEnvironmentIbl,
-  createBuiltInScene3DResourceResolver,
   createCamera3D,
   createEnvironment,
   createFxaaEffect,
@@ -11,6 +10,7 @@ import {
   createScene3D,
   createScene3DFromDocument,
   createScene3DLights,
+  createStandardPbrMaterial,
   createTexture,
   createToneMapEffect,
   createUnlitMaterial,
@@ -18,7 +18,6 @@ import {
   isMesh,
   loadImageResourceFromUrl,
   loadScene3DDocumentFromAwd2Url,
-  loadScene3DResources,
   registerDeflateDecompressor,
   registerWebImageDecoders,
   setCamera3DViewMatrix4FromLookAt,
@@ -67,22 +66,37 @@ lights.point![2]!.position.y = 2583;
 lights.point![2]!.position.z = 8319;
 
 const assetRoot = 'away3d/SpriteSheetAnimation/';
-const [sceneDocument, environmentFaces] = await Promise.all([
+const staticTextureFiles = {
+  backside: 'm_backside.jpg',
+  body: 'm_body.jpg',
+  chromebody: 'm_chromebody.jpg',
+  drawerbtn: 'm_drawerbtn.jpg',
+  frontscreen: 'm_frontscreen.jpg',
+  furniture: 'm_furniture.jpg',
+  wall: 'm_wall.jpg',
+  wire: 'm_wire.jpg',
+} as const;
+const [sceneDocument, environmentFaces, staticTextureEntries, furnitureNormal] = await Promise.all([
   loadScene3DDocumentFromAwd2Url(ctx.host, `${assetRoot}tictac/tictac.awd`),
   Promise.all(
     [0, 1, 2, 3, 4, 5].map((face) =>
       loadImageResourceFromUrl(ctx.host, `${assetRoot}spritesheets/textures/back_CB${face}.jpg`),
     ),
   ),
+  Promise.all(Object.entries(staticTextureFiles).map(async ([name, file]) => [
+    name,
+    await loadImageResourceFromUrl(ctx.host, `${assetRoot}tictac/textures/${file}`),
+  ] as const)),
+  loadImageResourceFromUrl(ctx.host, `${assetRoot}tictac/textures/furniture_NM.jpg`),
 ]);
 if (!sceneDocument) throw new Error('Could not load compressed tictac AWD');
 const clock = createScene3DFromDocument(sceneDocument);
-await loadScene3DResources(clock, createBuiltInScene3DResourceResolver(ctx.host));
 addNodeChild(scene.root, clock.root);
 bakeGlEnvironmentIbl(ctx.state, createEnvironment({
   environment: createCubeTextureFromAwayFaces(ctx.host, environmentFaces),
   intensity: 0.7,
 }));
+const staticTextures = new Map(staticTextureEntries);
 
 function makeSheet(
   columns: number,
@@ -168,6 +182,25 @@ walkNodeDescendants(clock.root, (node) => {
   } else if (mesh.name === 'button') {
     pulseTexture = createSpriteTexture(pulseSheet, 4, 3);
     mesh.materials = [createUnlitMaterial({ baseColor: 0xffffffff, baseColorMap: pulseTexture })];
+  } else {
+    const image = staticTextures.get(mesh.name ?? '');
+    if (image) {
+      const texture = createTexture({ source: image });
+      if (mesh.name === 'frontscreen') {
+        mesh.materials = [createUnlitMaterial({ baseColor: 0xffffffff, baseColorMap: texture })];
+      } else {
+        const chrome = mesh.name === 'chromebody';
+        mesh.materials = [createStandardPbrMaterial({
+          baseColor: 0xffffffff,
+          baseColorMap: texture,
+          normalMap: mesh.name === 'furniture'
+            ? createTexture({ source: furnitureNormal, colorSpace: 'linear' })
+            : undefined,
+          metallic: chrome ? 0.82 : 0,
+          roughness: chrome ? 0.22 : 0.68,
+        })];
+      }
+    }
   }
   return true;
 });

@@ -135,11 +135,14 @@ walkNodeDescendants(model.root, (node) => {
   }
   return true;
 });
-setVector3(model.root.scale, 1.5, 1.5, 1.5);
-setVector3(model.root.position, 0, 0, -1000);
-let bearHeading = -Math.PI / 4;
-setQuaternionFromEuler(model.root.rotation, 0, bearHeading, 0);
-invalidateNodeLocalTransform(model.root);
+const bearMesh = skinned.find((mesh) => mesh.name === 'PolarBear') ?? skinned[0];
+if (!bearMesh) throw new Error('PolarBear.awd did not contain a skinned mesh');
+setVector3(bearMesh.scale, bearMesh.scale.x * 1.5, bearMesh.scale.y * 1.5, bearMesh.scale.z * 1.5);
+setVector3(bearMesh.position, 0, 0, -1000);
+// Mirroring Away3D's +Z-forward space into Flight negates rotations around Y.
+let bearHeading = Math.PI / 4;
+setQuaternionFromEuler(bearMesh.rotation, 0, bearHeading, 0);
+invalidateNodeLocalTransform(bearMesh);
 addNodeChild(scene.root, model.root);
 
 const groundSampler = createTilingSampler();
@@ -246,9 +249,9 @@ window.addEventListener('keydown', (event) => {
   } else if (event.code === 'KeyS' || event.code === 'ArrowDown') {
     playMovement(-1);
   } else if (event.code === 'KeyA' || event.code === 'ArrowLeft') {
-    rotationPerFrame = -3;
-  } else if (event.code === 'KeyD' || event.code === 'ArrowRight') {
     rotationPerFrame = 3;
+  } else if (event.code === 'KeyD' || event.code === 'ArrowRight') {
+    rotationPerFrame = -3;
   } else {
     return;
   }
@@ -290,8 +293,8 @@ function frame(timestamp: number): void {
   animation.step(deltaTime);
   for (const mesh of skinned) updateMeshSkin(mesh);
   bearHeading += rotationPerFrame * deltaTime * 60 * Math.PI / 180;
-  setQuaternionFromEuler(model.root.rotation, 0, bearHeading, 0);
-  invalidateNodeLocalTransform(model.root);
+  setQuaternionFromEuler(bearMesh.rotation, 0, bearHeading, 0);
+  invalidateNodeLocalTransform(bearMesh);
   stepParticleEmitter3D(snowfall, snowState, snowConfig, deltaTime);
   orbit.update();
   configureDirectionalShadowCamera3D(shadowCamera, awaySun.directional.direction, shadowBounds);

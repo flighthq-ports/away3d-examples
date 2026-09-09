@@ -19,6 +19,7 @@
     "sizes": "tsx scripts/size-table.ts",
     "dist": "npm run thumbs && npm run sizes && npm run gallery && npm run build",
     "lint:assets": "tsx scripts/lint-assets.ts",
+    "normalize:awd-indices": "tsx scripts/normalize-away-awd-indices.ts",
     "check": "npm run typecheck && npm run lint:assets && npm run build"
   },
   "dependencies": {
