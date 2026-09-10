@@ -8,6 +8,8 @@ import {
   createGlRenderTexturePool,
   createPerspectiveProjection,
   createPlane,
+  matrix4TransformPoint,
+  setPlaneFromNormalAndPoint,
   drawGlEnvironmentSkybox,
   drawGlScene3D,
   registerGlRenderTextureResolver,
@@ -236,6 +238,13 @@ addNodeChild(scene.root, mirror);
 
 // The mirror plane in world space, normal facing the side the camera sits on (-Z).
 const mirrorPlane = createPlane(0, 0, -1, MIRROR_Z);
+// Scratch for expressing that same plane in the reflected camera's view space each frame.
+const mirrorPoint = createVector3(0, 0, MIRROR_Z);
+const mirrorNormalTip = createVector3(0, 0, MIRROR_Z - 1);
+const clipPointView = createVector3();
+const clipTipView = createVector3();
+const clipNormalView = createVector3();
+const reflectionClipPlane = createPlane(0, 0, -1, MIRROR_Z);
 const reflectedCamera = createCamera3D({
   near: CAMERA_NEAR,
   far: CAMERA_FAR,
@@ -336,6 +345,22 @@ function frame(timestamp: number): void {
     reflectCamera3DByPlane(reflectedCamera, camera, mirrorPlane);
     (reflectedCamera.projection as PerspectiveProjection).aspect =
       (camera.projection as PerspectiveProjection).aspect;
+
+    // Clip the reflection at the mirror plane so geometry behind the mirror cannot leak into it.
+    // applyObliqueNearClipPlane wants the plane in VIEW space with its normal pointing into the
+    // visible half-space, so the world plane is carried through the reflected camera's view
+    // matrix (a point on it, plus a second point one unit along its normal). Assigned after
+    // reflectCamera3DByPlane, which copies nearClipPlane from its source camera.
+    matrix4TransformPoint(clipPointView, reflectedCamera.view, mirrorPoint);
+    matrix4TransformPoint(clipTipView, reflectedCamera.view, mirrorNormalTip);
+    setVector3(
+      clipNormalView,
+      clipTipView.x - clipPointView.x,
+      clipTipView.y - clipPointView.y,
+      clipTipView.z - clipPointView.z,
+    );
+    setPlaneFromNormalAndPoint(reflectionClipPlane, clipNormalView, clipPointView);
+    reflectedCamera.nearClipPlane = reflectionClipPlane;
     gl.clearColor(0, 0, 0, 1);
     gl.clearDepth(1);
     gl.depthMask(true);

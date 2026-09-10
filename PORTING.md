@@ -45,21 +45,22 @@ lighting treatment.
 
 The samples keep these gaps visible instead of silently converting the input or dropping the feature:
 
-- **Planar reflection capture:** closed. `planar-reflections` now renders a real reflection rather
-  than a mirrored-scene stand-in: `reflectCamera3DByPlane` mirrors the camera through the mirror's
-  world plane, the scene and skybox are drawn from that camera into a render texture acquired from
-  a `GlRenderTexturePool`, and a small custom-shader material samples that texture by screen
-  position (`gl_FragCoord.xy / u_resolution`), which is the correct lookup because the reflection
-  shares the main view's projection and resolution. The mirror is hidden for the reflection pass so
-  it cannot reflect itself, and the winding order is flipped for it because reflecting a camera
+- **Planar reflection capture:** closed. `planar-reflections` renders a real reflection.
+  `reflectCamera3DByPlane` mirrors the camera through the mirror's world plane; the scene and
+  skybox are drawn from that camera into a render texture taken from a `GlRenderTexturePool`; and
+  a small custom-shader material samples that texture by screen position
+  (`gl_FragCoord.xy / u_resolution`), which is the correct lookup because the reflection shares
+  the main view's projection and resolution. The mirror is hidden for the reflection pass so it
+  cannot reflect itself, and the winding order is flipped for it because reflecting a camera
   reverses handedness.
 
-  One refinement is still missing: Away3D clips the reflection at the mirror plane with an oblique
-  near plane, so geometry behind the mirror cannot leak into it. `applyObliqueNearClipPlane` exists
-  and does exactly that, but it rewrites a projection **matrix**, while `Camera3D` carries a
-  projection **descriptor** (`fovY`/`aspect`) that `drawGlScene3D` expands internally — so there is
-  no seam to hand it an oblique matrix through this draw path. Reaching it would need a lower-level
-  draw that accepts a projection matrix directly.
+  Clipping at the mirror plane is handled too, so geometry behind the mirror cannot leak into the
+  reflection: the reflected camera's `nearClipPlane` is set to the mirror plane expressed in that
+  camera's view space, and `getCamera3DViewProjectionMatrix4` feeds it through
+  `applyObliqueNearClipPlane` internally. Two details matter — the plane must be in VIEW space with
+  its normal pointing into the visible half-space (`d = -dot(normal, pointOnPlane)`, which is what
+  `setPlaneFromNormalAndPoint` produces), and it has to be assigned AFTER `reflectCamera3DByPlane`,
+  which copies `nearClipPlane` from its source camera. Requires SDK 0.5.1-next.1056 or newer.
 
 Compressed AWD assets in the Onkba, polar bear, and clock samples are supported. Those examples call
 `registerDeflateDecompressor()` before parsing, then use the imported skeleton clips or named clock
