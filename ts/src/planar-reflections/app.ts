@@ -1,7 +1,18 @@
 import type { MeshGeometry, Node3D, PerspectiveProjection } from '@flighthq/sdk';
 import {
+  acquireGlRenderTexture,
+  createCustomShaderMaterial,
   addNodeChild,
   bakeGlEnvironmentIbl,
+  createCamera3D,
+  createGlRenderTexturePool,
+  createPerspectiveProjection,
+  createPlane,
+  drawGlEnvironmentSkybox,
+  drawGlScene3D,
+  registerGlRenderTextureResolver,
+  reflectCamera3DByPlane,
+  renderIntoGlRenderTexture,
   computeMeshGeometryNormals,
   computeMeshGeometryTangents,
   createEnvironment,
@@ -31,6 +42,7 @@ import {
 import { awayDirection, bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
 import { createDirectionalLightFromAway } from '../../shared/lighting';
 import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
+import { registerMirrorShader } from './mirrorShader';
 import { createScene3DContext } from './renderer';
 
 const assetRoot = 'away3d/PlanarReflections/';
@@ -178,7 +190,7 @@ scaleMeshGeometryUvs(floorGeometry, (800 / TERRAIN_SIZE) * 25, (800 / TERRAIN_SI
 addNodeChild(scene.root, createMesh(floorGeometry, [createSandMaterial()]));
 
 // R2D2, scaled 5 and started at (200, 30, 0).
-function loadR2D2(mirrored: boolean): Node3D {
+function loadR2D2(): Node3D {
   const model = createScene3DFromObj(obj);
   const material = createStandardPbrMaterial({
     baseColor: 0xffffffff,
@@ -190,34 +202,45 @@ function loadR2D2(mirrored: boolean): Node3D {
     if (isMesh(node)) node.materials = [material];
     return true;
   });
-  // A mirrored copy is flipped through the plane, which reverses its handedness.
-  setVector3(model.root.scale, R2D2_SCALE, R2D2_SCALE, mirrored ? -R2D2_SCALE : R2D2_SCALE);
+  setVector3(model.root.scale, R2D2_SCALE, R2D2_SCALE, R2D2_SCALE);
   invalidateNodeLocalTransform(model.root);
   addNodeChild(scene.root, model.root);
   return model.root;
 }
-const r2d2 = loadR2D2(false);
-// Flight has no planar reflection texture, so the mirror is fed a copy of the subject reflected
-// through the mirror plane rather than a real render-to-texture capture. See PORTING.md.
-const r2d2Reflection = loadR2D2(true);
+const r2d2 = loadR2D2();
 
 // PlaneGeometry(400, 200, 1, 1, false) is authored upright, sat on the ground (y = maxY) at z = -200.
+registerMirrorShader(ctx.state);
+registerGlRenderTextureResolver(ctx.state);
+const reflectionPool = createGlRenderTexturePool();
+const reflectionTexture = acquireGlRenderTexture(ctx.state, reflectionPool, {
+  width: Math.max(1, Math.floor(ctx.canvas.width)),
+  height: Math.max(1, Math.floor(ctx.canvas.height)),
+  depth: 'depth-stencil',
+  format: 'rgba8',
+});
+
+const mirrorMaterial = createCustomShaderMaterial({
+  shaderKey: 'planarMirror',
+  textures: { u_reflection: reflectionTexture },
+  uniforms: { u_resolution: [ctx.canvas.width, ctx.canvas.height], u_strength: 0.9 },
+});
+// The panel is a single quad viewed from either side, so it must not be back-face culled.
+mirrorMaterial.doubleSided = true;
 const mirrorGeometry = createPlaneMeshGeometry(MIRROR_WIDTH, MIRROR_HEIGHT, 1, 1);
-const mirror = createMesh(mirrorGeometry, [createStandardPbrMaterial({
-  // The original is ColorMaterial(0x000000, 0.9) with the planar reflection ADDED over it, so the
-  // panel reads dark but the reflection is bright. This fallback has no reflection to add — the
-  // mirrored copy sits behind the plane — so the tint is kept dark but largely transmissive,
-  // letting that copy through instead of hiding it behind a 90% opaque black.
-  baseColor: 0x0c0c146b,
-  metallic: 0.9,
-  roughness: 0.1,
-  alphaMode: 'blend',
-  doubleSided: true,
-})]);
+const mirror = createMesh(mirrorGeometry, [mirrorMaterial]);
 setVector3(mirror.position, 0, MIRROR_HEIGHT / 2, MIRROR_Z);
 setQuaternionFromEuler(mirror.rotation, Math.PI / 2, 0, 0);
 invalidateNodeLocalTransform(mirror);
 addNodeChild(scene.root, mirror);
+
+// The mirror plane in world space, normal facing the side the camera sits on (-Z).
+const mirrorPlane = createPlane(0, 0, -1, MIRROR_Z);
+const reflectedCamera = createCamera3D({
+  near: CAMERA_NEAR,
+  far: CAMERA_FAR,
+  projection: createPerspectiveProjection({ fovY: (camera.projection as PerspectiveProjection).fovY, aspect: 1 }),
+});
 
 // The original's on-screen instructions, verbatim, at its 11px/(0,100) placement.
 const help = document.createElement('div');
@@ -301,18 +324,32 @@ function frame(timestamp: number): void {
   setQuaternionFromEuler(r2d2.rotation, 0, heading, 0);
   invalidateNodeLocalTransform(r2d2);
 
-  // Reflect the subject through the mirror plane (z = MIRROR_Z, facing +Z): the position mirrors
-  // about the plane and the heading flips to PI - heading.
-  setVector3(
-    r2d2Reflection.position,
-    r2d2.position.x,
-    r2d2.position.y,
-    2 * MIRROR_Z - r2d2.position.z,
-  );
-  setQuaternionFromEuler(r2d2Reflection.rotation, 0, Math.PI - heading, 0);
-  invalidateNodeLocalTransform(r2d2Reflection);
-
   orbit.update();
+
+  // Real planar reflection: reflect the camera through the mirror plane, render the scene from
+  // there into a render texture, and let the mirror's shader sample it by screen position. The
+  // mirror is hidden for that pass so it cannot reflect itself, and the winding order is flipped
+  // because reflecting the camera reverses handedness.
+  mirror.visible = false;
+  renderIntoGlRenderTexture(ctx.state, reflectionTexture, (reflectionState) => {
+    const gl = reflectionState.gl;
+    reflectCamera3DByPlane(reflectedCamera, camera, mirrorPlane);
+    (reflectedCamera.projection as PerspectiveProjection).aspect =
+      (camera.projection as PerspectiveProjection).aspect;
+    gl.clearColor(0, 0, 0, 1);
+    gl.clearDepth(1);
+    gl.depthMask(true);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    drawGlEnvironmentSkybox(
+      reflectionState, environment, reflectedCamera, ctx.canvas.width / ctx.canvas.height,
+    );
+    gl.frontFace(gl.CW);
+    drawGlScene3D(reflectionState, scene.root, reflectedCamera, lights);
+    gl.frontFace(gl.CCW);
+  });
+
+  mirror.visible = true;
+
   ctx.render(scene.root, camera, lights, environment);
   requestAnimationFrame(frame);
 }
