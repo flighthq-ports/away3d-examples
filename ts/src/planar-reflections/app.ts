@@ -157,11 +157,16 @@ const heightContext = heightCanvas.getContext('2d', { willReadFrequently: true }
 if (!heightContext) throw new Error('A 2D canvas is required to decode the desert heightmap');
 heightContext.drawImage(heightImage.source, 0, 0);
 const heightPixels = heightContext.getImageData(0, 0, heightCanvas.width, heightCanvas.height).data;
+// Elevation reads one texel per vertex (no filtering): column `xi * (mapWidth - 1) / segmentsW`
+// and row `(segmentsH - zi) * (mapHeight - 1) / segmentsH`. That row counts DOWN as Away3D z rises,
+// and this port negates z against Away3D, so the row has to count UP with Flight z — sampling
+// `1 - v` here instead mirrors the whole desert front-to-back, which is most visible in the mirror
+// because the mirror shows the terrain behind the camera.
 function terrainHeight(x: number, z: number): number {
   const u = Math.max(0, Math.min(1, x / TERRAIN_SIZE + 0.5));
   const v = Math.max(0, Math.min(1, z / TERRAIN_SIZE + 0.5));
-  const px = Math.min(heightCanvas.width - 1, Math.floor(u * heightCanvas.width));
-  const py = Math.min(heightCanvas.height - 1, Math.floor((1 - v) * heightCanvas.height));
+  const px = Math.min(heightCanvas.width - 1, Math.round(u * (heightCanvas.width - 1)));
+  const py = Math.min(heightCanvas.height - 1, Math.round(v * (heightCanvas.height - 1)));
   return (heightPixels[(py * heightCanvas.width + px) * 4]! / 255) * TERRAIN_HEIGHT - 3;
 }
 
@@ -242,11 +247,28 @@ setQuaternionFromEuler(mirror.rotation, Math.PI / 2, 0, 0);
 invalidateNodeLocalTransform(mirror);
 addNodeChild(scene.root, mirror);
 
-// The mirror plane in world space, normal facing the side the camera sits on (-Z).
+// Reflecting the CAMERA through the mirror plane is the textbook formulation, but it does not
+// survive this renderer: a reflected view matrix mirrors handedness, so every triangle arrives with
+// its winding reversed, and the front-face convention is chosen per mesh from the WORLD matrix
+// alone (glMeshProgram), which a reflected camera leaves untouched. The renderer also rewrites
+// gl.frontFace on every draw, so setting it from out here is overwritten before the first triangle.
+// The result is that the surfaces the reflection should show are culled: the flat ground disappears
+// and only the steeper dune faces survive, as torn ribbons with the skybox through the gaps.
+// Disabling culling instead makes those surfaces draw as back faces and shade black, which is the
+// same bug wearing a different hat.
+//
+// So the scene is mirrored rather than the camera. Reflecting the geometry through the plane and
+// viewing it with the real camera yields the identical projection, but now the world matrices
+// genuinely mirror, isMirroringWorldMatrix sees it, and the renderer flips the winding itself. The
+// directional light is mirrored along with the scene so the reflected shading matches the shading
+// of what is being reflected.
+
+// The mirror plane in world space. The half-space the reflected images occupy is z > MIRROR_Z
+// (a reflection sits *behind* the glass), so the clip normal points along +Z.
 const mirrorPlane = createPlane(0, 0, -1, MIRROR_Z);
-// Scratch for expressing that same plane in the reflected camera's view space each frame.
+// Scratch for expressing that same plane in the camera's view space each frame.
 const mirrorPoint = createVector3(0, 0, MIRROR_Z);
-const mirrorNormalTip = createVector3(0, 0, MIRROR_Z - 1);
+const mirrorNormalTip = createVector3(0, 0, MIRROR_Z + 1);
 const clipPointView = createVector3();
 const clipTipView = createVector3();
 const clipNormalView = createVector3();
@@ -340,24 +362,21 @@ function frame(timestamp: number): void {
   invalidateNodeLocalTransform(r2d2);
 
   orbit.update();
-  // Real planar reflection: reflect the camera through the mirror plane, render the scene from
-  // there into a render texture, and let the mirror's shader sample it by screen position. The
-  // mirror is hidden for that pass so it cannot reflect itself, and the winding order is flipped
-  // because reflecting the camera reverses handedness.
+  // Real planar reflection: mirror the scene through the mirror plane, render it from the ordinary
+  // camera into a render texture, and let the mirror's shader sample that by screen position. The
+  // mirror is hidden for the pass so it cannot reflect itself. See the note above the mirror plane
+  // for why the scene is mirrored rather than the camera.
   mirror.visible = false;
   renderIntoGlRenderTexture(ctx.state, reflectionTexture, (reflectionState) => {
     const gl = reflectionState.gl;
-    reflectCamera3DByPlane(reflectedCamera, camera, mirrorPlane);
-    (reflectedCamera.projection as PerspectiveProjection).aspect =
-      (camera.projection as PerspectiveProjection).aspect;
 
-    // Clip the reflection at the mirror plane so geometry behind the mirror cannot leak into it.
+    // Clip at the mirror plane so scenery on the far side of the glass, which mirrors into the
+    // space between the camera and the mirror, cannot draw over the reflection.
     // applyObliqueNearClipPlane wants the plane in VIEW space with its normal pointing into the
-    // visible half-space, so the world plane is carried through the reflected camera's view
-    // matrix (a point on it, plus a second point one unit along its normal). Assigned after
-    // reflectCamera3DByPlane, which copies nearClipPlane from its source camera.
-    matrix4TransformPoint(clipPointView, reflectedCamera.view, mirrorPoint);
-    matrix4TransformPoint(clipTipView, reflectedCamera.view, mirrorNormalTip);
+    // visible half-space, so the world plane is carried through the camera's view matrix as a
+    // point on it plus a second point one unit along its normal.
+    matrix4TransformPoint(clipPointView, camera.view, mirrorPoint);
+    matrix4TransformPoint(clipTipView, camera.view, mirrorNormalTip);
     setVector3(
       clipNormalView,
       clipTipView.x - clipPointView.x,
@@ -365,15 +384,36 @@ function frame(timestamp: number): void {
       clipTipView.z - clipPointView.z,
     );
     setPlaneFromNormalAndPoint(reflectionClipPlane, clipNormalView, clipPointView);
-    reflectedCamera.nearClipPlane = reflectionClipPlane;
+    camera.nearClipPlane = reflectionClipPlane;
+
     gl.clearColor(0, 0, 0, 1);
     gl.clearDepth(1);
     gl.depthMask(true);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    // The environment is infinitely distant, so it cannot be mirrored by a node transform; it is
+    // drawn with the reflected camera instead. That agrees with the mirrored scene exactly — the
+    // reflected camera's view of the real world and the real camera's view of the mirrored world
+    // are the same projection.
+    reflectCamera3DByPlane(reflectedCamera, camera, mirrorPlane);
+    (reflectedCamera.projection as PerspectiveProjection).aspect =
+      (camera.projection as PerspectiveProjection).aspect;
+    reflectedCamera.nearClipPlane = null;
     drawGlEnvironmentSkybox(
       reflectionState, environment, reflectedCamera, ctx.canvas.width / ctx.canvas.height,
     );
-    drawGlScene3D(reflectionState, scene.root, reflectedCamera, lights);
+
+    setVector3(scene.root.scale, 1, 1, -1);
+    setVector3(scene.root.position, 0, 0, 2 * MIRROR_Z);
+    invalidateNodeLocalTransform(scene.root);
+    directional.direction.z = -directional.direction.z;
+    drawGlScene3D(reflectionState, scene.root, camera, lights);
+    directional.direction.z = -directional.direction.z;
+    setVector3(scene.root.scale, 1, 1, 1);
+    setVector3(scene.root.position, 0, 0, 0);
+    invalidateNodeLocalTransform(scene.root);
+
+    camera.nearClipPlane = null;
   });
 
   mirror.visible = true;
