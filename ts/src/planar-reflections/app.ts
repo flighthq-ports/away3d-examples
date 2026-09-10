@@ -340,7 +340,6 @@ function frame(timestamp: number): void {
   invalidateNodeLocalTransform(r2d2);
 
   orbit.update();
-
   // Real planar reflection: reflect the camera through the mirror plane, render the scene from
   // there into a render texture, and let the mirror's shader sample it by screen position. The
   // mirror is hidden for that pass so it cannot reflect itself, and the winding order is flipped

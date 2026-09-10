@@ -49,7 +49,11 @@ const assetRoot = 'away3d/OnkbaAWDAnimation/onkba/';
 const SKY_COLOR = 0x333338;
 const ZENITH_COLOR = 0x445465;
 const SUN_COLOR = 0xaaaaa9;
-const FOG_NEAR = 1000;
+// Where the haze starts to read. The fog effect ramps over NON-LINEAR window depth, so the
+// original's world-linear FogMethod(1000, 10000) range cannot be transplanted literally — depth
+// saturates so fast that mapping its near endpoint fogs the character itself. This window is
+// chosen for that ramp instead, keeping the subject clear and hazing the distance.
+const FOG_VISIBLE_NEAR = 1500;
 const FOG_FAR = 10000;
 const GROUND_Y = -480;
 
@@ -83,7 +87,7 @@ const ctx = createScene3DContext({
   effects: [
     createScreenSpaceFogEffect({
       color: linearRgba(SKY_COLOR),
-      near: depthAt(FOG_NEAR),
+      near: depthAt(FOG_VISIBLE_NEAR),
       far: depthAt(FOG_FAR),
       density: 1,
     }),
