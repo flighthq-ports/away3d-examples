@@ -3,6 +3,7 @@ import {
   addNodeChild,
   copyQuaternion,
   createBoxMeshGeometry,
+  createFxaaEffect,
   createMesh,
   createQuaternion,
   createScene3D,
@@ -10,39 +11,69 @@ import {
   createUnlitMaterial,
   createVector3,
   invalidateNodeLocalTransform,
-  normalizeVector3,
   setCamera3DViewMatrix4FromLookAt,
   setQuaternionFromAxisAngle,
 } from '@flighthq/sdk';
 import { createCameraFromAway } from '../../shared/camera';
 import { createScene3DContext } from './renderer';
 
-const width = innerWidth / 2;
-const left = createScene3DContext({ width, height: innerHeight, mountId: 'left-eye', backgroundColor: 0x07090fff });
-const right = createScene3DContext({ width, height: innerHeight, mountId: 'right-eye', backgroundColor: 0x07090fff });
+// The original renders a red/cyan anaglyph, so the two eyes composite into ONE picture rather than
+// being drawn as a side-by-side stereo pair. Tone mapping is deliberately left out: it would shift
+// the channel balance the anaglyph depends on. FXAA stands in for the original's `antiAlias = 4`.
+const ctx = createScene3DContext({
+  width: innerWidth,
+  height: innerHeight,
+  backgroundColor: 0x000000ff,
+  effects: [createFxaaEffect()],
+});
+
 const scene = createScene3D();
-const material = createUnlitMaterial({ baseColor: 0xffcc00ff });
-const cube = createMesh(createBoxMeshGeometry(260, 260, 260), [material]);
+const lights = createScene3DLights();
+
+// CubeGeometry() defaults to 100 units in Away3D and the sample scales it by 5.
+const cube = createMesh(createBoxMeshGeometry(500, 500, 500), [
+  createUnlitMaterial({ baseColor: 0xffcc00ff }),
+]);
 addNodeChild(scene.root, cube);
-const leftCamera = createCameraFromAway({ far: 3000, aspect: width / innerHeight });
-const rightCamera = createCameraFromAway({ far: 3000, aspect: width / innerHeight });
-const target = createVector3(0, 0, 0); const up = createVector3(0, 1, 0);
-const leftEye = createVector3(-25, 0, 600); const rightEye = createVector3(25, 0, 600);
+
+// StereoCamera3D with stereoOffset = 50, i.e. the eyes sit 25 units either side of centre.
+const EYE_SEPARATION = 50;
+const aspect = innerWidth / innerHeight;
+const leftCamera = createCameraFromAway({ far: 5000, aspect });
+const rightCamera = createCameraFromAway({ far: 5000, aspect });
+const target = createVector3(0, 0, 0);
+const up = createVector3(0, 1, 0);
+const leftEye = createVector3(-EYE_SEPARATION / 2, 0, 1000);
+const rightEye = createVector3(EYE_SEPARATION / 2, 0, 1000);
 setCamera3DViewMatrix4FromLookAt(leftCamera, leftEye, target, up);
 setCamera3DViewMatrix4FromLookAt(rightCamera, rightEye, target, up);
-const lights = createScene3DLights();
-const rotation = createQuaternion(); const axis = createVector3(0.4, 1, 0.2);
-normalizeVector3(axis, axis);
-function frame(ts: number): void {
-  setQuaternionFromAxisAngle(rotation, axis, ts / 1200); copyQuaternion(cube.rotation, rotation); invalidateNodeLocalTransform(cube);
-  left.render(scene.root, leftCamera, lights); right.render(scene.root, rightCamera, lights); requestAnimationFrame(frame);
+
+// The original spins the cube on Y alone, at 2 degrees per frame (~120 degrees/second).
+const DEGREES_PER_SECOND = 2 * 60;
+const yAxis = createVector3(0, 1, 0);
+const rotation = createQuaternion();
+
+function frame(timestamp: number): void {
+  const radians = (timestamp / 1000) * DEGREES_PER_SECOND * Math.PI / 180;
+  setQuaternionFromAxisAngle(rotation, yAxis, radians);
+  copyQuaternion(cube.rotation, rotation);
+  invalidateNodeLocalTransform(cube);
+
+  ctx.renderAnaglyph(scene.root, leftCamera, rightCamera, lights);
+  requestAnimationFrame(frame);
 }
+
 window.addEventListener('resize', () => {
-  const w = innerWidth / 2; const h = innerHeight; const pr = devicePixelRatio || 1;
-  for (const ctx of [left, right]) {
-    ctx.canvas.width = w * pr; ctx.canvas.height = h * pr; ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  }
-  (leftCamera.projection as PerspectiveProjection).aspect = w / h;
-  (rightCamera.projection as PerspectiveProjection).aspect = w / h;
+  const width = innerWidth;
+  const height = innerHeight;
+  const pixelRatio = devicePixelRatio || 1;
+  ctx.canvas.width = width * pixelRatio;
+  ctx.canvas.height = height * pixelRatio;
+  ctx.canvas.style.width = `${width}px`;
+  ctx.canvas.style.height = `${height}px`;
+  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
+  (leftCamera.projection as PerspectiveProjection).aspect = width / height;
+  (rightCamera.projection as PerspectiveProjection).aspect = width / height;
 });
+
 requestAnimationFrame(frame);

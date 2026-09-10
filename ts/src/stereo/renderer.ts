@@ -41,7 +41,12 @@ export interface Scene3DContext {
   canvas: HTMLCanvasElement;
   height: number;
   host: typeof webHost;
-  render: (scene: Readonly<Node3D>, camera: Readonly<Camera3D>, lights: Readonly<Scene3DLights>) => void;
+  renderAnaglyph: (
+    scene: Readonly<Node3D>,
+    leftCamera: Readonly<Camera3D>,
+    rightCamera: Readonly<Camera3D>,
+    lights: Readonly<Scene3DLights>,
+  ) => void;
   state: GlRenderState;
   width: number;
 }
@@ -99,17 +104,36 @@ export function createScene3DContext(options: Readonly<Scene3DOptions> = {}): Sc
     canvas,
     height,
     host: webHost,
-    render(scene, camera, lights) {
+    // Stands in for Away3D's StereoView3D + AnaglyphStereoRenderMethod: one image, with the left
+    // eye written to the red channel and the right eye to green+blue, so the pair fuses through
+    // red/cyan glasses. Both eyes are drawn inside the same effect pipeline pass and the channel
+    // split is done with a colour mask, so the composite reaches the canvas as a single picture
+    // rather than as two side-by-side viewports.
+    renderAnaglyph(scene, leftCamera, rightCamera, lights) {
       if (pipeline === null) {
         pipeline = createGlRenderEffectPipeline(state, { format: 'rgba16f', depth: 'depth-stencil' });
       }
       beginGlRenderEffectPipeline(state, pipeline);
-      renderGlBackground(state);
       const gl = state.gl;
+
+      // Clear the background with every channel writable, before either eye masks itself in.
+      gl.colorMask(true, true, true, true);
+      renderGlBackground(state);
+
       gl.depthMask(true);
       gl.clearDepth(1);
       gl.clear(gl.DEPTH_BUFFER_BIT);
-      drawGlScene3D(state, scene, camera, lights);
+      gl.colorMask(true, false, false, true);
+      drawGlScene3D(state, scene, leftCamera, lights);
+
+      // Depth is cleared between eyes so the second view is not occluded by the first.
+      gl.depthMask(true);
+      gl.clearDepth(1);
+      gl.clear(gl.DEPTH_BUFFER_BIT);
+      gl.colorMask(false, true, true, true);
+      drawGlScene3D(state, scene, rightCamera, lights);
+
+      gl.colorMask(true, true, true, true);
       endGlRenderEffectPipeline(state, pipeline, effects);
     },
     state,
