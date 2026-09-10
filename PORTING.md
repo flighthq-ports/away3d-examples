@@ -183,3 +183,54 @@ dune field still looks like a plausible dune field; it only became obvious again
 Fixed in `planar-reflections`, `terrain-demo`, `real-time-env-map` and `fractal-tree-demo`. Note
 the port also scaled by `mapW`/`mapH` where Away3D scales by `mapW - 1`/`mapH - 1`, and Away3D
 truncates (`Std.int`), so the ports now use `Math.floor(v * (mapH - 1))`.
+
+### Away3D `moveForward` + `rotationY` invert under the Z negation (fixed)
+
+These ports negate Away3D's z. That reverses **two** things at once for any object steered the
+Away3D way — the sense of a rotation about Y, and the world direction the mesh's local +Z points
+in — so both the accumulated heading and the translation step have to be negated. Getting only one
+of them produces a robot that drives in the direction it is *not* facing; getting neither, as
+`planar-reflections` and `real-time-env-map` both did, produces controls that are exactly backwards
+(forward drives away, left steers right). The same sign rule applies to any fixed `rotationY` taken
+from an original: `real-time-env-map` sets `head.rotationY = -90`, which is `+Math.PI / 2` here.
+
+Verified against the original: holding W drives R2D2 toward the camera in both, and A takes the
+heading from 0 to +31.4 degrees, rotating the forward vector from -Z toward -X — a left turn.
+
+### Live environment capture and an Environment skybox contend for one slot
+
+`real-time-env-map` renders a live cube capture and bakes it as the scene IBL. The PBR path accepts
+a baked IBL only while its stamped revision still matches the runtime's:
+
+```js
+// glLitProgram.js
+const ibl = runtime.ibl?.environmentSourceRevision === runtime.environmentSourceRevision ? runtime.ibl : null;
+```
+
+`bakeGlEnvironmentCaptureIbl` destroys the environment source cube (bumping that revision) and
+`drawGlEnvironmentSkybox` rebuilds it (bumping it again), so the two features fight over a single
+runtime slot. The practical consequences, both of which cost every PBR surface its ambient term and
+render the reflective head pure black:
+
+- the bake must come **after** the skybox draw and before the lit draws — hence the `onBeforeScene`
+  hook in that sample's `renderer.ts`;
+- it must run on **every** frame. Capturing every N frames leaves the IBL stale on the other N-1,
+  so the head flickers black — and a screenshot almost always catches a bad frame, which is exactly
+  how this was initially misdiagnosed as "the capture produces a black cube". Reading a pixel back
+  out of a captured face (it was correctly full of sky and sand) is what ruled that out.
+
+Away3D has no equivalent problem because its `SkyBox` is an ordinary scene node, so
+`reflectionTexture.render(view)` picks it up for free. Flight's skybox is not in the scene graph, so
+the six faces are driven by hand here in order to draw the sky into each one.
+
+*Worth raising upstream:* `GlEnvironmentCaptureOptions` has no way to include an environment in the
+capture, and the capture/skybox revision contention is invisible to callers — it fails silently, as
+a lighting term quietly dropping out.
+
+### Deliberate deviation: planar-reflections uses a daytime sky
+
+The original pairs the `space_*` starfield with `FogMethod(0, 2000, 0x100215)`, but its desert is
+lit by a warm sun and renders bright — a night sky never agreed with it, and the mirror made the
+mismatch plain by putting dark sky beside lit ground. The port uses the `sky_*` faces Away3D ships
+with `RealTimeEnvMap` (same desert asset set) and the fog colour Away3D pairs with them there,
+`0x5f5e6e`. This also fixes R2D2 reading as murky grey: its IBL had been a black starfield.
