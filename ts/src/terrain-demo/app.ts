@@ -57,11 +57,14 @@ heightContext.drawImage(heightImage.source, 0, 0);
 const heightPixels = heightContext.getImageData(0, 0, heightCanvas.width, heightCanvas.height).data;
 
 const terrainSize = 5200;
+// Elevation reads one texel per vertex, at row `(segmentsH - zi)` — a row that counts DOWN as
+// Away3D z rises. This port negates z against Away3D, so the row must count UP with Flight z;
+// sampling `1 - v` mirrors the whole terrain front-to-back.
 function terrainHeight(x: number, z: number): number {
   const u = Math.max(0, Math.min(1, x / terrainSize + 0.5));
   const v = Math.max(0, Math.min(1, z / terrainSize + 0.5));
-  const px = Math.min(heightCanvas.width - 1, Math.floor(u * heightCanvas.width));
-  const py = Math.min(heightCanvas.height - 1, Math.floor((1 - v) * heightCanvas.height));
+  const px = Math.min(heightCanvas.width - 1, Math.floor(u * (heightCanvas.width - 1)));
+  const py = Math.min(heightCanvas.height - 1, Math.floor(v * (heightCanvas.height - 1)));
   return (heightPixels[(py * heightCanvas.width + px) * 4]! / 255) * 920 - 80;
 }
 

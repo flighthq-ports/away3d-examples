@@ -165,8 +165,8 @@ const heightPixels = heightContext.getImageData(0, 0, heightCanvas.width, height
 function terrainHeight(x: number, z: number): number {
   const u = Math.max(0, Math.min(1, x / TERRAIN_SIZE + 0.5));
   const v = Math.max(0, Math.min(1, z / TERRAIN_SIZE + 0.5));
-  const px = Math.min(heightCanvas.width - 1, Math.round(u * (heightCanvas.width - 1)));
-  const py = Math.min(heightCanvas.height - 1, Math.round(v * (heightCanvas.height - 1)));
+  const px = Math.min(heightCanvas.width - 1, Math.floor(u * (heightCanvas.width - 1)));
+  const py = Math.min(heightCanvas.height - 1, Math.floor(v * (heightCanvas.height - 1)));
   return (heightPixels[(py * heightCanvas.width + px) * 4]! / 255) * TERRAIN_HEIGHT - 3;
 }
 

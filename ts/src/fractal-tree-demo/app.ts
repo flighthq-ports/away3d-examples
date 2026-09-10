@@ -104,11 +104,14 @@ function pixels(image: Readonly<ImageResource>): ImageData {
 }
 
 const heightPixels = pixels(heightImage);
+// Elevation reads one texel per vertex, at row `(segmentsH - zi)` — a row that counts DOWN as
+// Away3D z rises. This port negates z against Away3D, so the row must count UP with Flight z;
+// sampling `1 - v` mirrors the whole terrain front-to-back.
 function terrainHeight(x: number, z: number): number {
   const u = Math.max(0, Math.min(1, x / TERRAIN_SIZE + 0.5));
   const v = Math.max(0, Math.min(1, z / TERRAIN_SIZE + 0.5));
-  const px = Math.min(heightPixels.width - 1, Math.floor(u * heightPixels.width));
-  const py = Math.min(heightPixels.height - 1, Math.floor((1 - v) * heightPixels.height));
+  const px = Math.min(heightPixels.width - 1, Math.floor(u * (heightPixels.width - 1)));
+  const py = Math.min(heightPixels.height - 1, Math.floor(v * (heightPixels.height - 1)));
   return TERRAIN_BASE + heightPixels.data[(py * heightPixels.width + px) * 4]! / 255 * TERRAIN_HEIGHT;
 }
 
