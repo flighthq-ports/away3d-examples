@@ -96,22 +96,21 @@ function scenePolygonCount(): number {
 }
 
 const stats = document.createElement('div');
-stats.textContent = `FPS: 0\nPLY: ${scenePolygonCount()}`;
 Object.assign(stats.style, {
-  position: 'fixed', left: '10px', top: '10px', zIndex: '10', color: '#fff',
-  font: '12px/1.4 monospace', whiteSpace: 'pre', textShadow: '0 1px 2px #000', pointerEvents: 'none',
+  position: 'fixed', left: '10px', top: '10px', zIndex: '3', color: '#fff',
+  font: '12px ui-monospace, monospace', whiteSpace: 'pre', textShadow: '0 1px 3px #000',
+  pointerEvents: 'none',
 });
 document.body.appendChild(stats);
+let framesThisSecond = 0;
 let statsWindowStart = performance.now();
-let statsFrames = 0;
 let displayedFps = 0;
 function updateStats(timestamp: number): void {
-  statsFrames++;
-  const elapsed = timestamp - statsWindowStart;
-  if (elapsed >= 1000) {
-    displayedFps = Math.round(statsFrames * 1000 / elapsed);
+  framesThisSecond++;
+  if (timestamp - statsWindowStart >= 1000) {
+    displayedFps = Math.round((framesThisSecond * 1000) / (timestamp - statsWindowStart));
+    framesThisSecond = 0;
     statsWindowStart = timestamp;
-    statsFrames = 0;
   }
   stats.textContent = `FPS: ${displayedFps}\nPLY: ${scenePolygonCount()}`;
 }
