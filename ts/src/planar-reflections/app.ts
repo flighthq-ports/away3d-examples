@@ -392,6 +392,18 @@ function frame(timestamp: number): void {
       clipTipView.y - clipPointView.y,
       clipTipView.z - clipPointView.z,
     );
+    // Make the mirror two-sided. The reflection itself does not care which way the plane faces —
+    // mirroring the scene through it is normal-agnostic — but the clip does: the half-space to keep
+    // is always the one the camera is NOT in, so that scenery on the viewer's side cannot mirror
+    // into the space between the eye and the glass. In view space the camera sits at the origin, so
+    // it lies on the normal's side exactly when dot(N, P) < 0; flipping the normal there lets the
+    // panel reflect correctly from behind instead of showing a nonsense front-face reflection.
+    // The original is a single-sided plane and simply disappears when viewed from the back.
+    if (clipNormalView.x * clipPointView.x
+      + clipNormalView.y * clipPointView.y
+      + clipNormalView.z * clipPointView.z < 0) {
+      setVector3(clipNormalView, -clipNormalView.x, -clipNormalView.y, -clipNormalView.z);
+    }
     setPlaneFromNormalAndPoint(reflectionClipPlane, clipNormalView, clipPointView);
     camera.nearClipPlane = reflectionClipPlane;
 

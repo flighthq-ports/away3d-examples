@@ -104,6 +104,10 @@ const orbit = createOrbitControllerFromAway(camera, {
   minTiltAngle: 2,
   maxTiltAngle: 90,
   targetY: 120,
+  // cameraController.wrapPanAngle = true. The pan target below is atan2-derived, so it jumps
+  // 2*PI across the branch cut; without this the eased camera glides the long way round every
+  // time R2D2 completes a lap.
+  wrapPanAngle: true,
 });
 bindOrbitDrag(ctx.canvas, orbit, { minDistance: 350, maxDistance: 1100 });
 
@@ -237,7 +241,24 @@ const captureCamera = createCamera3D({
   far: 3000,
   projection: createPerspectiveProjection({ aspect: 1, fovY: Math.PI * 0.5 }),
 });
+// The six face renders and the IBL bake have very different costs — measured here the faces are
+// ~44ms (the whole 178k-triangle scene, six times over) and the bake ~0.3ms — and very different
+// constraints. The bake must run EVERY frame or the skybox's revision bump leaves the IBL stale
+// and the head goes black (see renderer.ts). The faces only have to be fresh enough to read as
+// live, and re-baking a slightly stale capture costs nothing, so the two run on separate cadences.
+const CAPTURE_FACE_INTERVAL = 4;
+let captureFaceCountdown = 0;
 function captureEnvironment(): void {
+  if (captureFaceCountdown <= 0) {
+    renderCaptureFaces();
+    captureFaceCountdown = CAPTURE_FACE_INTERVAL;
+  } else {
+    captureFaceCountdown--;
+  }
+  bakeGlEnvironmentCaptureIbl(ctx.state, captureTarget, 1.2);
+}
+
+function renderCaptureFaces(): void {
   // The head must not reflect itself.
   head.enabled = false;
   try {
@@ -254,7 +275,6 @@ function captureEnvironment(): void {
   } finally {
     head.enabled = true;
   }
-  bakeGlEnvironmentCaptureIbl(ctx.state, captureTarget, 1.2);
 }
 
 const keys = new Set<string>();

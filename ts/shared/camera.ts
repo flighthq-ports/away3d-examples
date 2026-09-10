@@ -61,6 +61,8 @@ export interface AwayOrbitOptions {
   // AwayJS HoverController defaults — vertical travel multiplier and easing step count.
   yFactor?: number;
   steps?: number;
+  // HoverController.wrapPanAngle. Off by default, as it is in AwayJS.
+  wrapPanAngle?: boolean;
 }
 
 export interface OrbitController {
@@ -84,6 +86,8 @@ export function createOrbitControllerFromAway(camera: Camera3D, opts: Readonly<A
   const yFactor = opts.yFactor ?? 2;
   const steps = Math.max(1, opts.steps ?? 8);
   const SNAP_ANGLE = 0.01 * DEG_TO_RAD;
+  const wrapPanAngle = opts.wrapPanAngle ?? false;
+  const TWO_PI = Math.PI * 2;
 
   const eye = createVector3(0, 0, 0);
   const target = createVector3(opts.targetX ?? 0, opts.targetY ?? 0, -(opts.targetZ ?? 0));
@@ -106,6 +110,18 @@ export function createOrbitControllerFromAway(camera: Camera3D, opts: Readonly<A
     update() {
       // AwayJS clamps the target tilt in its setter; clamp before easing toward it.
       this.tiltAngle = Math.max(minTilt, Math.min(maxTilt, this.tiltAngle));
+
+      // HoverController.wrapPanAngle. The applied angle EASES toward the target, so a target that
+      // wraps — anything driven by atan2, which jumps 2*PI across its branch cut — makes the camera
+      // glide the long way round rather than continuing the way it was already turning. Rebasing
+      // the applied angle onto the nearest equivalent of the target keeps every step a short one.
+      if (wrapPanAngle) {
+        const wrapped = this.panAngle - Math.floor(this.panAngle / TWO_PI) * TWO_PI;
+        currentPan += wrapped - this.panAngle;
+        this.panAngle = wrapped;
+        while (this.panAngle - currentPan < -Math.PI) currentPan -= TWO_PI;
+        while (this.panAngle - currentPan > Math.PI) currentPan += TWO_PI;
+      }
 
       currentPan += (this.panAngle - currentPan) / (steps + 1);
       currentTilt += (this.tiltAngle - currentTilt) / (steps + 1);
