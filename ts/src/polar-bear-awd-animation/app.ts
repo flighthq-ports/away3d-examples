@@ -380,14 +380,17 @@ function frame(timestamp: number): void {
   bearHeading += rotationPerFrame * deltaTime * 60 * Math.PI / 180;
   setQuaternionFromEuler(bearMesh.rotation, 0, bearHeading, 0);
 
-  // Walk the clip's forward travel onto the mesh. The bear's local forward is -Z after the
-  // handedness flip, so the delta is rotated by the heading the same way a move step would be.
+  // Walk the clip's travel onto the mesh: the root-motion delta is a vector in the bear's own
+  // space, so it is turned by his heading and scaled by the mesh. This model's forward is local
+  // +Z — at heading 0 he faces the camera, which sits on +Z from him — so the delta rotates by a
+  // plain Y rotation with no sign flip. Negating it here is what made him moonwalk: he played the
+  // walk cycle while travelling backwards, and every key drove him the wrong way.
   const forward = rootDelta.z * bearMesh.scale.z;
   const strafe = rootDelta.x * bearMesh.scale.x;
   const sin = Math.sin(bearHeading);
   const cos = Math.cos(bearHeading);
-  bearMesh.position.x += strafe * cos - forward * sin;
-  bearMesh.position.z += -strafe * sin - forward * cos;
+  bearMesh.position.x += strafe * cos + forward * sin;
+  bearMesh.position.z += -strafe * sin + forward * cos;
   invalidateNodeLocalTransform(bearMesh);
 
 

@@ -55,13 +55,39 @@ export function createAnimationController(
       outDelta.x = 0;
       outDelta.y = 0;
       outDelta.z = 0;
-      // extractAnimationRootMotion spans the loop point for us, so a cycle that wraps mid-step
-      // still contributes one cycle's travel instead of snapping the bear back to the start.
-      if (extractor && extractAnimationRootMotion(motion, extractor, startTime, player.time)) {
+      if (!extractor) return;
+      const endTime = player.time;
+      // extractAnimationRootMotion only reads a range FORWARDS, so reverse playback (the original
+      // backs up with a negative playbackSpeed) has to be expressed as a forward range and
+      // negated. The subtlety is the loop point: a backward step that runs past zero wraps to the
+      // END of the clip, so endTime lands ABOVE startTime and a naive swap hands the extractor a
+      // decreasing range. It reads that as a wrap and returns nearly a whole cycle of FORWARD
+      // travel — one 283-unit lurch the instant the key goes down, which is what made backing up
+      // look like a forward jump. A wrapped reverse step is therefore summed in two pieces.
+      if (player.speed >= 0) {
+        if (!extractAnimationRootMotion(motion, extractor, startTime, endTime)) return;
         outDelta.x = motion[0]!;
         outDelta.y = motion[1]!;
         outDelta.z = motion[2]!;
+        return;
       }
+      let x = 0;
+      let y = 0;
+      let z = 0;
+      if (endTime <= startTime) {
+        if (!extractAnimationRootMotion(motion, extractor, endTime, startTime)) return;
+        x = motion[0]!; y = motion[1]!; z = motion[2]!;
+      } else {
+        if (extractAnimationRootMotion(motion, extractor, 0, startTime)) {
+          x += motion[0]!; y += motion[1]!; z += motion[2]!;
+        }
+        if (extractAnimationRootMotion(motion, extractor, endTime, player.clip.duration)) {
+          x += motion[0]!; y += motion[1]!; z += motion[2]!;
+        }
+      }
+      outDelta.x = -x;
+      outDelta.y = -y;
+      outDelta.z = -z;
     },
   };
 }
