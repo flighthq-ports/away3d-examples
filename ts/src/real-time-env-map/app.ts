@@ -26,14 +26,8 @@ import {
   invalidateNodeLocalTransform,
   isMesh,
   loadImageResourceFromUrl,
-  beginGlCubeRenderFace,
-  drawGlEnvironmentSkybox,
-  drawGlScene3D,
-  endGlCubeRenderFace,
-  getCubeCaptureFaceCamera3D,
-  createCamera3D,
-  createPerspectiveProjection,
   createScreenSpaceFogEffect,
+  renderGlEnvironmentCapture,
   scaleMeshGeometryUvs,
   setMeshGeometryVertexPosition,
   setQuaternionFromEuler,
@@ -232,49 +226,32 @@ addNodeChild(scene.root, r2Scene.root);
 // CubeReflectionTexture(256), near 50, far 3000, centred on the head at (0, 100, 0).
 const captureTarget = createGlCubeRenderTarget(ctx.state, 256);
 const capturePosition = createVector3(0, 100, 0);
-// renderGlEnvironmentCapture draws only the scene graph, and Flight's skybox is not a scene node —
-// so using it captures a black sky and the head reflects almost nothing. Away3D gets this for free
-// because its SkyBox IS a scene child, and `reflectionTexture.render(view)` therefore includes it.
-// The six faces are driven here instead so the sky can be drawn into each one.
-const captureCamera = createCamera3D({
-  near: 50,
-  far: 3000,
-  projection: createPerspectiveProjection({ aspect: 1, fovY: Math.PI * 0.5 }),
-});
-// The six face renders and the IBL bake have very different costs — measured here the faces are
-// ~44ms (the whole 178k-triangle scene, six times over) and the bake ~0.3ms — and very different
-// constraints. The bake must run EVERY frame or the skybox's revision bump leaves the IBL stale
-// and the head goes black (see renderer.ts). The faces only have to be fresh enough to read as
-// live, and re-baking a slightly stale capture costs nothing, so the two run on separate cadences.
+// SDK 0.5.1-next.1059 added `environment` to GlEnvironmentCaptureOptions, so the capture draws the
+// sky into each cube face itself. That retired a hand-rolled six-face loop this sample used to
+// need, because Flight's skybox is not a scene node the way Away3D's SkyBox is, so the capture saw
+// a black sky and the head reflected almost nothing.
+//
+// The face renders and the bake still run on separate cadences, for two different reasons.
+// Cost: the six face renders are ~44ms (the whole 178k-triangle scene, six times over) against
+// ~0.3ms for the bake, and a reflection refreshed every few frames still reads as live.
+// Correctness: the bake must happen EVERY frame, and after the skybox draw — see renderer.ts.
+// Baking only on the frames that re-capture leaves the head black on all the others.
 const CAPTURE_FACE_INTERVAL = 4;
 let captureFaceCountdown = 0;
 function captureEnvironment(): void {
   if (captureFaceCountdown <= 0) {
-    renderCaptureFaces();
+    renderGlEnvironmentCapture(ctx.state, capturePosition, scene.root, lights, captureTarget, {
+      near: 50,
+      far: 3000,
+      // The head must not reflect itself.
+      excludeNode: head,
+      environment: skyEnvironment,
+    });
     captureFaceCountdown = CAPTURE_FACE_INTERVAL;
   } else {
     captureFaceCountdown--;
   }
   bakeGlEnvironmentCaptureIbl(ctx.state, captureTarget, 1.2);
-}
-
-function renderCaptureFaces(): void {
-  // The head must not reflect itself.
-  head.enabled = false;
-  try {
-    for (let face = 0; face < 6; face++) {
-      getCubeCaptureFaceCamera3D(captureCamera, capturePosition, face);
-      beginGlCubeRenderFace(ctx.state, captureTarget, face);
-      try {
-        drawGlEnvironmentSkybox(ctx.state, skyEnvironment, captureCamera, 1);
-        drawGlScene3D(ctx.state, scene.root, captureCamera, lights);
-      } finally {
-        endGlCubeRenderFace(ctx.state);
-      }
-    }
-  } finally {
-    head.enabled = true;
-  }
 }
 
 const keys = new Set<string>();
@@ -339,8 +316,6 @@ function frame(timestamp: number): void {
   orbit.panAngle = Math.PI / 2 + Math.atan2(r2Scene.root.position.z, r2Scene.root.position.x);
   orbit.update();
 
-  // The original re-renders its CubeReflectionTexture every frame (`reflectionTexture.render(view)`),
-  // and so must this: see the note in renderer.ts for why skipping a frame blacks out the head.
   ctx.render(scene.root, camera, lights, skyEnvironment, captureEnvironment);
   requestAnimationFrame(frame);
 }

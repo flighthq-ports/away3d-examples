@@ -23,10 +23,10 @@
     "check": "npm run typecheck && npm run lint:assets && npm run build"
   },
   "dependencies": {
-    "@flighthq/effects-gl": "^0.5.1-next.1056.4945b81",
-    "@flighthq/host-web": "^0.5.1-next.1056.4945b81",
-    "@flighthq/render-gl": "^0.5.1-next.1056.4945b81",
-    "@flighthq/sdk": "^0.5.1-next.1056.4945b81"
+    "@flighthq/effects-gl": "^0.5.1-next.1059.c56d3cd",
+    "@flighthq/host-web": "^0.5.1-next.1059.c56d3cd",
+    "@flighthq/render-gl": "^0.5.1-next.1059.c56d3cd",
+    "@flighthq/sdk": "^0.5.1-next.1059.c56d3cd"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

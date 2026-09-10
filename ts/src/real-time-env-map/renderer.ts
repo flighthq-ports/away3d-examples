@@ -119,14 +119,13 @@ export function createScene3DContext(options: Readonly<Scene3DOptions> = {}): Sc
       gl.clearDepth(1);
       gl.clear(gl.DEPTH_BUFFER_BIT);
       if (environment) drawGlEnvironmentSkybox(state, environment, camera, canvas.width / canvas.height);
-      // The live environment capture must be baked HERE, after the skybox and before the lit draws.
-      // The PBR path accepts a baked IBL only while its stamped revision still matches the runtime's
-      // (glLitProgram: `runtime.ibl?.environmentSourceRevision === runtime.environmentSourceRevision
-      // ? runtime.ibl : null`). drawGlEnvironmentSkybox rebuilds the environment source cube and
-      // bumps that revision, and bakeGlEnvironmentCaptureIbl destroys the cube and bumps it again —
-      // so the bake has to be the LAST thing to touch the revision before the meshes draw, and it
-      // has to happen on EVERY frame. Skip a frame and the skybox bump leaves the IBL stale, which
-      // costs every PBR surface its ambient term and renders the reflective head pure black.
+      // The live capture is baked HERE, between the skybox and the lit draws, and this hook exists
+      // only for that. The PBR path takes a baked IBL only while its stamped revision still matches
+      // the runtime's (glLitProgram: `runtime.ibl?.environmentSourceRevision ===
+      // runtime.environmentSourceRevision ? runtime.ibl : null`), and drawGlEnvironmentSkybox above
+      // can advance that revision. Baking after it keeps the two equal for the meshes that follow;
+      // bake before it and every PBR surface silently loses its ambient term, which renders the
+      // reflective head pure black.
       onBeforeScene?.();
       drawGlScene3D(state, scene, camera, lights);
       endGlRenderEffectPipeline(state, pipeline, effects);
