@@ -20,7 +20,6 @@ import {
   createStandardPbrMaterial,
   createTexture,
   createTilingSampler,
-  createToneMapEffect,
   drawGlScene3DShadowMap,
   invalidateNodeLocalTransform,
   isMesh,
@@ -31,11 +30,12 @@ import {
   registerDeflateDecompressor,
   registerWebImageDecoders,
   scaleMeshGeometryUvs,
+  setQuaternionFromEuler,
   setVector3,
   updateMeshSkin,
   walkNodeDescendants,
 } from '@flighthq/sdk';
-import { bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
+import { awayDirection, bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
 import { createDirectionalLightFromAway, createPointLightFromAway } from '../../shared/lighting';
 import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
 import { createAnimationController } from './animation';
@@ -52,6 +52,20 @@ const FOG_NEAR = 1000;
 const FOG_FAR = 10000;
 const GROUND_Y = -480;
 
+// Clear colour and fog colour are consumed as linear values, so the original's sRGB constants have
+// to be linearised or the dark grey sky renders as mid grey.
+function linearChannel(channel: number): number {
+  const v = channel / 255;
+  return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+}
+function linearRgba(srgb: number): number {
+  let out = 0;
+  for (let shift = 16; shift >= 0; shift -= 8) {
+    out = (out << 8) | Math.round(linearChannel((srgb >> shift) & 0xff) * 255);
+  }
+  return ((out << 8) | 0xff) >>> 0;
+}
+
 const CAMERA_NEAR = 1;
 const CAMERA_FAR = 30000;
 // The fog effect works in non-linear depth-buffer space, so the original's world-space fog
@@ -64,15 +78,14 @@ function depthAt(distance: number): number {
 const ctx = createScene3DContext({
   width: innerWidth,
   height: innerHeight,
-  backgroundColor: (SKY_COLOR << 8 | 0xff) >>> 0,
+  backgroundColor: linearRgba(SKY_COLOR),
   effects: [
     createScreenSpaceFogEffect({
-      color: (SKY_COLOR << 8 | 0xff) >>> 0,
+      color: linearRgba(SKY_COLOR),
       near: depthAt(FOG_NEAR),
       far: depthAt(FOG_FAR),
       density: 1,
     }),
-    createToneMapEffect({ exposure: 1.15 }),
     createFxaaEffect(),
   ],
 });
@@ -92,14 +105,26 @@ bindOrbitDrag(ctx.canvas, orbit, { minDistance: 100, maxDistance: 2000 });
 
 // The original builds its sky procedurally: a vertical ramp from the zenith colour down to the fog
 // colour. Six faces are drawn here so the same ramp can drive both the skybox and the baked IBL.
+// The cube faces are sampled as linear data rather than sRGB, so the sky colours are written into
+// the canvas already linearised. Filling with the raw sRGB bytes renders the sky far too bright.
+function linearHex(srgb: number): string {
+  let out = '#';
+  for (let shift = 16; shift >= 0; shift -= 8) {
+    const channel = ((srgb >> shift) & 0xff) / 255;
+    const linear = channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    out += Math.round(linear * 255).toString(16).padStart(2, '0');
+  }
+  return out;
+}
+
 function skyFace(face: number): ImageResource {
   const size = 128;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   const g = canvas.getContext('2d')!;
-  const zenith = `#${ZENITH_COLOR.toString(16).padStart(6, '0')}`;
-  const horizon = `#${SKY_COLOR.toString(16).padStart(6, '0')}`;
+  const zenith = linearHex(ZENITH_COLOR);
+  const horizon = linearHex(SKY_COLOR);
   if (face === 2) {
     g.fillStyle = zenith;
   } else if (face === 3) {
@@ -120,7 +145,9 @@ const environment = createEnvironment({
 bakeGlEnvironmentIbl(ctx.state, environment);
 
 const awaySun = createDirectionalLightFromAway({
-  direction: { x: -0.5, y: -1, z: 0.3 },
+  // Away3D is left-handed, so the sun vector has to come through the handedness adapter; passing
+  // the raw literal lit the character from behind and left the face in shadow.
+  direction: awayDirection(-0.5, -1, 0.3),
   color: SUN_COLOR,
   ambientColor: SUN_COLOR,
   ambient: 0.4,
@@ -186,9 +213,11 @@ const gunMaterial = createStandardPbrMaterial({
 // The original scales both the hero and the gun by 10, and stands the gun on the ground as a
 // separate prop at (0, -470, -250) rather than parenting it to the character.
 const skinned: Mesh[] = [];
+let heroMesh: Mesh | null = null;
 walkNodeDescendants(model.root, (node) => {
   if (isMesh(node)) {
     if (node.name === 'Onkba') {
+      heroMesh = node;
       node.materials = [heroMaterial];
       setVector3(node.scale, 10, 10, 10);
       // This importer puts the hero's origin at its feet, where Away3D's sat at the model's centre,
@@ -199,6 +228,9 @@ walkNodeDescendants(model.root, (node) => {
       node.materials = [gunMaterial];
       setVector3(node.scale, 10, 10, 10);
       setVector3(node.position, 0, -470, -250);
+      // The original resets rotationX/rotationY to 0, clearing the orientation baked into the AWD
+      // so the gun lies flat on the ground instead of standing on end.
+      setQuaternionFromEuler(node.rotation, 0, 0, 0);
       invalidateNodeLocalTransform(node);
     }
     if (node.skin) { prepareMeshSkinning(node); skinned.push(node); }
@@ -224,7 +256,58 @@ setVector3(ground.position, 0, GROUND_Y, 0);
 invalidateNodeLocalTransform(ground);
 addNodeChild(scene.root, ground);
 
-const animation = createAnimationController(model.animations, 'Breathe', ['Breathe', 'Walk', 'Run', 'Fight', 'Boxe']);
+const animation = createAnimationController(model.animations, 'Breathe');
+
+// The original's control scheme. The hero never translates — it only turns on the spot and swaps
+// clips, so movement keys pick Walk/Run and turn keys drive a per-frame yaw increment.
+const ROTATION_SPEED = 3;
+if (!heroMesh) throw new Error('onkba.awd contains no mesh named Onkba');
+const hero: Mesh = heroMesh;
+let isRunning = false;
+let isMoving = false;
+let rotationInc = 0;
+let heroYaw = 0;
+
+function refreshMovementClip(): void {
+  animation.play(isMoving ? (isRunning ? 'Run' : 'Walk') : 'Breathe');
+}
+
+window.addEventListener('keydown', (event) => {
+  switch (event.code) {
+    case 'ShiftLeft': case 'ShiftRight':
+      isRunning = true; refreshMovementClip(); break;
+    case 'ArrowUp': case 'KeyW': case 'KeyZ':
+    case 'ArrowDown': case 'KeyS':
+      isMoving = true; refreshMovementClip(); break;
+    case 'ArrowLeft': case 'KeyA': case 'KeyQ':
+      // Negated for Away3D's left-handed rotation direction.
+      rotationInc = ROTATION_SPEED; break;
+    case 'ArrowRight': case 'KeyD':
+      rotationInc = -ROTATION_SPEED; break;
+    case 'KeyE':
+      animation.play('Boxe'); break;
+    case 'Space': case 'KeyR':
+      animation.play('Fight'); break;
+    default:
+      return;
+  }
+  event.preventDefault();
+});
+
+window.addEventListener('keyup', (event) => {
+  switch (event.code) {
+    case 'ShiftLeft': case 'ShiftRight':
+      isRunning = false; refreshMovementClip(); break;
+    case 'ArrowUp': case 'KeyW': case 'KeyZ':
+    case 'ArrowDown': case 'KeyS':
+    case 'Space': case 'KeyE': case 'KeyR':
+      isMoving = false; refreshMovementClip(); break;
+    case 'ArrowLeft': case 'KeyA': case 'KeyQ':
+    case 'ArrowRight': case 'KeyD':
+      rotationInc = 0; break;
+    default:
+  }
+});
 
 // The original's on-screen instructions, verbatim.
 const help = document.createElement('div');
@@ -235,7 +318,7 @@ help.textContent = [
   'SPACE / R - guard',
 ].join('\n');
 Object.assign(help.style, {
-  position: 'fixed', left: '10px', top: '46px', zIndex: '2', color: '#ffffff',
+  position: 'fixed', left: '10px', top: '10px', zIndex: '2', color: '#ffffff',
   font: '11px sans-serif', whiteSpace: 'pre', pointerEvents: 'none',
 });
 document.body.appendChild(help);
@@ -254,8 +337,8 @@ walkNodeDescendants(scene.root, (node) => {
 });
 const stats = document.createElement('div');
 Object.assign(stats.style, {
-  position: 'fixed', left: '10px', top: '10px', zIndex: '2', color: '#ffffff',
-  font: '12px ui-monospace, monospace', whiteSpace: 'pre', textShadow: '0 1px 3px #000',
+  position: 'fixed', right: '10px', top: '10px', zIndex: '2', color: '#ffffff',
+  font: '12px ui-monospace, monospace', whiteSpace: 'pre', textAlign: 'right',
   pointerEvents: 'none',
 });
 document.body.appendChild(stats);
@@ -282,6 +365,10 @@ function frame(ts: number): void {
     statsWindowStart = ts;
   }
   stats.textContent = `FPS: ${displayedFps}\nPLY: ${triangleCount}`;
+
+  heroYaw += rotationInc * dt * 60 * Math.PI / 180;
+  setQuaternionFromEuler(hero.rotation, 0, heroYaw, 0);
+  invalidateNodeLocalTransform(hero);
 
   animation.step(dt);
   for (const mesh of skinned) updateMeshSkin(mesh);
