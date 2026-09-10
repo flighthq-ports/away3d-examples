@@ -1,4 +1,4 @@
-import type { ImageResource, Mesh, PerspectiveProjection } from '@flighthq/sdk';
+import type { ImageResource, Mesh, Node3D, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
   bakeGlEnvironmentIbl,
@@ -21,6 +21,7 @@ import {
   createTexture,
   createTilingSampler,
   drawGlScene3DShadowMap,
+  getAnimationClipDuration,
   invalidateNodeLocalTransform,
   isMesh,
   loadImageResourceFromUrl,
@@ -95,8 +96,11 @@ const camera = createCameraFromAway({ fov: 70, near: CAMERA_NEAR, far: CAMERA_FA
 // aimed at (hero.x, 0, hero.z) — so the target sits on the ground plane, not at chest height.
 const orbit = createOrbitControllerFromAway(camera, {
   distance: 1000,
+  // The original assigns tiltAngle = 0, but Away3D's setter clamps against the min/max in force at
+  // that moment — still 10 from the HoverController constructor, since minTiltAngle is widened to
+  // -60 only afterwards. So the sample actually opens at 10 degrees, looking slightly down.
   panAngle: 180,
-  tiltAngle: 0,
+  tiltAngle: 10,
   minTiltAngle: -60,
   maxTiltAngle: 60,
   targetY: 0,
@@ -284,6 +288,41 @@ addNodeChild(scene.root, ground);
 
 const animation = createAnimationController(model.animations, 'Breathe');
 
+// Away3D's SkeletonAnimator lifts each clip's root delta onto the mesh (updatePosition), so the
+// character advances through the world and the camera's lookAtPosition tracks it. Here the clip
+// drives the root joint directly, which makes the character surge forward and then snap back every
+// time the clip loops. To match the original, the root joint's horizontal travel is pinned out of
+// the pose and re-applied to the mesh as continuous motion instead.
+const ROOT_JOINT = 'Bone001';
+const rootJointMatches: Node3D[] = [];
+walkNodeDescendants(model.root, (node) => {
+  if (node.name === ROOT_JOINT) rootJointMatches.push(node as Node3D);
+  return true;
+});
+const rootJoint: Node3D | null = rootJointMatches[0] ?? null;
+const rootRestX = rootJoint ? rootJoint.position.x : 0;
+const rootRestZ = rootJoint ? rootJoint.position.z : 0;
+
+// Forward speed per clip, taken from that clip's own root track so the feet do not slide: the
+// root's total Z travel across the clip, scaled by the mesh, over the clip's duration.
+const HERO_SCALE = 10;
+function clipGroundSpeed(name: string): number {
+  const clip = model.animations[name];
+  if (!clip) return 0;
+  let best = 0;
+  for (const channel of clip.channels) {
+    if (channel.track.components !== 3 || channel.track.quaternion) continue;
+    const values = channel.track.values;
+    if (values.length < 6) continue;
+    const travel = Math.abs(values[values.length - 1]! - values[2]!);
+    if (travel > best) best = travel;
+  }
+  const duration = getAnimationClipDuration(clip);
+  return duration > 0 ? (best * HERO_SCALE) / duration : 0;
+}
+const WALK_SPEED = clipGroundSpeed('Walk');
+const RUN_SPEED = clipGroundSpeed('Run');
+
 // The original's control scheme. The hero never translates — it only turns on the spot and swaps
 // clips, so movement keys pick Walk/Run and turn keys drive a per-frame yaw increment.
 const ROTATION_SPEED = 3;
@@ -291,6 +330,7 @@ if (!heroMesh) throw new Error('onkba.awd contains no mesh named Onkba');
 const hero: Mesh = heroMesh;
 let isRunning = false;
 let isMoving = false;
+let moveDirection = 0;
 let rotationInc = 0;
 let heroYaw = 0;
 
@@ -303,8 +343,9 @@ window.addEventListener('keydown', (event) => {
     case 'ShiftLeft': case 'ShiftRight':
       isRunning = true; refreshMovementClip(); break;
     case 'ArrowUp': case 'KeyW': case 'KeyZ':
+      isMoving = true; moveDirection = 1; refreshMovementClip(); break;
     case 'ArrowDown': case 'KeyS':
-      isMoving = true; refreshMovementClip(); break;
+      isMoving = true; moveDirection = -1; refreshMovementClip(); break;
     case 'ArrowLeft': case 'KeyA': case 'KeyQ':
       // Negated for Away3D's left-handed rotation direction.
       rotationInc = ROTATION_SPEED; break;
@@ -327,7 +368,7 @@ window.addEventListener('keyup', (event) => {
     case 'ArrowUp': case 'KeyW': case 'KeyZ':
     case 'ArrowDown': case 'KeyS':
     case 'Space': case 'KeyE': case 'KeyR':
-      isMoving = false; refreshMovementClip(); break;
+      isMoving = false; moveDirection = 0; refreshMovementClip(); break;
     case 'ArrowLeft': case 'KeyA': case 'KeyQ':
     case 'ArrowRight': case 'KeyD':
       rotationInc = 0; break;
@@ -397,7 +438,24 @@ function frame(ts: number): void {
   invalidateNodeLocalTransform(hero);
 
   animation.step(dt);
+
+  // Pin the root joint's horizontal travel out of the pose so the character walks on the spot,
+  // then advance the mesh itself along its heading at the clip's own ground speed.
+  if (rootJoint !== null) {
+    setVector3(rootJoint.position, rootRestX, rootJoint.position.y, rootRestZ);
+    invalidateNodeLocalTransform(rootJoint);
+  }
+  if (isMoving) {
+    const speed = (isRunning ? RUN_SPEED : WALK_SPEED) * moveDirection;
+    hero.position.x += Math.sin(heroYaw) * speed * dt;
+    hero.position.z += Math.cos(heroYaw) * speed * dt;
+    invalidateNodeLocalTransform(hero);
+  }
+
   for (const mesh of skinned) updateMeshSkin(mesh);
+  // The original aims the camera at (hero.x, cameraHeight, hero.z) every frame.
+  orbit.target.x = hero.position.x;
+  orbit.target.z = hero.position.z;
   updateCameraHeight();
   orbit.update();
   // The sky fill light rides with the camera, as in the original.
