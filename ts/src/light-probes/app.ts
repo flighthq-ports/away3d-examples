@@ -13,6 +13,7 @@ import {
   createScene3DFromObj,
   createScene3DLights,
   createStandardPbrMaterial,
+  createImageResource,
   createTexture,
   createToneMapEffect,
   createVector3,
@@ -23,11 +24,14 @@ import {
   loadImageResourceFromUrl,
   packLinearToColor,
   sampleLightProbeGrid,
+  setCamera3DViewMatrix4FromLookAt,
   setLightProbeShFromColors,
+  setQuaternionFromAxisAngle,
   setVector3,
+  walkNodeDescendants,
 } from '@flighthq/sdk';
 
-import { bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
+import { createCameraFromAway } from '../../shared/camera';
 import { createPointLightFromAway } from '../../shared/lighting';
 import { createScene3DContext } from './renderer';
 
@@ -51,14 +55,12 @@ const ctx = createScene3DContext({
   effects: [createToneMapEffect({ exposure: 1.15 }), createFxaaEffect()],
 });
 const scene = createScene3D();
-const camera = createCameraFromAway({ far: 2000 });
-const orbit = createOrbitControllerFromAway(camera, {
-  distance: 950,
-  panAngle: 180,
-  tiltAngle: 12,
-  targetY: 180,
-});
-bindOrbitDrag(ctx.canvas, orbit);
+const camera = createCameraFromAway({ near: 20, far: 2000 });
+
+// This port lays the scene out 3.2x larger than the original: its probes sit at +/-240 where the
+// original's sit at +/-75. Distances taken from the original are scaled by that factor so the
+// camera drift, head speed and head clamp all keep their original proportions.
+const SCENE_SCALE = 240 / 75;
 
 function srgbToLinear(value: number): number {
   const channel = value / 255;
@@ -128,10 +130,11 @@ const lights = createScene3DLights({
   point: [keyLight],
 });
 
-const [roomObj, headObj, roomImage, diffuse, normal, ao] = await Promise.all([
+const [roomObj, headObj, roomImage, roomNormal, diffuse, normal, ao] = await Promise.all([
   fetch(`${assetRoot}cornell.obj`).then((response) => response.text()),
   fetch(`${assetRoot}head.obj`).then((response) => response.text()),
   loadImageResourceFromUrl(ctx.host, `${assetRoot}cornell_baked.jpg`),
+  loadImageResourceFromUrl(ctx.host, `${assetRoot}cornellWallNormals.jpg`),
   loadImageResourceFromUrl(ctx.host, `${assetRoot}head_diffuse.jpg`),
   loadImageResourceFromUrl(ctx.host, `${assetRoot}head_normals.jpg`),
   loadImageResourceFromUrl(ctx.host, `${assetRoot}head_AO.jpg`),
@@ -142,6 +145,8 @@ if (room) {
   room.materials = [createStandardPbrMaterial({
     baseColor: 0xffffffff,
     baseColorMap: createTexture({ source: roomImage }),
+    // The original gives the Cornell box a normal map; without it the walls read flat.
+    normalMap: createTexture({ source: roomNormal, colorSpace: 'linear' }),
     metallic: 0,
     roughness: 0.92,
   })];
@@ -154,14 +159,15 @@ const headScene = createScene3DFromObj(headObj);
 const loadedHead = findNode(headScene.root, isMesh) as Mesh | null;
 if (!loadedHead) throw new Error('head.obj contains no mesh.');
 const head: Mesh = loadedHead;
-head.materials = [createStandardPbrMaterial({
+const headMaterial = createStandardPbrMaterial({
   baseColor: 0xffffffff,
   baseColorMap: createTexture({ source: diffuse }),
   normalMap: createTexture({ source: normal, colorSpace: 'linear' }),
   occlusionMap: createTexture({ source: ao, colorSpace: 'linear' }),
   metallic: 0.05,
   roughness: 0.3,
-})];
+});
+head.materials = [headMaterial];
 setVector3(head.scale, 85, 85, 85);
 invalidateNodeLocalTransform(head);
 addNodeChild(scene.root, head);
@@ -180,25 +186,126 @@ function packProbeColor(rgb: Float32Array): number {
   ]);
 }
 
-const note = document.createElement('div');
-note.textContent = 'Drag to orbit · real 2×1×2 spherical-harmonic probe grid';
-Object.assign(note.style, {
-  position: 'fixed', left: '16px', top: '14px', color: '#fff', font: '14px system-ui',
-  textShadow: '0 1px 4px #000', pointerEvents: 'none',
+// Stands in for the original's AwayStats overlay.
+let triangleCount = 0;
+walkNodeDescendants(scene.root, (node) => {
+  if (isMesh(node) && node.geometry) {
+    const geometry = node.geometry;
+    const indexed = geometry.indices !== null
+      ? geometry.indices.length
+      : geometry.vertices.length / (geometry.layout.stride / 4);
+    triangleCount += Math.floor(indexed / 3);
+  }
+  return true;
 });
-document.body.appendChild(note);
+const stats = document.createElement('div');
+Object.assign(stats.style, {
+  position: 'fixed', left: '10px', top: '10px', zIndex: '2', color: '#fff',
+  font: '12px ui-monospace, monospace', whiteSpace: 'pre', textShadow: '0 1px 3px #000',
+  pointerEvents: 'none',
+});
+document.body.appendChild(stats);
+let framesThisSecond = 0;
+let statsWindowStart = performance.now();
+let displayedFps = 0;
+
+// The head is driven entirely by input, exactly as in the original: arrow keys walk it around the
+// floor, and dragging spins it. It does not drift on its own.
+const HEAD_SPEED = 2 * SCENE_SCALE;
+const HEAD_LIMIT = 75 * SCENE_SCALE;
+let xDir = 0;
+let zDir = 0;
+let headYaw = 0;
+const yAxis = createVector3(0, 1, 0);
+setVector3(head.position, 0, 0, 0);
+invalidateNodeLocalTransform(head);
+
+window.addEventListener('keydown', (event) => {
+  if (event.code === 'ArrowUp') zDir = 1;
+  else if (event.code === 'ArrowDown') zDir = -1;
+  else if (event.code === 'ArrowLeft') xDir = -1;
+  else if (event.code === 'ArrowRight') xDir = 1;
+  else return;
+  event.preventDefault();
+});
+// Space swaps the head between its photographic diffuse map and a flat 0xbbbbaa surface, which is
+// how the original lets you see the probe contribution on its own without the texture confusing it.
+const headTexture = createTexture({ source: diffuse });
+const neutralCanvas = document.createElement('canvas');
+neutralCanvas.width = 512;
+neutralCanvas.height = 512;
+const neutralContext = neutralCanvas.getContext('2d')!;
+neutralContext.fillStyle = '#bbbbaa';
+neutralContext.fillRect(0, 0, 512, 512);
+const neutralTexture = createTexture({ source: createImageResource(neutralCanvas) });
+let showingNeutral = false;
+
+window.addEventListener('keyup', (event) => {
+  if (event.code === 'ArrowUp' || event.code === 'ArrowDown') zDir = 0;
+  else if (event.code === 'ArrowLeft' || event.code === 'ArrowRight') xDir = 0;
+  else if (event.code === 'Space') {
+    showingNeutral = !showingNeutral;
+    headMaterial.baseColorMap = showingNeutral ? neutralTexture : headTexture;
+  }
+});
+
+// Camera drift follows the pointer and eases back to centre, and always looks at the head — the
+// original's LookAtController is bound to the head mesh, not to the origin.
+let pointerX = window.innerWidth * 0.5;
+let pointerY = window.innerHeight * 0.5;
+let dragging = false;
+let referencePointerX = 0;
+let cameraX = 0;
+let cameraY = 0;
+const cameraEye = createVector3(0, 0, 0);
+const cameraUp = createVector3(0, 1, 0);
+
+window.addEventListener('mousemove', (event) => {
+  pointerX = event.clientX;
+  pointerY = event.clientY;
+  if (dragging) {
+    // Away3D is left-handed, so the original's `rotationY +=` becomes a negated yaw here.
+    headYaw -= ((referencePointerX - pointerX) / 5) * Math.PI / 180;
+    referencePointerX = pointerX;
+  }
+});
+ctx.canvas.addEventListener('mousedown', (event) => {
+  dragging = true;
+  referencePointerX = event.clientX;
+});
+window.addEventListener('mouseup', () => { dragging = false; });
 
 function frame(time: number): void {
-  const phase = time / 1700;
-  setVector3(head.position, Math.sin(phase) * 240, 170 + Math.sin(phase * 1.7) * 35, Math.cos(phase * 0.73) * 240);
+  framesThisSecond++;
+  if (time - statsWindowStart >= 1000) {
+    displayedFps = Math.round((framesThisSecond * 1000) / (time - statsWindowStart));
+    framesThisSecond = 0;
+    statsWindowStart = time;
+  }
+  stats.textContent = `FPS: ${displayedFps}\nPLY: ${triangleCount}`;
+
+  if (!dragging) {
+    cameraX = cameraX * 0.9 + (window.innerWidth * 0.5 - pointerX) * 0.05 * SCENE_SCALE;
+    cameraY = cameraY * 0.9 + (window.innerHeight * 0.5 - pointerY) * 0.05 * SCENE_SCALE;
+  }
+
+  const nextX = Math.max(-HEAD_LIMIT, Math.min(HEAD_LIMIT, head.position.x + xDir * HEAD_SPEED));
+  const nextZ = Math.max(-HEAD_LIMIT, Math.min(HEAD_LIMIT, head.position.z + zDir * HEAD_SPEED));
+  setVector3(head.position, nextX, head.position.y, nextZ);
+  setQuaternionFromAxisAngle(head.rotation, yAxis, headYaw);
   invalidateNodeLocalTransform(head);
+
   if (sampleLightProbeGrid(sampledSh, head.position, probeGrid)) {
     evaluateLightProbeSh(sky, up, sampledSh);
     evaluateLightProbeSh(ground, down, sampledSh);
     probeLight.skyColor = packProbeColor(sky);
     probeLight.groundColor = packProbeColor(ground);
   }
-  orbit.update();
+
+  // The original's camera sits at a fixed z and is aimed at the head every frame.
+  setVector3(cameraEye, cameraX, cameraY, 300 * SCENE_SCALE);
+  setCamera3DViewMatrix4FromLookAt(camera, cameraEye, head.position, cameraUp);
+
   ctx.render(scene.root, camera, lights);
   requestAnimationFrame(frame);
 }
