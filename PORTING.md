@@ -45,22 +45,39 @@ lighting treatment.
 
 The samples keep these gaps visible instead of silently converting the input or dropping the feature:
 
-- **Planar reflection capture:** closed. `planar-reflections` renders a real reflection.
-  `reflectCamera3DByPlane` mirrors the camera through the mirror's world plane; the scene and
-  skybox are drawn from that camera into a render texture taken from a `GlRenderTexturePool`; and
-  a small custom-shader material samples that texture by screen position
-  (`gl_FragCoord.xy / u_resolution`), which is the correct lookup because the reflection shares
-  the main view's projection and resolution. The mirror is hidden for the reflection pass so it
-  cannot reflect itself, and the winding order is flipped for it because reflecting a camera
-  reverses handedness.
+- **Planar reflection capture:** closed, but NOT by reflecting the camera. `reflectCamera3DByPlane`
+  and `applyObliqueNearClipPlane` both exist and work, yet they do not compose with
+  `drawGlScene3D`: a reflected view matrix mirrors handedness, so every triangle arrives with its
+  winding reversed, and `glMeshProgram` chooses the front-face convention per mesh from the WORLD
+  matrix alone (`isMirroringWorldMatrix(proxy.worldMatrix.m)`), which a reflected camera leaves
+  untouched. It also rewrites `gl.frontFace` on every draw, so setting it from application code is
+  overwritten before the first triangle, and there is no pass-level or camera-level override.
 
-  Clipping at the mirror plane is handled too, so geometry behind the mirror cannot leak into the
-  reflection: the reflected camera's `nearClipPlane` is set to the mirror plane expressed in that
-  camera's view space, and `getCamera3DViewProjectionMatrix4` feeds it through
-  `applyObliqueNearClipPlane` internally. Two details matter — the plane must be in VIEW space with
-  its normal pointing into the visible half-space (`d = -dot(normal, pointOnPlane)`, which is what
-  `setPlaneFromNormalAndPoint` produces), and it has to be assigned AFTER `reflectCamera3DByPlane`,
-  which copies `nearClipPlane` from its source camera. Requires SDK 0.5.1-next.1056 or newer.
+  The visible failure is that the surfaces the reflection should show get culled: flat ground
+  disappears entirely and only the steeper slopes survive, as torn ribbons with the skybox through
+  the gaps. Disabling culling (`doubleSided`) does not fix it — those surfaces then draw as back
+  faces and shade black. Both symptoms are the same bug.
+
+  `planar-reflections` therefore mirrors the SCENE instead: it flips `scene.root` through the
+  mirror plane (`scale.z = -1`, `position.z = 2 * MIRROR_Z`) and renders with the ordinary camera.
+  The projection is identical, but now the world matrices genuinely mirror, `isMirroringWorldMatrix`
+  sees it, and the renderer flips the winding itself. The directional light is mirrored with the
+  scene so reflected shading matches. The environment cannot be mirrored by a node transform, so the
+  skybox alone is still drawn with `reflectCamera3DByPlane` — consistent, because the reflected
+  camera's view of the real world and the real camera's view of the mirrored world are the same
+  projection. A custom-shader material samples the render texture by screen position
+  (`gl_FragCoord.xy / u_resolution`), and the mirror is hidden for the pass so it cannot reflect
+  itself.
+
+  Clipping at the mirror plane still uses `nearClipPlane`, now on the ordinary camera, with the
+  normal pointing along +Z (reflections live BEHIND the glass) and the plane expressed in that
+  camera's view space; it is reset to `null` after the pass so the main render is unaffected.
+  Requires SDK 0.5.1-next.1056 or newer.
+
+  *Worth raising upstream:* the reflection primitives are advertised for exactly this use, but the
+  GL mesh path cannot be told that a pass is mirrored. A `frontFaceOverride` on the draw call, or
+  folding the view matrix's determinant into the `isMirroringWorldMatrix` test, would make
+  `reflectCamera3DByPlane` usable as documented.
 
 Compressed AWD assets in the Onkba, polar bear, and clock samples are supported. Those examples call
 `registerDeflateDecompressor()` before parsing, then use the imported skeleton clips or named clock
@@ -134,3 +151,35 @@ over them in the sample would mean re-implementing the parser.
 `onkba-awd-animation`, `planar-reflections` (within the documented capture gap),
 `real-time-env-map`, `terrain-demo`.
 The 13 "Reused" samples pulled from `flighthq-ports/awayjs-examples` were not in scope for this audit.
+
+## Comparing against the original (ground truth)
+
+The Haxe originals build and run headless, which is the only reliable way to settle "is this
+faithful?" questions — several defects below were found only by putting the two side by side, and
+two earlier conclusions of mine were wrong until I did.
+
+```sh
+sudo apt-get install -y haxe                 # 4.3.7 + neko
+haxelib setup /tmp/haxelib
+haxelib install lime && haxelib install openfl && haxelib install away3d
+git clone --depth 1 https://github.com/openfl/away3d-samples.git
+cd away3d-samples/intermediate/PlanarReflections && echo n | haxelib run lime build html5
+# serve Export/html5/bin and screenshot it with the same Playwright/SwiftShader setup as the port
+```
+
+Compare by measuring, not by eye: probe the same pixel row/column in both screenshots and diff the
+positions of strong transitions (the terrain skyline is a good signal). That is how the heightmap
+flip below was confirmed — the skyline moved from 106/66, 79/55, 65/16 (original/port) to
+106/106, 79/72, 65/62 once fixed.
+
+### Elevation heightmap row was mirrored in Z (fixed)
+
+Away3D's `Elevation.buildGeometry` samples one texel per vertex at column `xi * (mapW - 1)/segW`
+and row `(segH - zi) * (mapH - 1)/segH`. That row counts DOWN as Away3D z rises. These ports negate
+z against Away3D, so the row has to count UP with Flight z — but all four terrain samples sampled
+`1 - v`, which mirrored the entire terrain front-to-back. It was easy to miss because a mirrored
+dune field still looks like a plausible dune field; it only became obvious against the original.
+
+Fixed in `planar-reflections`, `terrain-demo`, `real-time-env-map` and `fractal-tree-demo`. Note
+the port also scaled by `mapW`/`mapH` where Away3D scales by `mapW - 1`/`mapH - 1`, and Away3D
+truncates (`Std.int`), so the ports now use `Math.floor(v * (mapH - 1))`.
