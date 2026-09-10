@@ -101,20 +101,35 @@ const orbit = createOrbitControllerFromAway(camera, {
   maxTiltAngle: 60,
   targetY: 0,
 });
-bindOrbitDrag(ctx.canvas, orbit, { minDistance: 100, maxDistance: 2000 });
+// This sample drags the camera 1 degree per pixel, not the 0.3 most Away3D samples use, and its
+// wheel step is `distance -= delta * 5` over Flash's +/-3-per-notch delta.
+bindOrbitDrag(ctx.canvas, orbit, {
+  minDistance: 100,
+  maxDistance: 2000,
+  degreesPerPixel: 1,
+  wheelScale: 0.15,
+});
 
-// The original builds its sky procedurally: a vertical ramp from the zenith colour down to the fog
-// colour. Six faces are drawn here so the same ramp can drive both the skybox and the baked IBL.
-// The cube faces are sampled as linear data rather than sRGB, so the sky colours are written into
-// the canvas already linearised. Filling with the raw sRGB bytes renders the sky far too bright.
-function linearHex(srgb: number): string {
-  let out = '#';
-  for (let shift = 16; shift >= 0; shift -= 8) {
-    const channel = ((srgb >> shift) & 0xff) / 255;
-    const linear = channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-    out += Math.round(linear * 255).toString(16).padStart(2, '0');
+// Zooming in raises the look-at target so a close camera frames the torso rather than the feet:
+// `_cameraHeight = distance < 600 ? (600 - distance) / 2 : 0`.
+const BASE_TARGET_Y = 0;
+function updateCameraHeight(): void {
+  orbit.target.y = BASE_TARGET_Y + (orbit.distance < 600 ? (600 - orbit.distance) / 2 : 0);
+}
+
+// The original builds its sky procedurally: a vertical ramp from the zenith colour down to the
+// fog colour. The ramp is evaluated per texel against each texel's world direction rather than as
+// a flat top-to-bottom fill per face, so it stays continuous across the cube's edges instead of
+// showing a seam where neighbouring faces disagree.
+function skyDirection(face: number, u: number, v: number, out: [number, number, number]): void {
+  switch (face) {
+    case 0: out[0] = 1; out[1] = -v; out[2] = -u; break;
+    case 1: out[0] = -1; out[1] = -v; out[2] = u; break;
+    case 2: out[0] = u; out[1] = 1; out[2] = v; break;
+    case 3: out[0] = u; out[1] = -1; out[2] = -v; break;
+    case 4: out[0] = u; out[1] = -v; out[2] = 1; break;
+    default: out[0] = -u; out[1] = -v; out[2] = -1; break;
   }
-  return out;
 }
 
 function skyFace(face: number): ImageResource {
@@ -123,24 +138,35 @@ function skyFace(face: number): ImageResource {
   canvas.width = size;
   canvas.height = size;
   const g = canvas.getContext('2d')!;
-  const zenith = linearHex(ZENITH_COLOR);
-  const horizon = linearHex(SKY_COLOR);
-  if (face === 2) {
-    g.fillStyle = zenith;
-  } else if (face === 3) {
-    g.fillStyle = horizon;
-  } else {
-    const ramp = g.createLinearGradient(0, 0, 0, size);
-    ramp.addColorStop(0, zenith);
-    ramp.addColorStop(1, horizon);
-    g.fillStyle = ramp;
+  const image = g.createImageData(size, size);
+  const dir: [number, number, number] = [0, 0, 0];
+  // Linearised endpoints — the cube faces are sampled as linear data, so writing raw sRGB bytes
+  // here renders the sky far too bright.
+  const zenith = [16, 8, 0].map((shift) => linearChannel((ZENITH_COLOR >> shift) & 0xff));
+  const horizon = [16, 8, 0].map((shift) => linearChannel((SKY_COLOR >> shift) & 0xff));
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const u = ((x + 0.5) / size) * 2 - 1;
+      const v = ((y + 0.5) / size) * 2 - 1;
+      skyDirection(face, u, v, dir);
+      const length = Math.hypot(dir[0], dir[1], dir[2]);
+      // Ramp over the upper hemisphere, as the original's vector sky does.
+      const t = Math.max(0, Math.min(1, dir[1] / length));
+      const offset = (y * size + x) * 4;
+      for (let channel = 0; channel < 3; channel++) {
+        const value = horizon[channel]! + (zenith[channel]! - horizon[channel]!) * t;
+        image.data[offset + channel] = Math.round(value * 255);
+      }
+      image.data[offset + 3] = 255;
+    }
   }
-  g.fillRect(0, 0, size, size);
+  g.putImageData(image, 0, 0);
   return createImageResource(canvas);
 }
+
 const environment = createEnvironment({
   environment: createCubeTextureFromAwayFaces(ctx.host, [0, 1, 2, 3, 4, 5].map(skyFace)),
-  intensity: 1,
+  intensity: 2.4,
 });
 bakeGlEnvironmentIbl(ctx.state, environment);
 
@@ -150,8 +176,8 @@ const awaySun = createDirectionalLightFromAway({
   direction: awayDirection(-0.5, -1, 0.3),
   color: SUN_COLOR,
   ambientColor: SUN_COLOR,
-  ambient: 0.4,
-  diffuse: 1,
+  ambient: 0.55,
+  diffuse: 1.8,
 });
 awaySun.directional.castsShadow = true;
 awaySun.directional.pcfRadius = 2;
@@ -160,7 +186,7 @@ awaySun.directional.normalBias = 1;
 // A sky-coloured fill light that tracks the camera, as in the original.
 const skyLight = createPointLightFromAway({
   color: SKY_COLOR,
-  diffuse: 0.5,
+  diffuse: 0.9,
   range: 2500,
   referenceDistance: 1000,
 });
@@ -372,6 +398,7 @@ function frame(ts: number): void {
 
   animation.step(dt);
   for (const mesh of skinned) updateMeshSkin(mesh);
+  updateCameraHeight();
   orbit.update();
   // The sky fill light rides with the camera, as in the original.
   setVector3(skyLight.position, camera.view.m[12]!, camera.view.m[13]!, camera.view.m[14]!);

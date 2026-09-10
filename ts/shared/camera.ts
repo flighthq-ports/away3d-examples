@@ -221,6 +221,17 @@ export function setAwayPosition(out: Vector3Like, x: number, y: number, z: numbe
 export interface BindOrbitDragOptions {
   minDistance?: number;
   maxDistance?: number;
+  /**
+   * Degrees of orbit per pixel dragged. Defaults to the 0.3 most Away3D samples use
+   * (`panAngle += 0.3 * (stageX - prev)`); a few, such as OnkbaAWDAnimation, drag 1:1.
+   */
+  degreesPerPixel?: number;
+  /**
+   * Distance change per unit of wheel delta. The default 0.5 matches a browser notch
+   * (deltaY 100) to 50 units; Away3D's `distance -= delta * 5` over Flash's ±3-per-notch
+   * delta is nearer 0.15.
+   */
+  wheelScale?: number;
 }
 
 export function bindOrbitDrag(
@@ -233,6 +244,7 @@ export function bindOrbitDrag(
   let lastMouseY = 0;
   let savedPan = orbit.panAngle;
   let savedTilt = orbit.tiltAngle;
+  const sensitivity = (opts?.degreesPerPixel ?? 0.3) * DEG_TO_RAD;
 
   canvas.addEventListener('mousedown', (e: MouseEvent) => {
     dragging = true;
@@ -244,8 +256,8 @@ export function bindOrbitDrag(
 
   canvas.addEventListener('mousemove', (e: MouseEvent) => {
     if (!dragging) return;
-    orbit.panAngle = AWAY_MOUSE_SENSITIVITY * (e.clientX - lastMouseX) + savedPan;
-    orbit.tiltAngle = AWAY_MOUSE_SENSITIVITY * (e.clientY - lastMouseY) + savedTilt;
+    orbit.panAngle = sensitivity * (e.clientX - lastMouseX) + savedPan;
+    orbit.tiltAngle = sensitivity * (e.clientY - lastMouseY) + savedTilt;
   });
 
   window.addEventListener('mouseup', () => {
@@ -255,8 +267,9 @@ export function bindOrbitDrag(
   if (opts) {
     const minDist = opts.minDistance ?? 100;
     const maxDist = opts.maxDistance ?? 2000;
+    const wheelScale = opts.wheelScale ?? 0.5;
     canvas.addEventListener('wheel', (e: WheelEvent) => {
-      orbit.distance -= e.deltaY / 2;
+      orbit.distance -= e.deltaY * wheelScale;
       if (orbit.distance < minDist) orbit.distance = minDist;
       else if (orbit.distance > maxDist) orbit.distance = maxDist;
     });
