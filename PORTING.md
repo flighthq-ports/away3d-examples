@@ -280,7 +280,24 @@ flipping the normal there makes the panel reflect correctly from either face for
   lying exactly on the receiving surface; the bear's shadow was lost in the ground's own
   self-shadowing. Only the bear casts now, and the shadow volume follows him (the original uses
   `NearDirectionalShadowMapper(0.5)` to keep the map near the subject for the same reason).
-- **The bear never moved.** He only turned. The AWD walk and run clips carry their travel on
+- **Forward was inverted, and backing up lurched.** Two separate bugs on top of the missing
+  motion below. First, the delta was rotated with the sign flipped: this model's forward is local
+  +Z (at heading 0 he faces the camera, which sits on +Z from him), so it needs a plain Y
+  rotation. Negating it made him moonwalk — walk cycle playing while travelling backwards, every
+  key driving him the wrong way. Second, reverse playback: `extractAnimationRootMotion` only reads
+  a range FORWARDS, and a backward step that runs past zero wraps to the END of the clip, so
+  `endTime` lands ABOVE `startTime`. Swapping the two then hands the extractor a decreasing range,
+  which it reads as a wrap and answers with nearly a whole cycle of forward travel — a single
+  283-unit lurch the instant S went down, which swamped the correct backward steps that followed.
+  A wrapped reverse step is summed in two pieces instead. Test the SPEED SIGN, never the
+  timestamps: a wrapped reverse step is indistinguishable from a forward wrap by ordering alone.
+
+  Verified numerically at heading 0 (he faces the camera, so forward raises z toward 0):
+  W steps +25.75/frame with z rising, S steps -25.75/frame with z falling and no first-frame
+  spike, A raises the heading (his left), D lowers it, and at the default 45 degrees W moves +x
+  and +z together — along the facing.
+
+- **The bear never moved at all.** He only turned. The AWD walk and run clips carry their travel on
   channel 0, a three-component translation track, and `applyAnimationClipToScene3D` does not apply
   it — its target does not resolve to a scene node, so nothing moved and nothing double-counts
   either. `createAnimationRootMotionExtractor` on that channel gives the per-step delta, which is
