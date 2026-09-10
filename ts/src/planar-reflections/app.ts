@@ -55,7 +55,12 @@ const CAMERA_FAR = 4000;
 const FOG_FAR = 3000;
 // Where the haze starts to read, chosen for the depth-space ramp above rather than copied.
 const FOG_VISIBLE_NEAR = 500;
-const FOG_COLOR = 0x100215;
+// DELIBERATE DEVIATION from the original, which uses the space skybox and FogMethod(0, 2000,
+// 0x100215). A starfield reads as night, but the desert is lit by a warm sun and the sand renders
+// bright — the two never agreed, and the mirror made it obvious by putting a dark sky next to lit
+// ground. The daytime sky is the one Away3D itself ships with RealTimeEnvMap, whose desert is the
+// same asset set, and the fog colour is the one Away3D pairs with that sky in that sample.
+const FOG_COLOR = 0x5f5e6e;
 const TERRAIN_SIZE = 5000;
 const TERRAIN_HEIGHT = 600;
 const TERRAIN_SEGMENTS = 75;
@@ -133,7 +138,7 @@ const { directional, ambient } = createDirectionalLightFromAway({
 });
 const lights = createScene3DLights({ ambient, directional });
 
-const skyFaceNames = ['space_posX', 'space_negX', 'space_posY', 'space_negY', 'space_posZ', 'space_negZ'];
+const skyFaceNames = ['sky_posX', 'sky_negX', 'sky_posY', 'sky_negY', 'sky_posZ', 'sky_negZ'];
 const [obj, r2d2Image, sandImage, heightImage, ...skyFaces] = await Promise.all([
   fetch(`${assetRoot}R2D2.obj`).then((response) => response.text()),
   loadImageResourceFromUrl(ctx.host, `${assetRoot}r2d2_diffuse.jpg`),
