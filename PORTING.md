@@ -41,6 +41,49 @@ lighting treatment.
 | ShallowWaterDemo | `shallow-water-demo` | Remastered |
 | TerrainDemo | `terrain-demo` | Remastered |
 
+## AwayFPS audit (2026-09-09)
+
+Every original `Source/Main.hx` was checked for an `AwayFPS` constructor. Five samples create the
+debug readout; all five place it at `(10, 10)` in white. Their Flight ports show FPS over a rolling
+one-second window and derive PLY from the live geometry being drawn. The other 28 ports intentionally
+omit it.
+
+| Original source | Flight sample | AwayFPS |
+| --- | --- | --- |
+| `basic/BasicSpriteSheet` | `basic-sprite-sheet` | No |
+| `basic/BitmapFont` | `bitmap-font` | Yes |
+| `basic/Fire` | `fire` | No |
+| `advanced/FractalTreeDemo` | `fractal-tree-demo` | No |
+| `intermediate/Globe` | `globe` | No |
+| `intermediate/Head` | `head` | No |
+| `intermediate/LightProbes` | `light-probes` | No |
+| `intermediate/Lines` | `lines` | Yes |
+| `basic/Load3DS` | `load-3ds` | No |
+| `basic/LoadAWD` | `load-awd` | Yes |
+| `basic/LoadDAE` | `load-dae` | Yes |
+| `intermediate/MD5Animation` | `md5-animation` | No |
+| `basic/MipMapping` | `mip-mapping` | Yes |
+| `intermediate/MonsterHeadShading` | `monster-head-shading` | No |
+| `intermediate/MouseInteraction` | `mouse-interaction` | No |
+| `intermediate/OnkbaAWDAnimation` | `onkba-awd-animation` | No |
+| `intermediate/ParticleExplosions` | `particle-explosions` | No |
+| `intermediate/ParticleTrails` | `particle-trails` | No |
+| `basic/Particles` | `particles` | No |
+| `intermediate/PerelithKnightMD2` | `perelith-knight` | No |
+| `intermediate/PlanarReflections` | `planar-reflections` | No |
+| `intermediate/PolarBearAWDAnimation` | `polar-bear-awd-animation` | No |
+| `intermediate/RealTimeEnvMap` | `real-time-env-map` | No |
+| `basic/Shading` | `shading` | No |
+| `advanced/ShallowWaterDemo` | `shallow-water-demo` | No |
+| `basic/SkyBox` | `skybox` | No |
+| `advanced/MultiPassSponzaDemo` | `sponza-demo` | No |
+| `intermediate/SpriteSheetAnimation` | `sprite-sheet-animation` | No |
+| `basic/Stereo` | `stereo` | No |
+| `advanced/TerrainDemo` | `terrain-demo` | No |
+| `basic/Tweening3D` | `tweening-3d` | No |
+| `basic/UVAnimation` | `uv-animation` | No |
+| `basic/View` | `view` | No |
+
 ## Flight capability gaps (as of SDK 0.5.1-next.1019.1274ec5 — see update below)
 
 The samples keep these gaps visible instead of silently converting the input or dropping the feature:

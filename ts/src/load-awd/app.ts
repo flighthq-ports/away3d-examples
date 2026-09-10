@@ -1,6 +1,7 @@
 import type {
   BlinnPhongMaterial,
   Mesh,
+  MeshGeometry,
   PerspectiveProjection,
 } from '@flighthq/sdk';
 import {
@@ -17,6 +18,7 @@ import {
   getNodeLocalMatrix4,
   isMesh,
   prependMatrix4,
+  prepareScene3DRender,
   rotateMatrix4,
   scaleMatrix4,
   setMatrix4Identity,
@@ -70,7 +72,51 @@ const yAxis = createVector3(0, 1, 0);
 const scratchMatrix = createMatrix4();
 let rotationAngle = 0;
 
-function frame(): void {
+function geometryPolygonCount(geometry: Readonly<MeshGeometry>): number {
+  return geometry.subsets.reduce((count, subset) => {
+    if (geometry.topology === 'triangle-list') return count + Math.floor(subset.indexCount / 3);
+    if (geometry.topology === 'triangle-strip') return count + Math.max(0, subset.indexCount - 2);
+    return count;
+  }, 0);
+}
+
+function scenePolygonCount(): number {
+  const renderList = prepareScene3DRender(
+    ctx.state, scene.root, camera, lights, ctx.canvas.width / ctx.canvas.height,
+  );
+  let polygons = 0;
+  for (let i = 0; i < renderList.meshCount; i++) {
+    polygons += geometryPolygonCount(renderList.visibleMeshes[i]!.geometry);
+  }
+  for (let i = 0; i < renderList.instancedMeshCount; i++) {
+    const mesh = renderList.visibleInstancedMeshes[i]!;
+    polygons += geometryPolygonCount(mesh.geometry) * mesh.instanceCount;
+  }
+  return polygons;
+}
+
+const stats = document.createElement('div');
+stats.textContent = `FPS: 0\nPLY: ${scenePolygonCount()}`;
+Object.assign(stats.style, {
+  position: 'fixed', left: '10px', top: '10px', zIndex: '10', color: '#fff',
+  font: '12px/1.4 monospace', whiteSpace: 'pre', textShadow: '0 1px 2px #000', pointerEvents: 'none',
+});
+document.body.appendChild(stats);
+let statsWindowStart = performance.now();
+let statsFrames = 0;
+let displayedFps = 0;
+function updateStats(timestamp: number): void {
+  statsFrames++;
+  const elapsed = timestamp - statsWindowStart;
+  if (elapsed >= 1000) {
+    displayedFps = Math.round(statsFrames * 1000 / elapsed);
+    statsWindowStart = timestamp;
+    statsFrames = 0;
+  }
+  stats.textContent = `FPS: ${displayedFps}\nPLY: ${scenePolygonCount()}`;
+}
+
+function frame(timestamp: number): void {
   rotationAngle += -1 * DEG_TO_RAD;
   setMatrix4Identity(scratchMatrix);
   translateMatrix4(scratchMatrix, scratchMatrix, 0, -300, 0);
@@ -80,6 +126,7 @@ function frame(): void {
   setNodeLocalMatrix4(templateMesh!, scratchMatrix);
 
   ctx.render(scene.root, camera, lights);
+  updateStats(timestamp);
   requestAnimationFrame(frame);
 }
 

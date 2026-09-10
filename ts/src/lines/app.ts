@@ -19,6 +19,7 @@ import {
   invalidateNodeLocalTransform,
   loadImageResourceFromUrl,
   prewarmParticleEmitter3D,
+  prepareScene3DRender,
   setCamera3DViewMatrix4FromLookAt,
   setQuaternionFromEuler,
   setVector3,
@@ -197,6 +198,51 @@ const sparkConfig = createParticleEmitterConfig({
 });
 prewarmParticleEmitter3D(sparks, sparkState, sparkConfig, 10, 1 / 60);
 
+function geometryPolygonCount(geometry: Readonly<MeshGeometry>): number {
+  return geometry.subsets.reduce((count, subset) => {
+    if (geometry.topology === 'triangle-list') return count + Math.floor(subset.indexCount / 3);
+    if (geometry.topology === 'triangle-strip') return count + Math.max(0, subset.indexCount - 2);
+    return count;
+  }, 0);
+}
+
+function scenePolygonCount(): number {
+  const renderList = prepareScene3DRender(
+    ctx.state, scene.root, camera, lights, ctx.canvas.width / ctx.canvas.height,
+  );
+  let polygons = 0;
+  for (let i = 0; i < renderList.meshCount; i++) {
+    polygons += geometryPolygonCount(renderList.visibleMeshes[i]!.geometry);
+  }
+  for (let i = 0; i < renderList.instancedMeshCount; i++) {
+    const mesh = renderList.visibleInstancedMeshes[i]!;
+    polygons += geometryPolygonCount(mesh.geometry) * mesh.instanceCount;
+  }
+  if (sparks.enabled) polygons += sparks.data.particleCount * 2;
+  return polygons;
+}
+
+const stats = document.createElement('div');
+stats.textContent = `FPS: 0\nPLY: ${scenePolygonCount()}`;
+Object.assign(stats.style, {
+  position: 'fixed', left: '10px', top: '10px', zIndex: '10', color: '#fff',
+  font: '12px/1.4 monospace', whiteSpace: 'pre', textShadow: '0 1px 2px #000', pointerEvents: 'none',
+});
+document.body.appendChild(stats);
+let statsWindowStart = performance.now();
+let statsFrames = 0;
+let displayedFps = 0;
+function updateStats(timestamp: number): void {
+  statsFrames++;
+  const elapsed = timestamp - statsWindowStart;
+  if (elapsed >= 1000) {
+    displayedFps = Math.round(statsFrames * 1000 / elapsed);
+    statsWindowStart = timestamp;
+    statsFrames = 0;
+  }
+  stats.textContent = `FPS: ${displayedFps}\nPLY: ${scenePolygonCount()}`;
+}
+
 const eye = createVector3();
 const target = createVector3();
 const up = createVector3(0, 1, 0);
@@ -242,6 +288,7 @@ function frame(timestamp: number): void {
 
   stepParticleEmitter3D(sparks, sparkState, sparkConfig, deltaTime);
   ctx.render(scene.root, camera, lights);
+  updateStats(timestamp);
   requestAnimationFrame(frame);
 }
 
