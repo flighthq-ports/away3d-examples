@@ -46,8 +46,13 @@ lighting treatment.
 The samples keep these gaps visible instead of silently converting the input or dropping the feature:
 
 - **Planar reflection capture:** The scene renderer has no Away3D-style planar reflection texture with
-  an oblique clip plane. `planar-reflections` keeps the moving reflected subject and mirror composition
-  through an explicit mirrored-scene fallback.
+  an oblique clip plane. A true planar mirror also needs either an off-axis (oblique) projection or
+  screen-space sampling in the mirror's shader, and neither is reachable from the public API:
+  `createPerspectiveProjection` takes only a symmetric FOV, and there is no built-in projective
+  sampler. `planar-reflections` therefore keeps the mirror composition through an explicit
+  mirrored-scene fallback — the subject is duplicated and reflected through the mirror plane each
+  frame, tracking the real subject's transform. The rest of that sample (heightmap desert, skybox,
+  fog, R2D2's keyboard physics, camera and overlays) matches the original.
 Compressed AWD assets in the Onkba, polar bear, and clock samples are supported. Those examples call
 `registerDeflateDecompressor()` before parsing, then use the imported skeleton clips or named clock
 meshes directly.
