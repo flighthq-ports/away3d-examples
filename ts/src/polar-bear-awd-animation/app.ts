@@ -20,6 +20,9 @@ import {
   createScene3DFromDocument,
   createScene3DLights,
   createScreenSpaceFogEffect,
+  createVector3,
+  setAabb,
+  setCamera3DViewMatrix4FromLookAt,
   createStandardPbrMaterial,
   createTexture,
   createTextureAtlas,
@@ -42,7 +45,7 @@ import {
   updateMeshSkin,
   walkNodeDescendants,
 } from '@flighthq/sdk';
-import { bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
+import { awayDirection, createCameraFromAway } from '../../shared/camera';
 import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
 import { createDirectionalLightFromAway, createPointLightFromAway } from '../../shared/lighting';
 import { createAnimationController } from './animation';
@@ -51,29 +54,66 @@ import { createScene3DContext } from './renderer';
 registerDeflateDecompressor();
 registerWebImageDecoders();
 
+// FogMethod(0, 3000, 0x5f5e6e). Clear colour and fog are consumed as LINEAR values, so the sRGB
+// constant has to be converted — passing the raw 0x5f5e6e is what washed the whole scene pale.
+const CAMERA_NEAR = 20;
+const CAMERA_FAR = 5000;
+const FOG_COLOR = 0x5f5e6e;
+const FOG_FAR = 3000;
+// The effect ramps over NON-LINEAR window depth, where distance compresses hard: depth(1000) is
+// already 0.984 and depth(3000) is 0.997. Mapping the original's world-linear 0..3000 range onto
+// that fogs the bear itself, so the near end is chosen to sit just beyond him and let the haze
+// build over the ground behind.
+const FOG_VISIBLE_NEAR = 1200;
+
+function linearChannel(channel: number): number {
+  const v = channel / 255;
+  return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+}
+function linearRgba(srgb: number): number {
+  let out = 0;
+  for (let shift = 16; shift >= 0; shift -= 8) {
+    out = (out << 8) | Math.round(linearChannel((srgb >> shift) & 0xff) * 255);
+  }
+  return ((out << 8) | 0xff) >>> 0;
+}
+function depthAt(distance: number): number {
+  const d = Math.max(distance, CAMERA_NEAR);
+  return (CAMERA_FAR * (d - CAMERA_NEAR)) / (d * (CAMERA_FAR - CAMERA_NEAR));
+}
+
 const ctx = createScene3DContext({
   width: innerWidth,
   height: innerHeight,
-  backgroundColor: 0x5f5e6eff,
+  backgroundColor: linearRgba(FOG_COLOR),
   effects: [
-    createScreenSpaceFogEffect({ color: 0x5f5e6eff, near: 0.96, far: 1, density: 3 }),
+    // NOTE: this fogs the skybox too. Away3D's FogMethod is a MATERIAL method, so its sky stays
+    // crisp; a screen-space depth fog cannot tell sky from distant ground (both sit at depth ~1),
+    // and the effect has no background skip. The window below is chosen to keep what it does to
+    // the sky mild rather than to hide it.
+    createScreenSpaceFogEffect({
+      color: linearRgba(FOG_COLOR),
+      near: depthAt(FOG_VISIBLE_NEAR),
+      far: depthAt(FOG_FAR),
+      density: 1,
+    }),
     createToneMapEffect({ exposure: 1.05 }),
     createFxaaEffect(),
   ],
 });
 const scene = createScene3D();
-const camera = createCameraFromAway({ y: 500, near: 20, far: 5000 });
-const orbit = createOrbitControllerFromAway(camera, {
-  distance: 1050,
-  panAngle: 180,
-  tiltAngle: 12,
-  targetY: 180,
-  targetZ: 1000,
-});
-bindOrbitDrag(ctx.canvas, orbit, { minDistance: 650, maxDistance: 1800 });
+const camera = createCameraFromAway({ y: 500, near: CAMERA_NEAR, far: CAMERA_FAR });
+// The original does NOT orbit. `camera.y = 500; camera.z = 0` and a LookAtController whose
+// lookAtObject becomes the bear, so the camera stands still and only turns to keep him in frame —
+// which is why he shrinks into the distance as he walks away. It binds no mouse listeners at all.
+const cameraEye = createVector3(0, 500, 0);
+const cameraTarget = createVector3(0, 0, -1000);
+const cameraUp = createVector3(0, 1, 0);
 
+// DirectionalLight(-1, -0.4, 1). The direction is an Away3D vector and must be converted, or the
+// sun ends up on the wrong side and the shadow falls away from the camera.
 const awaySun = createDirectionalLightFromAway({
-  direction: { x: -1, y: -0.4, z: 1 },
+  direction: awayDirection(-1, -0.4, 1),
   diffuse: 1.35,
   ambient: 0.22,
   ambientColor: 0xbad9ef,
@@ -88,7 +128,8 @@ const skyLight = createPointLightFromAway({
   range: 2500,
   referenceDistance: 1200,
 });
-setVector3(skyLight.position, 0, 500, -1000);
+// skyLight.y = 500, with x and z left at zero.
+setVector3(skyLight.position, 0, 500, 0);
 const lights = createScene3DLights({ ambient: awaySun.ambient, directional: awaySun.directional, point: [skyLight] });
 
 const assetRoot = 'away3d/PolarBearAWDAnimation/';
@@ -144,6 +185,7 @@ let bearHeading = Math.PI / 4;
 setQuaternionFromEuler(bearMesh.rotation, 0, bearHeading, 0);
 invalidateNodeLocalTransform(bearMesh);
 addNodeChild(scene.root, model.root);
+
 
 const groundSampler = createTilingSampler();
 const groundGeometry = createPlaneMeshGeometry(50000, 50000);
@@ -276,29 +318,94 @@ const shadowCamera = createCamera3D({
   far: 10,
   projection: createOrthographicProjection({ halfWidth: 1, halfHeight: 1 }),
 });
-const shadowBounds = createAabb(-1800, -20, -2800, 1800, 1400, 800);
+// The bear now roams, so the shadow volume has to travel with him. A fixed box centred on the
+// origin either wastes almost all of the shadow map on empty snow or loses him entirely once he
+// walks out of it. NearDirectionalShadowMapper(0.5) in the original keeps the map close to the
+// subject for the same reason.
+// The sun is low (y = -0.4), so the bear's shadow is roughly 2.5x his height and needs room.
+const SHADOW_RADIUS = 1600;
+const shadowBounds = createAabb(-SHADOW_RADIUS, -20, -SHADOW_RADIUS, SHADOW_RADIUS, 900, SHADOW_RADIUS);
 
+// The original's instructions, verbatim (its drop-shadow filter line is commented out).
 const help = document.createElement('div');
-help.textContent = 'WASD / arrows: animate and turn · Shift: run · drag: orbit';
+help.textContent = 'Cursor keys / WSAD - move\nSHIFT - hold down to run';
 Object.assign(help.style, {
-  position: 'fixed', left: '16px', top: '14px', color: '#fff', font: '14px system-ui',
-  textShadow: '0 1px 4px #234', pointerEvents: 'none',
+  position: 'fixed', left: '0px', top: '0px', zIndex: '2', color: '#ffffff',
+  font: '11px sans-serif', whiteSpace: 'pre', pointerEvents: 'none',
 });
 document.body.appendChild(help);
 
+// Stands in for the original's AwayStats readout, which this sample moves to the top right
+// (`awayStats.x = stage.stageWidth - awayStats.width` in onResize).
+let triangleCount = 0;
+walkNodeDescendants(scene.root, (node) => {
+  if (isMesh(node) && node.geometry) {
+    const geometry = node.geometry;
+    const indexed = geometry.indices !== null
+      ? geometry.indices.length
+      : geometry.vertices.length / (geometry.layout.stride / 4);
+    triangleCount += Math.floor(indexed / 3);
+  }
+  return true;
+});
+const stats = document.createElement('div');
+Object.assign(stats.style, {
+  position: 'fixed', right: '10px', top: '10px', zIndex: '2', color: '#ffffff',
+  font: '12px ui-monospace, monospace', whiteSpace: 'pre', textAlign: 'right',
+  pointerEvents: 'none',
+});
+document.body.appendChild(stats);
+let framesThisSecond = 0;
+let statsWindowStart = performance.now();
+let displayedFps = 0;
+
+// The root-motion delta arrives in the skeleton's own space and has to be scaled by the mesh and
+// turned by the bear's heading before it becomes world travel.
+const rootDelta = createVector3();
 let previousTime = performance.now();
 function frame(timestamp: number): void {
   const deltaTime = Math.min(0.1, (timestamp - previousTime) / 1000);
   previousTime = timestamp;
-  animation.step(deltaTime);
+
+  framesThisSecond++;
+  if (timestamp - statsWindowStart >= 1000) {
+    displayedFps = Math.round((framesThisSecond * 1000) / (timestamp - statsWindowStart));
+    framesThisSecond = 0;
+    statsWindowStart = timestamp;
+  }
+  stats.textContent = `FPS: ${displayedFps}\nPLY: ${triangleCount}`;
+
+  animation.step(deltaTime, rootDelta);
   for (const mesh of skinned) updateMeshSkin(mesh);
   bearHeading += rotationPerFrame * deltaTime * 60 * Math.PI / 180;
   setQuaternionFromEuler(bearMesh.rotation, 0, bearHeading, 0);
+
+  // Walk the clip's forward travel onto the mesh. The bear's local forward is -Z after the
+  // handedness flip, so the delta is rotated by the heading the same way a move step would be.
+  const forward = rootDelta.z * bearMesh.scale.z;
+  const strafe = rootDelta.x * bearMesh.scale.x;
+  const sin = Math.sin(bearHeading);
+  const cos = Math.cos(bearHeading);
+  bearMesh.position.x += strafe * cos - forward * sin;
+  bearMesh.position.z += -strafe * sin - forward * cos;
   invalidateNodeLocalTransform(bearMesh);
+
+
   stepParticleEmitter3D(snowfall, snowState, snowConfig, deltaTime);
-  orbit.update();
+
+  // LookAtController: the camera never moves, it just tracks the bear.
+  setVector3(cameraTarget, bearMesh.position.x, bearMesh.position.y, bearMesh.position.z);
+  setCamera3DViewMatrix4FromLookAt(camera, cameraEye, cameraTarget, cameraUp);
+  setAabb(
+    shadowBounds,
+    bearMesh.position.x - SHADOW_RADIUS, -20, bearMesh.position.z - SHADOW_RADIUS,
+    bearMesh.position.x + SHADOW_RADIUS, 900, bearMesh.position.z + SHADOW_RADIUS,
+  );
   configureDirectionalShadowCamera3D(shadowCamera, awaySun.directional.direction, shadowBounds);
-  drawGlScene3DShadowMap(ctx.state, scene.root, shadowCamera, awaySun.directional);
+  // Only the bear casts. Handing the whole scene to the shadow pass includes the 50000x50000
+  // ground plane, which fills the shadow map with a caster that lies exactly on the receiving
+  // surface — the bear's own shadow is then lost in the ground's self-shadowing.
+  drawGlScene3DShadowMap(ctx.state, model.root, shadowCamera, awaySun.directional);
   ctx.render(scene.root, camera, lights, environment);
   requestAnimationFrame(frame);
 }
