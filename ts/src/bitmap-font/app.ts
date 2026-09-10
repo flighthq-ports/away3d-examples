@@ -86,16 +86,19 @@ const fontTexture = createTexture({ source: image });
 const labelCount = 14;
 for (let i = 0; i < labelCount; i++) {
   const angle = i / labelCount * Math.PI * 2;
-  // Matches the original's two-level layout: a container swept to this label's heading, holding a
-  // text plane tipped flat (rotationX = 90) so it reads like a road sign lying face-up. The panels
-  // are all centred on the same vertical axis and stacked in Y — the original's `x = -400` /
-  // `y = -300` are the centring offsets of a top-left-registered 800x600 TextField, NOT a ring
-  // radius, so the result is a skewer of signs rather than a spiral staircase. This geometry is
-  // already centred horizontally, so only the vertical stack offset carries over.
+  // Matches the original's two-level layout: a container swept to this label's heading, holding an
+  // upright text panel. The panels all sit centred on the same vertical axis and stacked in Y — the
+  // original's `x = -400` / `y = -300` are the centring offsets of a top-left-registered 800x600
+  // TextField, NOT a ring radius, so the result is a skewer of signs rather than a spiral
+  // staircase. This geometry is already centred horizontally, so only the vertical offset carries.
   //
-  // Both angles are negated versus the original's literal values: Away3D's rotation direction is
-  // left-handed, this SDK's is right-handed, and reusing the same numeric angle in the opposite
-  // handedness mirrors the text.
+  // The original's `rotationX = 90` is not a tilt to reproduce: an Away3D plane lies flat in XZ by
+  // default (yUp), so that rotation is what STANDS the sign up to face the viewer. This geometry is
+  // built upright in XY already, so it needs no tilt — adding one would lay the text face-up.
+  //
+  // The heading is negated versus the original's literal value: Away3D's rotation direction is
+  // left-handed and this SDK's is right-handed, so reusing the raw angle sweeps the stack the wrong
+  // way round.
   const container = createNode3D();
   setQuaternionFromEuler(container.rotation, 0, -angle, 0);
   invalidateNodeLocalTransform(container);
@@ -109,7 +112,6 @@ for (let i = 0; i < labelCount; i++) {
     doubleSided: true,
   })]);
   setVector3(label.position, 0, -300 + i * 60, 0);
-  setQuaternionFromEuler(label.rotation, -Math.PI / 2, 0, 0);
   invalidateNodeLocalTransform(label);
   addNodeChild(container, label);
 }
