@@ -86,12 +86,16 @@ const fontTexture = createTexture({ source: image });
 const labelCount = 14;
 for (let i = 0; i < labelCount; i++) {
   const angle = i / labelCount * Math.PI * 2;
-  // Matches the original's two-level layout: a container swept to this label's heading around the
-  // ring, holding a text plane offset along its own local -X and tipped flat (rotationX = 90) to lie
-  // like a floor sign. Composing it as two single-axis rotations (rather than one combined Euler
-  // angle) avoids ambiguity over this SDK's Euler axis-order convention. Both angles are negated
-  // versus the original's literal values: Away3D's rotation direction is left-handed, this SDK's is
-  // right-handed, and reusing the same numeric angle in the opposite handedness mirrors the text.
+  // Matches the original's two-level layout: a container swept to this label's heading, holding a
+  // text plane tipped flat (rotationX = 90) so it reads like a road sign lying face-up. The panels
+  // are all centred on the same vertical axis and stacked in Y — the original's `x = -400` /
+  // `y = -300` are the centring offsets of a top-left-registered 800x600 TextField, NOT a ring
+  // radius, so the result is a skewer of signs rather than a spiral staircase. This geometry is
+  // already centred horizontally, so only the vertical stack offset carries over.
+  //
+  // Both angles are negated versus the original's literal values: Away3D's rotation direction is
+  // left-handed, this SDK's is right-handed, and reusing the same numeric angle in the opposite
+  // handedness mirrors the text.
   const container = createNode3D();
   setQuaternionFromEuler(container.rotation, 0, -angle, 0);
   invalidateNodeLocalTransform(container);
@@ -104,10 +108,33 @@ for (let i = 0; i < labelCount; i++) {
     alphaMode: 'blend',
     doubleSided: true,
   })]);
-  setVector3(label.position, -400, -300 + i * 60, 0);
+  setVector3(label.position, 0, -300 + i * 60, 0);
   setQuaternionFromEuler(label.rotation, -Math.PI / 2, 0, 0);
   invalidateNodeLocalTransform(label);
   addNodeChild(container, label);
+}
+
+// Stands in for the original's away3d.debug.AwayFPS readout: measured framerate plus the scene's
+// triangle count, top-left. PLY is fixed here because the label set never changes after startup.
+const triangleCount = labelCount * (labelGeometry.indices!.length / 3);
+const stats = document.createElement('div');
+Object.assign(stats.style, {
+  position: 'fixed', left: '10px', top: '10px', zIndex: '3', color: '#fff',
+  font: '12px ui-monospace, monospace', whiteSpace: 'pre', textShadow: '0 1px 3px #000',
+  pointerEvents: 'none',
+});
+document.body.appendChild(stats);
+let framesThisSecond = 0;
+let statsWindowStart = performance.now();
+let displayedFps = 0;
+function updateStats(timestamp: number): void {
+  framesThisSecond++;
+  if (timestamp - statsWindowStart >= 1000) {
+    displayedFps = Math.round((framesThisSecond * 1000) / (timestamp - statsWindowStart));
+    framesThisSecond = 0;
+    statsWindowStart = timestamp;
+  }
+  stats.textContent = `FPS: ${displayedFps}\nPLY: ${triangleCount}`;
 }
 
 const idleFrameLimit = 600;
@@ -135,6 +162,7 @@ let previousTime = performance.now();
 function frame(timestamp: number): void {
   const deltaTime = Math.min(0.1, (timestamp - previousTime) / 1000);
   previousTime = timestamp;
+  updateStats(timestamp);
   if (!isMobile) {
     idleOverlay.style.display = !mouseActive || idleFrames > idleFrameLimit ? 'block' : 'none';
     if (mouseActive) idleFrames++;
