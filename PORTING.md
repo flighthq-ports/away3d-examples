@@ -234,3 +234,35 @@ lit by a warm sun and renders bright — a night sky never agreed with it, and t
 mismatch plain by putting dark sky beside lit ground. The port uses the `sky_*` faces Away3D ships
 with `RealTimeEnvMap` (same desert asset set) and the fog colour Away3D pairs with them there,
 `0x5f5e6e`. This also fixes R2D2 reading as murky grey: its IBL had been a black starfield.
+
+### HoverController.wrapPanAngle matters wherever the pan target comes from atan2
+
+`shared/camera.ts` eases the applied pan toward the target (`currentPan += (panAngle - currentPan)
+/ (steps + 1)`), so a target that wraps makes the camera glide the long way round. Any sample that
+drives `panAngle` from `atan2` — `real-time-env-map` follows R2D2 with
+`cameraController.panAngle = 90 - 180*atan2(r2d2.z, r2d2.x)/PI` — jumps 2*PI at the branch cut and
+spins backwards once per lap. `AwayOrbitOptions.wrapPanAngle` reproduces AwayJS's
+`HoverController.wrapPanAngle`: it rebases the applied angle onto the nearest equivalent of the
+target so every step is a short one. Off by default, as in AwayJS.
+
+Measured over a simulated lap, the worst per-frame swing in the direction the camera actually
+faces drops from 38.65 degrees to 9.18 degrees. Measure the *facing*, not the raw number — a 2*PI
+jump in the stored angle is visually identical, and grading the raw value reports the fix as a
+regression.
+
+### Where the real-time env map's frame time goes
+
+Instrumented with a `gl.finish()` on both sides of each half: the six face renders cost ~44ms and
+the IBL bake ~0.3ms. The expensive part is re-rendering all 178k triangles six times, not the
+bake — so the two are now on separate cadences. The bake still runs every frame (it must, or the
+IBL goes stale and the head blacks out), while the faces refresh every `CAPTURE_FACE_INTERVAL`
+frames. Under software rendering, where the main pass dominates, that took the mean frame from
+1717ms to 1357ms; on a GPU the capture is a larger share of the frame, so expect more.
+
+### A mirror can be two-sided even though the original's is not
+
+The original's mirror is a single-sided plane and simply vanishes from behind. Reflecting the
+scene through the plane is normal-agnostic, so the only thing that has to change with the viewer's
+side is the oblique clip: the half-space to keep is always the one the camera is NOT in. In view
+space the camera sits at the origin, so it is on the normal's side exactly when `dot(N, P) < 0` —
+flipping the normal there makes the panel reflect correctly from either face for no extra pass.
