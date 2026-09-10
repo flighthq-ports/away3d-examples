@@ -266,3 +266,61 @@ scene through the plane is normal-agnostic, so the only thing that has to change
 side is the oblique clip: the half-space to keep is always the one the camera is NOT in. In view
 space the camera sits at the origin, so it is on the normal's side exactly when `dot(N, P) < 0` —
 flipping the normal there makes the panel reflect correctly from either face for no extra pass.
+
+## Polar bear (fixed against the built original)
+
+- **Fog.** The colour was passed as raw sRGB (`0x5f5e6eff`) where the effect consumes LINEAR, and
+  the window was an ad-hoc `near: 0.96, far: 1, density: 3`. Together they washed the whole frame
+  to pale lilac. Now linearised, with the window derived from the original's `FogMethod(0, 3000)`
+  through the same depth curve the depth buffer uses.
+- **Lighting.** `DirectionalLight(-1, -0.4, 1)` was passed as a raw literal instead of through
+  `awayDirection()`, so the sun sat on the wrong side. That also flattened the snow, whose relief
+  is entirely normal-mapped, and it is why the bear had no shadow to speak of.
+- **Shadow.** The shadow pass was handed `scene.root`, which makes the 50000x50000 ground a caster
+  lying exactly on the receiving surface; the bear's shadow was lost in the ground's own
+  self-shadowing. Only the bear casts now, and the shadow volume follows him (the original uses
+  `NearDirectionalShadowMapper(0.5)` to keep the map near the subject for the same reason).
+- **The bear never moved.** He only turned. The AWD walk and run clips carry their travel on
+  channel 0, a three-component translation track, and `applyAnimationClipToScene3D` does not apply
+  it — its target does not resolve to a scene node, so nothing moved and nothing double-counts
+  either. `createAnimationRootMotionExtractor` on that channel gives the per-step delta, which is
+  scaled by the mesh (45) and turned by the bear's heading. Measured 0.572 units/step at the
+  clip's own rate, about 257 world units/second at walk speed.
+- **The camera never followed.** The port orbited a fixed point. The original binds no mouse
+  listeners at all: the camera stands at (0, 500, 0) and a `LookAtController` tracks the bear, so
+  he genuinely shrinks into the distance as he walks away. Replaced with a fixed eye and a
+  per-frame look-at.
+- Text is the original's two lines, and the AwayStats stand-in is top right (this sample moves it
+  in `onResize`, like RealTimeEnvMap).
+
+### Screen-space fog cannot spare the skybox
+
+Away3D's `FogMethod` is a MATERIAL method, so its skybox is never fogged and stays crisp. Flight's
+fog is a post effect over the depth buffer with no background skip:
+
+```glsl
+float d = clamp((depth - u_near) / max(u_far - u_near, 1e-4), 0.0, 1.0);
+fog = clamp(1.0 - exp(-u_density * d), 0.0, 1.0);
+```
+
+The skybox sits at depth 1.0, so it always takes the full ramp, and distant ground sits at
+essentially the same depth (0.997 at 3000 units against 1.0) — no window can fog one and spare the
+other. The sample keeps what the fog does to the sky mild rather than pretending to hide it.
+*Worth raising upstream:* a background skip, or a max-depth cutoff, would let a port reproduce
+Away3D's per-material fog.
+
+### SDK 1059: one of the two capture fixes lands, one constraint remains
+
+`GlEnvironmentCaptureOptions.environment` works — `real-time-env-map` no longer drives six cube
+faces by hand. The IBL revision change did NOT lift the ordering constraint, though. Measured on
+1059, with the capture otherwise unchanged:
+
+| bake position | bake cadence | reflective head |
+| --- | --- | --- |
+| after the skybox draw (`onBeforeScene`) | every frame | correct |
+| after the skybox draw | every 4th frame | black |
+| before `ctx.render` | every frame | black |
+
+So `bakeGlEnvironmentCaptureIbl` must still be the last thing to touch the revision before the lit
+draws, and must still run on every frame. The face renders are the expensive half (~44ms against
+~0.3ms), so those alone are throttled and the bake stays per-frame.
