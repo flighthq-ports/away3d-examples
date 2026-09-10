@@ -355,9 +355,13 @@ function frame(timestamp: number): void {
   rotationSpeed = (rotationSpeed + turnInput * ROTATION * frames) * Math.pow(0.9, frames);
   rotationSpeed = Math.max(-MAX_ROTATION_SPEED, Math.min(MAX_ROTATION_SPEED, rotationSpeed));
 
-  heading += rotationSpeed * frames * Math.PI / 180;
-  r2d2.position.x += Math.sin(heading) * speed * frames;
-  r2d2.position.z += Math.cos(heading) * speed * frames;
+  // The original steers with `r2d2.rotationY += _rotationSpeed` and `r2d2.moveForward(_speed)`,
+  // which walks along the mesh's local +Z. This port negates Away3D's Z, and that reverses two
+  // things at once: the sense of a rotation about Y, and the world direction local +Z points in.
+  // Both have to be negated here, or the robot turns left when told right AND drives backwards.
+  heading -= rotationSpeed * frames * Math.PI / 180;
+  r2d2.position.x -= Math.sin(heading) * speed * frames;
+  r2d2.position.z -= Math.cos(heading) * speed * frames;
   setQuaternionFromEuler(r2d2.rotation, 0, heading, 0);
   invalidateNodeLocalTransform(r2d2);
 
