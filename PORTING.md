@@ -12,7 +12,7 @@ lighting treatment.
 | Fire | `fire` | Reused Flight port |
 | Load3DS | `load-3ds` | Reused Flight port |
 | LoadAWD | `load-awd` | Reused Flight port |
-| LoadDAE | `load-dae` | Remastered with native COLLADA import |
+| LoadDAE | `load-dae` | Remastered with native COLLADA import; see importer defects |
 | MipMapping | `mip-mapping` | Remastered |
 | Particles | `particles` | Remastered |
 | Shading | `shading` | Reused Flight port |
@@ -95,6 +95,23 @@ it. The copied assets normalize those stream tags to 16-bit so both standalone s
 `npm run normalize:awd-indices` after refreshing either asset from upstream. Flight's AWD parser also
 uses an external texture block's display name instead of its URL payload; `sprite-sheet-animation`
 therefore assigns its shipped textures explicitly while that importer gap remains.
+
+Flight's COLLADA importer has three defects that `load-dae` currently renders around rather than
+hides. Against `hobbelpaard.dae`, whose geometry carries a `TEXCOORD` input (`shape0-lib-map`,
+22,860 floats) and two `<triangles>` groups of 3,366 and 444 triangles bound to `material0` and
+`material1`:
+
+- **`TEXCOORD` is not read.** The imported mesh carries a `uv0` attribute whose values are all zero,
+  so every vertex samples one texel and the horse renders as flat colour despite its wood texture
+  resolving correctly. This is the visible symptom; the model is not actually untextured.
+- **Only the first `<triangles>` group is imported.** The mesh arrives with a single 3,366-triangle
+  subset, so the 444-triangle `material1` group is missing from the scene entirely.
+- **`instance_material` bindings do not resolve.** Both bindings emit
+  `collada.missing-reference` diagnostics, so the two parsed materials are never bound per subset.
+
+The document-level parse is otherwise sound — both materials are built with their `baseColorMap`
+textures resolved. These are engine-side gaps, not sample workarounds waiting to be written: papering
+over them in the sample would mean re-implementing the parser.
 
 **Faithful** (camera/material/lighting modernized, core technique intact): `basic-sprite-sheet`, `bitmap-font`,
 `fractal-tree-demo`, `head`, `lines`, `mip-mapping`, `particle-trails`, `particles`,

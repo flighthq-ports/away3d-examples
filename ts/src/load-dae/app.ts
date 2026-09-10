@@ -1,9 +1,13 @@
-import type { Mesh, PerspectiveProjection } from '@flighthq/sdk';
+import type { Mesh, Node3D, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
+  configureDirectionalShadowCamera3D,
+  createAabb,
   createBuiltInScene3DResourceResolver,
+  createCamera3D,
   createFxaaEffect,
   createMesh,
+  createOrthographicProjection,
   createPlaneMeshGeometry,
   createScene3D,
   createScene3DFromDocument,
@@ -13,6 +17,7 @@ import {
   createTilingSampler,
   createToneMapEffect,
   createVector3,
+  drawGlScene3DShadowMap,
   findNode,
   invalidateNodeLocalTransform,
   isMesh,
@@ -20,8 +25,8 @@ import {
   loadScene3DResources,
   parseCollada,
   setQuaternionFromAxisAngle,
-  setTextureUvScale,
   setVector3,
+  walkNodeDescendants,
 } from '@flighthq/sdk';
 
 import { awayDirection, bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
@@ -38,10 +43,10 @@ const ctx = createScene3DContext({
 const scene = createScene3D();
 const camera = createCameraFromAway({ far: 5000, fov: 60 });
 const orbit = createOrbitControllerFromAway(camera, {
-  distance: 1250,
+  distance: 1000,
   panAngle: 15,
-  tiltAngle: 14,
-  targetY: 260,
+  tiltAngle: 10,
+  targetY: 250,
   minTiltAngle: 0,
   maxTiltAngle: 45,
 });
@@ -55,6 +60,11 @@ const { directional, ambient } = createDirectionalLightFromAway({
   ambientColor: 0x60657b,
   shading: 'pbr',
 });
+// The original softens the horse's shadow onto the carpet with a SoftShadowMapMethod.
+directional.castsShadow = true;
+directional.pcfRadius = 2;
+directional.shadowBias = 0.002;
+directional.normalBias = 1;
 const lights = createScene3DLights({ ambient, directional });
 
 const [source, carpetImage, wallpaperImage] = await Promise.all([
@@ -76,9 +86,10 @@ const horse = findNode(model.root, isMesh) as Mesh | null;
 if (!horse) throw new Error('The COLLADA carousel contains no renderable mesh.');
 addNodeChild(scene.root, model.root);
 
+// The original enables texture repeat but never scales the UVs, so each 2500-unit surface shows
+// the carpet/wallpaper exactly once rather than as a tiled grid.
 const roomSampler = createTilingSampler();
 const carpetTexture = createTexture({ source: carpetImage, sampler: roomSampler });
-setTextureUvScale(carpetTexture, 5, 5);
 const carpetMaterial = createStandardPbrMaterial({
   baseColor: 0xffffffff,
   baseColorMap: carpetTexture,
@@ -90,7 +101,6 @@ const carpet = createMesh(createPlaneMeshGeometry(2500, 2500, 1, 1), [carpetMate
 addNodeChild(scene.root, carpet);
 
 const wallTexture = createTexture({ source: wallpaperImage, sampler: roomSampler });
-setTextureUvScale(wallTexture, 5, 5);
 const wallMaterial = createStandardPbrMaterial({
   baseColor: 0xffffffff,
   baseColorMap: wallTexture,
@@ -113,6 +123,42 @@ for (const spec of wallSpecs) {
   addNodeChild(scene.root, wall);
 }
 
+// Only the horse casts: the original clears castsShadows on the carpet and every wall, so the
+// shadow pass is fed the imported model's subtree rather than the whole scene.
+const shadowCamera = createCamera3D({
+  near: 1,
+  far: 10,
+  projection: createOrthographicProjection({ halfWidth: 1, halfHeight: 1 }),
+});
+const shadowBounds = createAabb(-700, -20, -700, 700, 900, 700);
+
+// Stands in for the original's away3d.debug.AwayFPS readout.
+function countTriangles(root: Readonly<Node3D>): number {
+  let triangles = 0;
+  walkNodeDescendants(root, (node) => {
+    if (isMesh(node) && node.geometry) {
+      const geometry = node.geometry;
+      const indexed = geometry.indices !== null
+        ? geometry.indices.length
+        : geometry.vertices.length / (geometry.layout.stride / 4);
+      triangles += Math.floor(indexed / 3);
+    }
+    return true;
+  });
+  return triangles;
+}
+const stats = document.createElement('div');
+Object.assign(stats.style, {
+  position: 'fixed', left: '10px', top: '10px', zIndex: '3', color: '#fff',
+  font: '12px ui-monospace, monospace', whiteSpace: 'pre', textShadow: '0 1px 3px #000',
+  pointerEvents: 'none',
+});
+document.body.appendChild(stats);
+const triangleCount = countTriangles(scene.root);
+let framesThisSecond = 0;
+let statsWindowStart = performance.now();
+let displayedFps = 0;
+
 const zAxis = createVector3(0, 0, 1);
 function frame(time: number): void {
   const phase = time / 500;
@@ -121,6 +167,17 @@ function frame(time: number): void {
   setQuaternionFromAxisAngle(model.root.rotation, zAxis, Math.sin(phase) * Math.PI / 12);
   invalidateNodeLocalTransform(model.root);
   orbit.update();
+
+  framesThisSecond++;
+  if (time - statsWindowStart >= 1000) {
+    displayedFps = Math.round((framesThisSecond * 1000) / (time - statsWindowStart));
+    framesThisSecond = 0;
+    statsWindowStart = time;
+  }
+  stats.textContent = `FPS: ${displayedFps}\nPLY: ${triangleCount}`;
+
+  configureDirectionalShadowCamera3D(shadowCamera, directional.direction, shadowBounds);
+  drawGlScene3DShadowMap(ctx.state, model.root, shadowCamera, directional);
   ctx.render(scene.root, camera, lights);
   requestAnimationFrame(frame);
 }
