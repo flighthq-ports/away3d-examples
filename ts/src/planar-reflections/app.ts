@@ -52,8 +52,9 @@ const assetRoot = 'away3d/PlanarReflections/';
 // Scene constants taken from the original.
 const CAMERA_NEAR = 20;
 const CAMERA_FAR = 4000;
-const FOG_NEAR = 0;
-const FOG_FAR = 2000;
+const FOG_FAR = 3000;
+// Where the haze starts to read, chosen for the depth-space ramp above rather than copied.
+const FOG_VISIBLE_NEAR = 500;
 const FOG_COLOR = 0x100215;
 const TERRAIN_SIZE = 5000;
 const TERRAIN_HEIGHT = 600;
@@ -98,7 +99,12 @@ const ctx = createScene3DContext({
   effects: [
     createScreenSpaceFogEffect({
       color: linearRgba(FOG_COLOR),
-      near: depthAt(FOG_NEAR),
+      // The effect ramps `1 - exp(-density * t)` with t linear in NON-LINEAR window depth, so the
+      // original's world-linear 0..2000 ramp cannot be reproduced by mapping its endpoints:
+      // depth(400) is already ~96% of the way to depth(2000), which fogs the subject almost to the
+      // fog colour. The window is therefore chosen so the haze reads like the original's — clear
+      // around the subject, saturating toward the far terrain.
+      near: depthAt(FOG_VISIBLE_NEAR),
       far: depthAt(FOG_FAR),
       density: 1,
     }),
@@ -368,9 +374,7 @@ function frame(timestamp: number): void {
     drawGlEnvironmentSkybox(
       reflectionState, environment, reflectedCamera, ctx.canvas.width / ctx.canvas.height,
     );
-    gl.frontFace(gl.CW);
     drawGlScene3D(reflectionState, scene.root, reflectedCamera, lights);
-    gl.frontFace(gl.CCW);
   });
 
   mirror.visible = true;
