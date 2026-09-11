@@ -500,3 +500,28 @@ makes the offsets recoverable, and the runners turning black confirms it.
 *Worth raising upstream:* one subset per `<triangles>` group would fix this at the importer, and
 it is the last of the three COLLADA defects this port has hit — the other two (TEXCOORD not read,
 only the first group imported) are no longer reproducible.
+
+## Particle trails
+
+Three gaps against the original, all found by building it and comparing.
+
+- **The WireframeAxesGrid was missing entirely.** `scene.addChild(new WireframeAxesGrid(10, 1500))`
+  draws three grid planes through the origin as `SegmentSet`s, and without them the particles
+  float in an empty void with no frame of reference. Rebuilt from the primitive's own defaults
+  (`away3d.debug.WireframeAxesGrid`): XY blue `0x0000FF`, ZY red `0xFF0000`, XZ green `0x00FF00`,
+  spanning +/-gridSize/2 with `subDivision` steps, inclusive of both bounds — 11 lines per
+  direction per plane. The grid is symmetric about the origin on every axis, so the usual Z
+  negation does not apply to it.
+- **`steps` was passed where the original passes `minTiltAngle`.** `HoverController(camera, null,
+  45, 20, 1000, 5)` — the sixth constructor argument is `minTiltAngle`, not `steps`. The port read
+  it as the easing step count, which both changed the drag feel and left the tilt unclamped, so
+  the camera could swing under the floor grid.
+- **No AwayStats readout.** Added, top left, which is where this sample leaves it.
+
+### Why the poly count reads 4000 against the original's 4132
+
+Both are correct for what they draw. The particles are 2 emitters x 1000 particles x 2 triangles =
+4000, and the original adds 132 on top: Away3D's `SegmentSet` expands every line segment into a
+quad, and the axes grid has 66 of them (3 planes x 22). This port draws the grid as a GL line
+list, so those segments are not triangles at all. The particle quads are counted from emitter
+capacity rather than from the scene walk, because the emitters are not Mesh nodes.
