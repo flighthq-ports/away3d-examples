@@ -196,7 +196,15 @@ const gridHeight = GRID_DIMENSION;
 // 2 the acceleration term grew about 39x: the surface churned continuously and the high-frequency
 // chop it produced was what read as pixelation, since a mirror amplifies every normal.
 const WAVE_SPEED = 0.99;
-const VISCOSITY = 0.3;
+// The original initialises viscosity at 0.3, but that is barely any damping: solving the scheme,
+// amplitude decays by exp(-viscosity / 2) per second — independent of both timestep and grid — so
+// 0.3 leaves a disturbance at 10% after 3.3s and still ringing at 1% after 19s. Water in a pool
+// this size does not behave that way.
+//
+// 1.7 is the top of the range the original's own GUI exposed for it
+// (`gui.addSlider("fluid.viscosity", 0.0, 1.7)`), so this is a point on their control rather than
+// an invented number, and it settles the way water does: 10% after 1.3s, 1% after 3.6s.
+const VISCOSITY = 1.7;
 // The original derives dt from `stage.frameRate` — 1/60 — and steps once per frame on a grid of
 // spacing 2. Because the scheme is CFL-limited, a wave crosses one cell per step, so world wave
 // speed is `spacing / step`: refining the grid without shortening the step would slow the ripples
