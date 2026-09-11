@@ -280,6 +280,19 @@ flipping the normal there makes the panel reflect correctly from either face for
   lying exactly on the receiving surface; the bear's shadow was lost in the ground's own
   self-shadowing. Only the bear casts now, and the shadow volume follows him (the original uses
   `NearDirectionalShadowMapper(0.5)` to keep the map near the subject for the same reason).
+- **The walk reset every cycle.** `extractAnimationRootMotion` documents its range as *unwrapped*
+  — "times may cross any number of repeat boundaries or run backward" — but it was being handed
+  `player.time`, which wraps to zero every cycle. Each loop therefore looked to it like a jump back
+  to the start of the clip, and it answered with a whole cycle of travel in reverse: the bear crept
+  forward for five frames, snapped back to where he started, and repeated. The controller now keeps
+  its own monotonic clock (`unwrappedTime += dt * player.speed`) and passes that. Reverse playback
+  then falls out for free, because the same call accepts a decreasing range — which retired an
+  earlier two-piece workaround for backing up across the loop point.
+
+  The lesson is narrow and worth keeping: a wrapped playhead and an unwrapped clock are not
+  interchangeable, and the failure is silent — steady-state frames look perfect and only the frame
+  at the loop boundary is wrong.
+
 - **Forward was inverted, and backing up lurched.** Two separate bugs on top of the missing
   motion below. First, the delta was rotated with the sign flipped: this model's forward is local
   +Z (at heading 0 he faces the camera, which sits on +Z from him), so it needs a plain Y
@@ -295,7 +308,8 @@ flipping the normal there makes the panel reflect correctly from either face for
   Verified numerically at heading 0 (he faces the camera, so forward raises z toward 0):
   W steps +25.75/frame with z rising, S steps -25.75/frame with z falling and no first-frame
   spike, A raises the heading (his left), D lowers it, and at the default 45 degrees W moves +x
-  and +z together — along the facing.
+  and +z together — along the facing. Held for 22 seconds, travel is monotonic with no reset:
+  (0, -1000) to (1707, 707) walking, and Shift runs at a longer stride as RUN_SPEED intends.
 
 - **The bear never moved at all.** He only turned. The AWD walk and run clips carry their travel on
   channel 0, a three-component translation track, and `applyAnimationClipToScene3D` does not apply
