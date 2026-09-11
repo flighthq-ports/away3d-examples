@@ -1016,3 +1016,43 @@ One caveat on verifying this from a headless capture: the fixed-step accumulator
 0.05s of simulation per rendered frame, so at 1-2 FPS twenty seconds of wall clock is about one
 second of water. Relaxation has to be judged from the arithmetic above, not from how a screenshot
 looks after waiting.
+
+### Why the sky and its reflection look blocky
+
+Two different causes, only one of them ours.
+
+**The sky is asset-limited, and upstream looks the same.** The `snow_*` faces are 512x512 JPEGs,
+stretched to fill the frame. Cropping the same screen region from the built original and from the
+port and magnifying both 3x gives essentially identical artefacts — the same compression mush on
+the snowfields. Nothing in the port is degrading it and nothing short of higher-resolution faces
+will improve it.
+
+**The reflection is ours, and it has a hard ceiling.** The water reflects through the SDK's IBL
+prefiltered specular cube, which is fixed at `PREFILTERED_SIZE = 64` per face:
+
+```js
+// glEnvironmentIblBake.js
+const IRRADIANCE_SIZE = 16;
+const PREFILTERED_SIZE = 64;
+```
+
+A mirror at roughness 0.04 samples the sharpest mip of that 64px cube, so the reflected sky
+carries about an eighth of the detail the 512px source holds. Away3D's `EnvMapMethod` samples the
+source cube directly and is sharp by construction.
+
+Three things were checked before settling:
+
+- **There is no configuration hook.** `bakeGlEnvironmentIbl(state, environment)` takes no options,
+  and the sizes are module constants. The SDK's own comment says they are "deliberately modest
+  (the bake runs in software under the headless capture harness); they are the technique, tunable
+  upward for production" — so the limit is acknowledged, just not reachable from an app.
+- **A custom shader cannot sample the cube instead.** `CustomShaderMaterial.textures` is
+  `Record<string, Texture>`; there is no cube binding.
+- **Roughness only hides it.** At 0.24 the blockiness stops reading, but the surface turns to
+  plastic and the sample's mirror is the point. Left at 0.04.
+
+*Worth raising upstream:* expose the IBL bake resolutions, or accept a cube in a custom material.
+Until then a sharp environment mirror is capped at 64px of reflected detail.
+
+The remaining fine texture along the ripple crests is different again — that is the 320-cell grid
+faceting, and it is a resolution the port chose above the original's 200.
