@@ -6,6 +6,7 @@ import {
   computeMeshGeometryTangents,
   createEnvironment,
   createFxaaEffect,
+  createImageResourceFromCanvas,
   createMesh,
   createPlaneMeshGeometry,
   createScene3D,
@@ -41,12 +42,14 @@ const TERRAIN_SIZE = 5000;
 const TERRAIN_HEIGHT = 1300;
 const TERRAIN_SEGMENTS = 250;
 const WATER_Y = 285;
+const WATER_SCROLL_X = 0.005 * 60;
+const WATER_SCROLL_Y = 0.007 * 60;
 // FogMethod(0, 8000, 0xcfd9de). Clear colour and fog are consumed as LINEAR values.
 const FOG_COLOR = 0xcfd9de;
 // The effect ramps over NON-LINEAR window depth, and a near plane of 1 crushes that range hard —
 // depth(100) is already 0.990. So the haze window is chosen against that curve rather than by
 // transplanting the original's world-linear 0..8000.
-const FOG_VISIBLE_NEAR = 500;
+const FOG_VISIBLE_NEAR = 250;
 
 function linearChannel(channel: number): number {
   const v = channel / 255;
@@ -73,9 +76,13 @@ const ctx = createScene3DContext({
       color: linearRgba(FOG_COLOR),
       near: depthAt(FOG_VISIBLE_NEAR),
       far: depthAt(CAMERA_FAR),
-      density: 1,
+      // The effect has no background skip, so whatever it does to the far terrain it also does to
+      // the skybox — and at density 1 that buried the sun and clouds under 63% flat fog. Held
+      // low enough that the sky reads as sky; the mountains keep their haze because the window
+      // starts close in.
+      density: 0.22,
     }),
-    createToneMapEffect({ exposure: 1.05 }),
+    createToneMapEffect({ exposure: 1.3 }),
     createFxaaEffect(),
   ],
 });
@@ -151,6 +158,23 @@ const terrain = createMesh(terrainGeometry, [createStandardPbrMaterial({
 })]);
 addNodeChild(scene.root, terrain);
 
+// The GL PBR path compiles its UV transform in ONLY when the BASE COLOUR map carries one
+// (glPbrStandardBlock: `hasUvTransform: baseColorMap !== null && ... hasTextureUvTransform(
+// baseColorMap)`), yet every map then samples the single transformed v_uv0. A material with just
+// a normal map therefore ignores uvOffset entirely, which is why scrolling the water did nothing.
+// A 1x1 white base colour map carries the transform at no visual cost and scrolls the normals.
+const scrollCanvas = document.createElement('canvas');
+scrollCanvas.width = 1;
+scrollCanvas.height = 1;
+const scrollContext = scrollCanvas.getContext('2d');
+if (!scrollContext) throw new Error('A 2D canvas is required for the water scroll carrier');
+scrollContext.fillStyle = '#ffffff';
+scrollContext.fillRect(0, 0, 1, 1);
+const waterScrollCarrier = createTexture({
+  source: createImageResourceFromCanvas(scrollCanvas),
+  sampler: createTilingSampler(),
+});
+
 const waterSampler = createTilingSampler();
 const waterTexture = createTexture({ source: waterNormalImage, colorSpace: 'linear', sampler: waterSampler });
 const waterGeometry = createPlaneMeshGeometry(terrainSize, terrainSize);
@@ -162,6 +186,7 @@ scaleMeshGeometryUvs(waterGeometry, 50, 50);
 // foggy sky the result was invisible; the lake simply was not there.
 const water = createMesh(waterGeometry, [createStandardPbrMaterial({
   baseColor: 0x404070aa,
+  baseColorMap: waterScrollCarrier,
   normalMap: waterTexture,
   metallic: 0,
   roughness: 0.08,
@@ -205,7 +230,13 @@ function frame(ts: number): void {
     statsWindowStart = ts;
   }
   stats.textContent = `FPS: ${displayedFps}\nPLY: ${triangleCount}`;
-  setTextureUvOffset(waterTexture, ts * 0.000025, ts * -0.000018);
+  // The original scrolls its two SimpleWaterNormalMethod layers every frame:
+  // water1 by (.005, .007) and water2 by (.003, .004), i.e. about 0.3 and 0.42 UV/second at 60fps.
+  // The port drifted one layer at 0.025 UV/second — against UVs tiled 50x that is a few thousandths
+  // of the pattern per second, which reads as a still surface. Only one layer is scrolled here
+  // (a StandardPbrMaterial carries a single normal map), so the lake flows but does not get the
+  // cross-layer interference the original's two offsets produce.
+  setTextureUvOffset(waterScrollCarrier, (ts / 1000) * WATER_SCROLL_X, (ts / 1000) * WATER_SCROLL_Y);
   ctx.render(scene.root, camera, lights, environment);
   requestAnimationFrame(frame);
 }
