@@ -786,6 +786,21 @@ groups themselves rather than from one lamp in front of the case.
     it comes out far brighter than the hex suggests — `0x02040a` displayed as roughly
     `(16, 23, 56)`, reading as a lit wall. Now black.
 
+Three follow-ups after looking at it on real hardware:
+
+- **The bloom was not reaching the digits.** Threshold has to sit below their *luminance*, which
+  is much lower than their apparent brightness. `0xff3a08` decodes to linear
+  `(1.0, 0.042, 0.002)`, and red contributes only `0.2126` of luma, so the digits weigh in at
+  **0.243** — under the `0.35` threshold, so they never entered the bloom pass and the effect did
+  nothing visible. At `0.15` they halo properly. Worth remembering generally: a saturated red that
+  looks blinding is a dim colour by luminance, and any luminance-thresholded effect will skip it.
+- **The bezel is plastic, not metal.** It is named `chromebody`, but on an alarm clock of this
+  kind it is chromed plastic. At `metallic 0.82` its albedo tinted the reflection and it mirrored
+  the room; as a dielectric (`metallic 0`, `roughness 0.34`) it keeps a tight specular roll-off
+  along the rim — which is what actually catches the digits — without behaving like polished steel.
+- **Ambient lifted slightly** to `0x0b1018`, enough that the wallpaper and the table edge read as
+  shapes without competing with the display.
+
 ### What the original's lighting actually does
 
 ### The scene is lit blue, and that is correct
