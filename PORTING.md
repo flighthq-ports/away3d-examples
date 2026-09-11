@@ -370,3 +370,44 @@ faces by hand. The IBL revision change did NOT lift the ordering constraint, tho
 So `bakeGlEnvironmentCaptureIbl` must still be the last thing to touch the revision before the lit
 draws, and must still run on every frame. The face renders are the expensive half (~44ms against
 ~0.3ms), so those alone are throttled and the bake stays per-frame.
+
+## Fractal tree demo
+
+### The upstream OpenFL demo shows no tree at all
+
+Not a porting mistake — the Flash original drove everything from a `SimpleGUI` panel, and the
+OpenFL port has that whole block commented out in `initGUI()`. `generateTree` and `generateClones`
+are referenced **only** from inside the commented-out block, so nothing ever calls them and the
+demo renders an empty terrain. There is no running original to compare against; the port is built
+from the source's intent instead.
+
+That intent is legible in the numbers. `FractalTreeRound(width 1000, height 10, stretching 3, ...,
+level 10)` builds its first box from a 1000-unit square and makes it `height` times as tall — a
+10000-unit trunk — after which each level is only `stretching` times its own rapidly shrinking
+side, summing to roughly 4500 more. So one tall tree about 15000 units high, at the origin, framed
+by a camera 25000 away: `generateTree()` places that one, and `generateClones()` scatters 24 more
+across the whole terrain (`terrainWidth*random() - terrainWidth/2`).
+
+The port had the tree at about 1280 units total and bunched the clones into the middle 82% of the
+terrain, which read as scrub with trunks crowding the camera.
+
+### An instanced mesh holds at most MAX_TEXTURE_SIZE / 4 instances
+
+This is the trap that hid the forest. `uploadGlSkinPaletteTexture` uploads instance matrices as a
+**single-row** RGBA32F texture, four texels per instance:
+
+```js
+const width = jointCount * texelsPerJoint;
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, width, 1, 0, gl.RGBA, gl.FLOAT, jointMatrices);
+```
+
+So one instanced mesh caps at `MAX_TEXTURE_SIZE / 4` — 4096 on a typical GPU, 2048 under
+SwiftShader. Exceed it and the upload fails with `GL_INVALID_OPERATION: glTexSubImage2DRobustANGLE:
+Level of detail outside of range`, after which **the entire mesh silently draws nothing**. At 94
+branches x 25 trees the port sat at 2350: over the software limit (so the trees never appeared in
+any headless capture) and just under the hardware one (so they did appear on a real GPU). The
+sample now reads `MAX_TEXTURE_SIZE` at startup and spreads instances over as many meshes as the
+limit requires, so the count is no longer bounded by it.
+
+*Worth raising upstream:* a wrapped, multi-row palette would lift this entirely, and the failure
+should not be silent.
