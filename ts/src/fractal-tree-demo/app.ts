@@ -6,9 +6,11 @@ import {
   composeMatrix4,
   computeMeshGeometryNormals,
   computeMeshGeometryTangents,
+  createAmbientLight,
   createCylinderMeshGeometry,
   createEnvironment,
   createFxaaEffect,
+  createHemisphereLight,
   createIcosphereMeshGeometry,
   createImageResource,
   createInstancedMesh,
@@ -29,10 +31,12 @@ import {
   setMeshGeometryVertexPosition,
   setQuaternionFromUnitVectors,
 } from '@flighthq/sdk';
-import { bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
+import { awayDirection, bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
 import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
 import { createDirectionalLightFromAway } from '../../shared/lighting';
 import { createScene3DContext } from './renderer';
+
+const CAMERA_FAR = 250_000;
 
 const TERRAIN_SIZE = 120_000;
 const TERRAIN_HEIGHT = 22_000;
@@ -60,10 +64,20 @@ const ctx = createScene3DContext({
   width: innerWidth,
   height: innerHeight,
   backgroundColor: 0x000000ff,
-  effects: [createToneMapEffect({ exposure: 1.15 }), createFxaaEffect()],
+  effects: [
+    // The original's FogMethod(0, 200000, 0x000000) is deliberately not reproduced. A
+    // screen-space fog works in window depth, and this camera spans near 20 to far 250000, so
+    // depth is crushed to ~1 within a few thousand units: `depthAt(25000)` is already 0.99928,
+    // which fogged the entire mid-field to black — measured (3,17,5) where the original reads
+    // (50,73,41). It also has no background skip, so it dimmed the skybox with it. In the
+    // original the distant ridge stays clearly lit at this framing, so the fog contributes almost
+    // nothing here and dropping it is closer than approximating it.
+    createToneMapEffect({ exposure: 0.85 }),
+    createFxaaEffect(),
+  ],
 });
 const scene = createScene3D();
-const camera = createCameraFromAway({ far: 250000 });
+const camera = createCameraFromAway({ far: CAMERA_FAR });
 const orbit = createOrbitControllerFromAway(camera, {
   distance: 25000,
   panAngle: 0,
@@ -74,13 +88,39 @@ const orbit = createOrbitControllerFromAway(camera, {
 });
 bindOrbitDrag(ctx.canvas, orbit, { minDistance: 8000, maxDistance: 80000 });
 
+// The original lights this with three: a moon, a dim sky fill, and a camera lamp.
+//
+// `moonLight` sits at (3500, 4500, 10000) and looks at the origin — "appear to come from the moon
+// in the sky box" — giving an Away3D direction of (-0.304, -0.391, -0.869). This port negates
+// Away3D's z, so the light must arrive at (-0.304, -0.391, +0.869); it was hard-coded to
+// (-0.264, -0.396, -0.880), which is the same light coming from the opposite side of the scene,
+// so the moon in the skybox and the shading disagreed. Its diffuse is 0.5, not the 0.75 used here.
 const moon = createDirectionalLightFromAway({
-  direction: { x: -0.3, y: -0.45, z: -1 },
-  diffuse: 0.75,
-  ambient: 0.1,
-  color: 0xd9e6ff,
+  direction: awayDirection(-3500, -4500, -10000),
+  diffuse: 0.5,
+  // Faithfully white. A cool tint is tempting for night, but the terrain albedo is already a
+  // saturated green and tinting the key only fights it; the hemisphere fill below is what gives
+  // the scene its blue.
+  color: 0xffffff,
 });
-const lights = createScene3DLights({ ambient: moon.ambient, directional: moon.directional });
+// `skyLight` is a second DirectionalLight at diffuse 0.1 with no direction set — a flat fill, and
+// Scene3DLights carries only one directional anyway. A hemisphere light is the better reading of
+// it and the actual improvement here: sky colour from above, near-black from below, so the trunks
+// and branches lift out of pure silhouette and pick up night sky without the ground brightening.
+const skyFill = createHemisphereLight({
+  groundColor: 0x05070c,
+  intensity: 0.1,
+  skyColor: 0x5c7bbf,
+});
+// `cameraLight` (a PointLight at diffuse 0.25, radius 1000, fallOff 2000, re-seated on the camera
+// each frame) is deliberately left out: the orbit never comes closer than 8000 units, so a light
+// that reaches 2000 cannot touch anything in this scene, and carrying it would cost a per-fragment
+// point light for nothing.
+const lights = createScene3DLights({
+  ambient: createAmbientLight({ color: 0x0a0e18, intensity: 1 }),
+  directional: moon.directional,
+  hemisphere: [skyFill],
+});
 
 const assetRoot = 'away3d/FractalTreeDemo/';
 const [
@@ -105,7 +145,11 @@ const [
 
 const environment = createEnvironment({
   environment: createCubeTextureFromAwayFaces(ctx.host, skyFaces),
-  intensity: 0.6,
+  // Note this single number does two jobs: it scales the IBL contribution AND multiplies the
+  // drawn skybox (`drawGlEnvironmentSkybox` uniform `u_intensity`). Lowering it to tame the
+  // terrain also crushed the visible night sky from (23,22,39) to (1,1,2) against the original's
+  // (23,22,39), so brightness is dialled with the key light and exposure instead.
+  intensity: 1,
 });
 bakeGlEnvironmentIbl(ctx.state, environment);
 

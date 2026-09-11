@@ -19,6 +19,7 @@ import {
   createGlRenderState,
   createToneMapEffect,
   defaultGlFxaaEffectRunner,
+  defaultGlScreenSpaceFogEffectRunner,
   defaultGlToneMapEffectRunner,
   drawGlEnvironmentSkybox,
   drawGlScene3D,
@@ -96,6 +97,7 @@ export function createScene3DContext(options: Readonly<Scene3DOptions> = {}): Sc
   registerGlShadedMaterial(state);
   registerBuiltInGlModifierSnippets(state);
   const effects = options.effects ?? [createToneMapEffect()];
+  registerGlRenderEffect(state, 'ScreenSpaceFogEffect', defaultGlScreenSpaceFogEffectRunner);
   registerGlRenderEffect(state, 'FxaaEffect', defaultGlFxaaEffectRunner);
   registerGlRenderEffect(state, 'ToneMapEffect', defaultGlToneMapEffectRunner);
 
@@ -107,7 +109,7 @@ export function createScene3DContext(options: Readonly<Scene3DOptions> = {}): Sc
     host: webHost,
     render(scene, camera, lights, environment) {
       if (pipeline === null) {
-        pipeline = createGlRenderEffectPipeline(state, { format: 'rgba16f', depth: 'depth-stencil' });
+        pipeline = createGlRenderEffectPipeline(state, { format: 'rgba16f', depth: 'depth-stencil-sampled' });
       }
       beginGlRenderEffectPipeline(state, pipeline);
       renderGlBackground(state);
