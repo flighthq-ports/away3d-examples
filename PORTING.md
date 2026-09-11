@@ -801,7 +801,24 @@ Three follow-ups after looking at it on real hardware:
 - **Ambient lifted slightly** to `0x0b1018`, enough that the wallpaper and the table edge read as
   shapes without competing with the display.
 
-### Only one colon dot showed: the backdrop is not padding
+### The cell fit is a per-clip property
+
+These two pulled in opposite directions and had to stop being one global rule:
+
+- `digits` hides its glyphs inside a panel three times their width — 52x40 of artwork in a 125x64
+  panel — so fitting the cell to the opaque extent leaves the digits at 41% of the display and
+  pushed to one side.
+- `delimiter` is a single dot fading out over six frames near the middle of a 17x65 black panel,
+  and the colon's two dots come from the mesh showing that cell twice. Fitting to the dot alone
+  makes the cell *become* the dot, and one of the two disappears.
+
+Fixing either one globally broke the other. The fit is therefore stated per clip (`SwfSheetFit`):
+`digits` measures its lit artwork, `delimiter` and `pulse` measure their full opaque extent, which
+is what `SpriteSheetHelper` does. A ratio test would not do — it would pick the lit fit for the
+delimiter too, where it is wrong — because which one a clip wants is a fact about how that clip
+was authored, not something derivable from its pixels.
+
+### Why the opaque fit alone is not enough
 
 Fitting each cell to the **lit** artwork instead of the full opaque extent looked like an
 improvement on the digits, and it was wrong. The `delimiter` clip is a single dot that fades out
