@@ -608,6 +608,38 @@ The lesson is the cheap one: when a mesh seems missing, force it opaque before s
 scene graph. Two of these steps would have been unnecessary had I checked the literal's channel
 order first — Away3D `BitmapData` colours are ARGB and Flight's are RGBA.
 
+### The water never scrolled: a UV transform only the base colour map can switch on
+
+The original animates its lake every frame — `water1OffsetX += .005`, `water1OffsetY += .007`, and
+a second layer at `.003`/`.004` — roughly 0.3 and 0.42 UV/second at 60fps. The port drifted one
+layer at 0.025 UV/second, which against UVs tiled 50x is a few thousandths of the pattern per
+second: a still surface. But correcting the rate changed nothing, because the offset was never
+reaching the shader at all.
+
+The GL PBR path compiles its UV transform in only when the **base colour map** carries one:
+
+```js
+// glPbrStandardBlock.js
+hasUvTransform: baseColorMap !== null && isGlTextureReady(state, baseColorMap) && hasTextureUvTransform(baseColorMap),
+```
+
+and every map then samples the single transformed `v_uv0`. A material with only a normal map
+therefore ignores `setTextureUvOffset` entirely, silently. The water now carries a 1x1 white base
+colour map purely to switch the transform on, which costs nothing visually and scrolls the
+normals with it. Measured over six seconds, the lake region went from 0.0% of pixels changing to
+15.1%.
+
+*Worth raising upstream:* the flag is per-material but derived from one specific map, so scrolling
+any other map is a no-op with no diagnostic. Deriving it from any transformed map would fix it.
+
+### Fog was burying the sky
+
+The skybox has a sun, clouds and dark peaks, and at density 1 the fog replaced 63% of it with flat
+grey — the effect has no background skip, so whatever reaches the far terrain reaches the sky
+(documented under the polar bear). Density is held at 0.22 with the window starting close in, so
+the clouds and sun read while the mountains keep their haze, and exposure is up from 1.05 to 1.3.
+This is a trade the depth-only fog forces, not a faithful reproduction of a material-level fog.
+
 ### Still different: the opening vista, and no splat map
 
 Two things this port does not reproduce, both stated rather than papered over.
