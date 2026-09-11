@@ -25,6 +25,12 @@ import { createScene2DFromSwf } from '@flighthq/swf';
 // would sit, instead of re-centring every frame and making the digits jitter as the clock runs.
 const MEASURE_SIZE = 1024;
 const MEASURE_ORIGIN = MEASURE_SIZE / 2;
+// Measured at scale 1. Enlarging first was tried, to keep antialiased edges clear of a
+// brightness threshold, and it silently broke the measurement: these clips place their contents
+// hundreds of units from their own origin (pulse sits at y 169..233, delimiter at y 96..160), so
+// at 4x they land outside the measuring canvas and rasterise as clipped or empty. Alpha needs no
+// such help — the interior of a filled shape is fully opaque at any scale.
+const MEASURE_SCALE = 1;
 const placement = createMatrix();
 // How much of its cell the artwork fills. The display quad maps the whole cell, so filling it
 // edge to edge puts the digits hard against the bezel and reads as oversized.
@@ -50,20 +56,20 @@ function findClip(root: Node2D, name: string): Node2D | null {
 
 interface Bounds { maxX: number; maxY: number; minX: number; minY: number }
 
-// Measures the LIT artwork, not merely the opaque artwork. Each clip carries a black background
-// shape that is much larger than the glyphs it sits behind — in the digits clip the background
-// spans 125x64 while the two digit glyphs occupy only 52x40 of it, 41% of the width. Fitting the
-// cell to that union renders the digits small and pushed to one side, which is what made the
-// clock face look wrong. The backgrounds are black against a black display, so nothing is lost by
-// excluding them, and the placeholder art shipped with the model (m_hours.jpg and friends) shows
-// digits filling their texture.
+// Measures the full opaque extent of the clip, which is what SpriteSheetHelper does — it fits
+// each frame using `sourceMC.width`/`height`, and in Flash those include every child, backdrop
+// and all.
+//
+// Measuring only the LIT artwork was tried and is wrong, even though it looks like an
+// improvement on the digits. The backdrop is not padding: it is what positions the artwork inside
+// its cell. The `delimiter` clip is a single dot that fades out over six frames, sitting near the
+// middle of a 17x65 black panel, and the colon's two dots come from the mesh showing that cell
+// twice. Fit to the dot alone, the cell became the dot — and only one of the two showed up.
 function scanBounds(context: CanvasRenderingContext2D, size: number, into: Bounds): void {
   const { data } = context.getImageData(0, 0, size, size);
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const offset = (y * size + x) * 4;
-      const lit = Math.max(data[offset]!, data[offset + 1]!, data[offset + 2]!) > 24;
-      if (lit && data[offset + 3]! > 8) {
+      if (data[(y * size + x) * 4 + 3]! > 8) {
         if (x < into.minX) into.minX = x;
         if (x > into.maxX) into.maxX = x;
         if (y < into.minY) into.minY = y;
@@ -99,7 +105,7 @@ export function createSwfSheetBuilder(swf: Uint8Array) {
     // Draw at the centre of the measuring canvas, not at the clip's own origin: a SWF clip's
     // contents can sit anywhere in its coordinate space, including left of or above it, and
     // anything outside the canvas is simply not rasterised, so it measures as absent.
-    setMatrix(placement, 1, 0, 0, 1, MEASURE_ORIGIN, MEASURE_ORIGIN);
+    setMatrix(placement, MEASURE_SCALE, 0, 0, MEASURE_SCALE, MEASURE_ORIGIN, MEASURE_ORIGIN);
     setCanvasRenderTransform2D(measureState, placement);
     for (let frame = 0; frame < frames; frame++) {
       gotoAndStopMovieClip(clip as never, frame + 1);
@@ -109,11 +115,17 @@ export function createSwfSheetBuilder(swf: Uint8Array) {
       scanBounds(measureContext, MEASURE_SIZE, bounds);
     }
     if (bounds.maxX < bounds.minX) throw new Error(`digits.swf clip ${name} rasterised empty`);
-    const contentWidth = bounds.maxX - bounds.minX + 1;
-    const contentHeight = bounds.maxY - bounds.minY + 1;
-    // Bounds are in measuring-canvas pixels; convert back to the clip's own space.
-    const contentX = bounds.minX - MEASURE_ORIGIN;
-    const contentY = bounds.minY - MEASURE_ORIGIN;
+    // A clip whose bounds reach the canvas edge was cut off rather than measured, and the sheet
+    // built from it would be wrong in a way that is easy to miss. Fail loudly instead.
+    if (bounds.minX === 0 || bounds.minY === 0
+      || bounds.maxX === MEASURE_SIZE - 1 || bounds.maxY === MEASURE_SIZE - 1) {
+      throw new Error(`digits.swf clip ${name} exceeded the ${MEASURE_SIZE}px measuring canvas`);
+    }
+    // Bounds are in measuring-canvas pixels at MEASURE_SCALE; convert back to the clip's space.
+    const contentWidth = (bounds.maxX - bounds.minX + 1) / MEASURE_SCALE;
+    const contentHeight = (bounds.maxY - bounds.minY + 1) / MEASURE_SCALE;
+    const contentX = (bounds.minX - MEASURE_ORIGIN) / MEASURE_SCALE;
+    const contentY = (bounds.minY - MEASURE_ORIGIN) / MEASURE_SCALE;
 
     // Size the cell to the content's own aspect rather than carving the sheet into square-ish
     // tiles: the digits are much wider than they are tall, and a tall cell wastes most of the
