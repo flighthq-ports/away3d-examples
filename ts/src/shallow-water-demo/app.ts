@@ -2,8 +2,6 @@ import type { MeshGeometry, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
   bakeGlEnvironmentIbl,
-  computeMeshGeometryNormals,
-  computeMeshGeometryTangents,
   createAmbientLight,
   createBoxMeshGeometry,
   createEnvironment,
@@ -26,7 +24,9 @@ import {
   isMesh,
   loadImageResourceFromUrl,
   pickScene3D,
+  setMeshGeometryVertexNormal,
   setMeshGeometryVertexPosition,
+  setMeshGeometryVertexTangent,
   setVector3,
   walkNodeDescendants,
 } from '@flighthq/sdk';
@@ -47,8 +47,15 @@ let disturbing = false;
 // gives a 398-unit pool, and 2 x 199^2 = 79202 triangles, which is the original's POLY 79250. The
 // port had a 73x73 grid on a 900-unit plane — about an eighth of the resolution, spread over more
 // than twice the area, so the ripples were coarse and the camera had to sit far back to frame it.
-const GRID_DIMENSION = 200;
-const GRID_SPACING = 2;
+// The original runs 200 cells at spacing 2. Raised here for finer ripples: 320 cells over the same
+// 398-unit pool is 2.6x the detail (203522 triangles against 79202). The ceiling is CPU, and it is
+// steep — the per-vertex pass scales with cells while the solver, whose step count scales with
+// 1/spacing, scales with the cube of the grid. Measured in this harness: 3.6ms per frame at 200,
+// 10.4ms at 320, and 400 could not hold a steady frame at all. 320 keeps room inside a 60fps
+// budget on modest hardware.
+const GRID_DIMENSION = 320;
+// Spacing follows from holding the original's 398-unit pool.
+const GRID_SPACING = 398 / (GRID_DIMENSION - 1);
 const PLANE_SEGMENTS = GRID_DIMENSION - 1;
 const PLANE_SIZE = PLANE_SEGMENTS * GRID_SPACING;
 
@@ -190,8 +197,12 @@ const gridHeight = GRID_DIMENSION;
 // chop it produced was what read as pixelation, since a mirror amplifies every normal.
 const WAVE_SPEED = 0.99;
 const VISCOSITY = 0.3;
-// The original derives dt from `stage.frameRate`, i.e. 1/60, and steps once per frame.
-const fixedStep = 1 / 60;
+// The original derives dt from `stage.frameRate` — 1/60 — and steps once per frame on a grid of
+// spacing 2. Because the scheme is CFL-limited, a wave crosses one cell per step, so world wave
+// speed is `spacing / step`: refining the grid without shortening the step would slow the ripples
+// in proportion. The step therefore scales with the spacing, holding wave speed at the original's
+// 120 units per second whatever the grid.
+const fixedStep = (1 / 60) * (GRID_SPACING / 2);
 const f1 = WAVE_SPEED * WAVE_SPEED * (VISCOSITY * fixedStep + 2) / 4;
 const f2 = 1 / (VISCOSITY * fixedStep + 2);
 const k1 = (4 - 8 * f1) * f2;
@@ -244,20 +255,34 @@ function solveShallowWater(): void {
   displacement = next;
 }
 
+// "Click on the fluid to disturb it". `plane.addEventListener(MouseEvent3D.MOUSE_DOWN, ...)` fires
+// only when the press actually lands on the water, and that is what latches `planeDisturb` for the
+// rest of the drag; a press anywhere else leaves it false, so the camera gate falls through to
+// `move` and pans instead. Both flags clear on mouse up.
+//
+// The pick therefore has to decide the latch. Setting it on every pointerdown — as this did —
+// blocked panning everywhere, because `pointerdown` fires before the `mousedown` that
+// bindOrbitDrag listens for, so the gate always saw `disturbing` already true.
 const hit = createScene3DHit();
-function disturbAtPointer(event: PointerEvent): void {
+const waterPoint = { x: 0, z: 0 };
+function pickWater(event: PointerEvent): boolean {
   const rect = ctx.canvas.getBoundingClientRect();
   const screenX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   const screenY = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
   const picked = pickScene3D(scene.root, camera, screenX, screenY, hit);
-  if (picked?.node === water) disturb(picked.pointX, picked.pointZ, -5);
+  if (picked?.node !== water) return false;
+  waterPoint.x = picked.pointX;
+  waterPoint.z = picked.pointZ;
+  return true;
 }
 ctx.canvas.addEventListener('pointerdown', (event) => {
+  if (!pickWater(event)) return;
   disturbing = true;
-  disturbAtPointer(event);
+  disturb(waterPoint.x, waterPoint.z, -5);
 });
 ctx.canvas.addEventListener('pointermove', (event) => {
-  if (disturbing) disturbAtPointer(event);
+  // Latched for the whole drag, but only leaves a wake where the ray still meets the water.
+  if (disturbing && pickWater(event)) disturb(waterPoint.x, waterPoint.z, -5);
 });
 for (const done of ['pointerup', 'pointercancel', 'pointerleave']) {
   ctx.canvas.addEventListener(done, () => { disturbing = false; });
@@ -305,17 +330,36 @@ function frame(ts: number): void {
     solveShallowWater();
     simulationAccumulator -= fixedStep;
   }
+  // Positions, then normals and tangents straight from the height field rather than from the
+  // mesh. ShallowFluid supplies both itself — its PixelBender normal/tangent shaders are
+  // commented out in the OpenFL port, so upstream actually shades the water with the constant
+  // normals it was initialised with, but the shader it meant to run scaled central differences by
+  // `-2 * spacing`, which is exactly the gradient below.
+  //
+  // This is also what makes a finer grid affordable. Deriving normals from the geometry cost
+  // 10.6ms per frame at 200 cells and 42.8ms at 400 — it, not the fluid solve (0.5-1.5ms), was
+  // the entire budget. Central differences are a handful of flops per vertex.
+  const gradientScale = 1 / (2 * GRID_SPACING);
   for (let i = 0; i < vertexCount; i++) {
-    setMeshGeometryVertexPosition(
-      waterGeometry,
-      i,
-      baseX[i]!,
-      displacement[vertexCell[i]!]!,
-      baseZ[i]!,
+    const cell = vertexCell[i]!;
+    const column = cell % gridWidth;
+    const row = (cell - column) / gridWidth;
+    const left = column > 0 ? displacement[cell - 1]! : displacement[cell]!;
+    const right = column < gridWidth - 1 ? displacement[cell + 1]! : displacement[cell]!;
+    const back = row > 0 ? displacement[cell - gridWidth]! : displacement[cell]!;
+    const front = row < gridHeight - 1 ? displacement[cell + gridWidth]! : displacement[cell]!;
+    const slopeX = (right - left) * gradientScale;
+    const slopeZ = (front - back) * gradientScale;
+    setMeshGeometryVertexPosition(waterGeometry, i, baseX[i]!, displacement[cell]!, baseZ[i]!);
+    // normalize(-dh/dx, 1, -dh/dz)
+    const length = Math.sqrt(slopeX * slopeX + 1 + slopeZ * slopeZ);
+    setMeshGeometryVertexNormal(waterGeometry, i, -slopeX / length, 1 / length, -slopeZ / length);
+    // Tangent along +x: normalize(1, dh/dx, 0), with the handedness Flight expects in w.
+    const tangentLength = Math.sqrt(1 + slopeX * slopeX);
+    setMeshGeometryVertexTangent(
+      waterGeometry, i, 1 / tangentLength, slopeX / tangentLength, 0, 1,
     );
   }
-  computeMeshGeometryNormals(waterGeometry, waterGeometry);
-  computeMeshGeometryTangents(waterGeometry, waterGeometry);
   invalidateMeshGeometry(waterGeometry);
   orbit.update();
   // The light rides the camera, as in the original.
