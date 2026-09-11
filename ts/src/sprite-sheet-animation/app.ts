@@ -3,6 +3,7 @@ import {
   addNodeChild,
   bakeGlEnvironmentIbl,
   createAmbientLight,
+  createBloomEffect,
   createCamera3D,
   createEnvironment,
   createFxaaEffect,
@@ -38,8 +39,19 @@ registerWebImageDecoders();
 const ctx = createScene3DContext({
   width: innerWidth,
   height: innerHeight,
-  backgroundColor: 0x010c14ff,
-  effects: [createToneMapEffect({ exposure: 1.1 }), createFxaaEffect()],
+  // Black. The room is a partial set — a wall and a table, no floor — so the clear colour shows
+  // through at the edges of frame, and against a dark bedroom any tint reads as a lit surface.
+  // Note the clear colour is consumed as LINEAR and re-encoded for display, so it comes out much
+  // brighter than the hex suggests: the previous 0x02040a displayed around (16, 23, 56).
+  backgroundColor: 0x000000ff,
+  effects: [
+    // The digits are unlit materials at full texture brightness against a near-black room, so
+    // they are the only thing above the threshold — the bloom reads as the LEDs themselves
+    // emitting rather than as a general haze over the image.
+    createBloomEffect({ threshold: 0.35, intensity: 1.5, radius: 1.1, passes: 4 }),
+    createToneMapEffect({ exposure: 1.1 }),
+    createFxaaEffect(),
+  ],
 });
 const scene = createScene3D();
 const cameraPosition = createVector3(-17850, 12390, 9322);
@@ -64,21 +76,38 @@ const up = createVector3(0, 1, 0);
 // The display meshes are unlit, so the digits keep glowing at full strength while everything
 // around them falls away into the dark.
 const DISPLAY_GLOW_COLOR = 0xff3a08;
-// The display centres on the frontscreen mesh at (286, 237, 2952), and hours-to-minutes runs
-// along (0.707, 0, 0.708), so the face normal toward the viewer is (-0.708, 0, 0.707). The light
-// sits a little way along it, in front of the glass rather than inside the case.
-const displayGlow = createPointLightFromAway({
-  color: DISPLAY_GLOW_COLOR,
-  diffuse: 2.2,
-  range: 22000,
-  referenceDistance: 2600,
+// The light comes off the digit groups themselves rather than from one lamp floating in front of
+// the case, so each readout throws its own pool and the spill falls where the numbers actually
+// are. Positions are the display meshes' own, pushed clear of the glass along the face normal:
+// hours-to-minutes runs along (0.707, 0, 0.708), so the normal toward the viewer is
+// (-0.708, 0, 0.707). Four is the whole forward-light budget (MAX_FORWARD_LIGHTS), which is
+// exactly the four lit elements on the clock.
+const GLASS_OFFSET = 400;
+const NORMAL_X = -0.708;
+const NORMAL_Z = 0.707;
+const emitters: [number, number, number][] = [
+  [-1253, 231, 1413], // hours
+  [1823, 231, 4492], // minutes
+  [219, -1092, 3016], // seconds
+  [307, 656, 2931], // delimiter
+];
+const displayLights = emitters.map(([x, y, z]) => {
+  const light = createPointLightFromAway({
+    color: DISPLAY_GLOW_COLOR,
+    // Individually weak and short-range: the glow should die away within arm's reach of the
+    // clock, leaving the rest of the room black.
+    diffuse: 0.85,
+    range: 9000,
+    referenceDistance: 1100,
+  });
+  setVector3(light.position, x + NORMAL_X * GLASS_OFFSET, y, z + NORMAL_Z * GLASS_OFFSET);
+  return light;
 });
 const lights = createScene3DLights({
-  // Night, not blackness: enough that the wallpaper still reads as a shape.
-  ambient: createAmbientLight({ color: 0x0c1018, intensity: 1 }),
-  point: [displayGlow],
+  // Barely there — just enough that the wallpaper is a shape rather than a void.
+  ambient: createAmbientLight({ color: 0x04060b, intensity: 1 }),
+  point: displayLights,
 });
-setVector3(displayGlow.position, -564, 237, 3800);
 
 const assetRoot = 'away3d/SpriteSheetAnimation/';
 
@@ -109,9 +138,13 @@ const [sceneDocument, environmentFaces, staticTextureEntries, furnitureNormal] =
 if (!sceneDocument) throw new Error('Could not load compressed tictac AWD');
 const clock = createScene3DFromDocument(sceneDocument);
 addNodeChild(scene.root, clock.root);
+// The original uses this cube through an EnvMapMethod — a reflection on specific materials, not
+// a light. Baked as scene IBL at 0.7 it behaves as a large ambient source and lights the whole
+// room regardless of the lamps, which is what kept the wallpaper bright in a supposedly dark
+// bedroom. Held low enough to still catch the chrome bezel without illuminating the room.
 bakeGlEnvironmentIbl(ctx.state, createEnvironment({
   environment: createCubeTextureFromAwayFaces(ctx.host, environmentFaces),
-  intensity: 0.7,
+  intensity: 0.05,
 }));
 const staticTextures = new Map(staticTextureEntries);
 

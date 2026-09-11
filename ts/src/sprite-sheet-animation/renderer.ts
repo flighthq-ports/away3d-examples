@@ -17,6 +17,7 @@ import {
   createGlRenderEffectPipeline,
   createGlRenderState,
   createToneMapEffect,
+  defaultGlBloomEffectRunner,
   defaultGlFxaaEffectRunner,
   defaultGlToneMapEffectRunner,
   drawGlScene3D,
@@ -89,6 +90,7 @@ export function createScene3DContext(options: Readonly<Scene3DOptions> = {}): Sc
   registerGlShadedMaterial(state);
   registerBuiltInGlModifierSnippets(state);
   const effects = options.effects ?? [createToneMapEffect()];
+  registerGlRenderEffect(state, 'BloomEffect', defaultGlBloomEffectRunner);
   registerGlRenderEffect(state, 'FxaaEffect', defaultGlFxaaEffectRunner);
   registerGlRenderEffect(state, 'ToneMapEffect', defaultGlToneMapEffectRunner);
 
