@@ -9,6 +9,7 @@ import {
   createFxaaEffect,
   createImageResource,
   createPerspectiveProjection,
+  createSampler,
   createScene3D,
   createScene3DFromDocument,
   createScene3DLights,
@@ -166,15 +167,37 @@ const staticTextures = new Map(staticTextureEntries);
 const buildSwfSheet = createSwfSheetBuilder(
   new Uint8Array(await (await fetch(`${assetRoot}spritesheets/digits.swf`)).arrayBuffer()),
 );
-const digitsSheetData = buildSwfSheet('digits', 60, 10, 6, 1024);
-const delimiterSheetData = buildSwfSheet('delimiter', 10, 5, 2, 256);
-const pulseSheetData = buildSwfSheet('pulse', 12, 4, 3, 256);
+// Sheet sizes are generous because the camera pans right up to the display, and a cell is the
+// entire resolution one frame ever has. At the original's 512 over a 6x5 grid a digit pair is
+// about 85x102 texels, which magnifies into visible stair-stepping from this close. The SWF is
+// vector art, so it re-rasterises crisply at any size — this costs memory, not fidelity.
+// 10 columns of 2048 gives each digit pair 204 texels across, which held up with no visible
+// stair-stepping at the closest the camera gets. 4096 was tried first and is indistinguishable
+// here, so it is not worth the four-fold memory (a 4090x1890 sheet is ~31MB against ~7.7MB).
+const digitsSheetData = buildSwfSheet('digits', 60, 10, 6, 2048);
+const delimiterSheetData = buildSwfSheet('delimiter', 10, 5, 2, 1024);
+const pulseSheetData = buildSwfSheet('pulse', 12, 4, 3, 1024);
 const digitsSheet = digitsSheetData.resource;
 const delimiterSheet = delimiterSheetData.resource;
 const pulseSheet = pulseSheetData.resource;
 
+// Trilinear plus anisotropy: the display is usually seen at a slant, which is exactly the case
+// plain bilinear handles worst. Mipmapping a sprite sheet normally risks neighbouring cells
+// bleeding into each other at the coarser levels, but each frame is inset to 84% of its cell
+// (CONTENT_FILL), so there is an 8% gutter of empty space on every side absorbing it.
+function createSpriteSampler() {
+  return createSampler({
+    anisotropy: 8,
+    magFilter: 'linear',
+    minFilter: 'linear-mipmap-linear',
+    mipmaps: true,
+    wrapU: 'clamp-to-edge',
+    wrapV: 'clamp-to-edge',
+  });
+}
+
 function createSpriteTexture(source: ReturnType<typeof createImageResource>, columns: number, rows: number): Texture {
-  const texture = createTexture({ source });
+  const texture = createTexture({ source, sampler: createSpriteSampler() });
   setTextureUvScale(texture, 1 / columns, 1 / rows);
   return texture;
 }
