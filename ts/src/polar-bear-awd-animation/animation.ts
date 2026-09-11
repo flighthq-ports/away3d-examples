@@ -36,6 +36,14 @@ export function createAnimationController(
   let extractor = rootMotionExtractorFor(clip);
   const motion = new Float32Array(3);
 
+  // extractAnimationRootMotion wants an UNWRAPPED clock — "times may cross any number of repeat
+  // boundaries or run backward" — not the player's time, which wraps back to zero every cycle.
+  // Feeding it the wrapped time makes each loop look like a jump to the start of the clip, and it
+  // answers with a whole cycle of travel in reverse: the bear crept forward for five frames and
+  // then snapped back to where he started, over and over. Tracking the monotonic clock here also
+  // makes reverse playback fall out for free, since the same call handles a decreasing range.
+  let unwrappedTime = 0;
+
   function play(name: string): void {
     const next = animations[name];
     if (!next) return;
@@ -43,51 +51,26 @@ export function createAnimationController(
     player = createAnimationPlayer(next, { loop: true });
     player.speed = speed;
     extractor = rootMotionExtractorFor(next);
+    unwrappedTime = player.time;
   }
 
   return {
     play,
     setSpeed(speed) { player.speed = speed; },
     step(dt, outDelta) {
-      const startTime = player.time;
+      const startTime = unwrappedTime;
       advanceAnimationPlayer(player, dt);
       applyAnimationClipToScene3D(player.clip, player.time);
+      if (player.playing) unwrappedTime += dt * player.speed;
+
       outDelta.x = 0;
       outDelta.y = 0;
       outDelta.z = 0;
       if (!extractor) return;
-      const endTime = player.time;
-      // extractAnimationRootMotion only reads a range FORWARDS, so reverse playback (the original
-      // backs up with a negative playbackSpeed) has to be expressed as a forward range and
-      // negated. The subtlety is the loop point: a backward step that runs past zero wraps to the
-      // END of the clip, so endTime lands ABOVE startTime and a naive swap hands the extractor a
-      // decreasing range. It reads that as a wrap and returns nearly a whole cycle of FORWARD
-      // travel — one 283-unit lurch the instant the key goes down, which is what made backing up
-      // look like a forward jump. A wrapped reverse step is therefore summed in two pieces.
-      if (player.speed >= 0) {
-        if (!extractAnimationRootMotion(motion, extractor, startTime, endTime)) return;
-        outDelta.x = motion[0]!;
-        outDelta.y = motion[1]!;
-        outDelta.z = motion[2]!;
-        return;
-      }
-      let x = 0;
-      let y = 0;
-      let z = 0;
-      if (endTime <= startTime) {
-        if (!extractAnimationRootMotion(motion, extractor, endTime, startTime)) return;
-        x = motion[0]!; y = motion[1]!; z = motion[2]!;
-      } else {
-        if (extractAnimationRootMotion(motion, extractor, 0, startTime)) {
-          x += motion[0]!; y += motion[1]!; z += motion[2]!;
-        }
-        if (extractAnimationRootMotion(motion, extractor, endTime, player.clip.duration)) {
-          x += motion[0]!; y += motion[1]!; z += motion[2]!;
-        }
-      }
-      outDelta.x = -x;
-      outDelta.y = -y;
-      outDelta.z = -z;
+      if (!extractAnimationRootMotion(motion, extractor, startTime, unwrappedTime)) return;
+      outDelta.x = motion[0]!;
+      outDelta.y = motion[1]!;
+      outDelta.z = motion[2]!;
     },
   };
 }
