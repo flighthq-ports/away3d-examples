@@ -703,9 +703,27 @@ bars, with the unlit segments still faintly visible beside the lit ones. The she
 as seven-segment LEDs on that model: bright `#ff3a08` segments with a small bloom, unlit segments
 at low alpha, and a two-bar colon that pulses.
 
-*Not yet faithful:* the exact glyph shapes still come from this port rather than from `digits.swf`.
-The SDK can read SWF — `createScene2DSymbolFromSwf` plus `renderCanvasScene2D` is the path, and
-`@flighthq/swf` and `@flighthq/scene2d-canvas` are already present as transitive dependencies —
-but doing it properly means promoting both to direct dependencies and working out symbol
-instancing and frame stepping to rasterise 60 + 12 + 5 frames into sheets. That is a real piece of
-work rather than a tweak, and it is left as a follow-up instead of half-built.
+**Now resolved — the sheets are built from `digits.swf` itself.** Flight reads SWF directly, so
+`swfSheets.ts` does what the original does: parse the file, find the named clip, step it frame by
+frame with `gotoAndStopMovieClip`, and rasterise each frame into one cell of a sheet. The digits
+on screen are the artwork from the SWF, not a redrawing of it. `@flighthq/swf`,
+`@flighthq/movieclip`, `@flighthq/scene2d-canvas` and `@flighthq/render` are now direct
+dependencies (all were already present transitively at the same version). The parse reports only
+`Skip`-severity diagnostics — scene names and an unrepresentable filter field — and the clips come
+through with exactly the frame counts the original expects: digits 60, pulse 12, delimiter 10.
+
+Three things about that pipeline cost real time and are worth writing down:
+
+- **`prepareScene2DRender` is required before `renderCanvasScene2D`.** Without it every node is
+  skipped — `getRenderProxy2D` returns undefined and the draw loop `continue`s — so the canvas
+  comes back empty with no error.
+- **Place the clip with `setCanvasRenderTransform2D`, not by assigning `node.x/y/scaleX/scaleY`.**
+  A node's transform is captured into a cached render proxy when it is prepared, so mutating the
+  node between passes did not reach the draw and produced silently empty frames. The state
+  transform is read per draw.
+- **Measure at the centre of a large canvas.** A SWF clip's contents sit wherever its own
+  coordinate space puts them — the digits clip spans x -41..83, i.e. mostly *left* of its origin —
+  and anything outside the canvas is not rasterised, so drawing at 0,0 measured it as a 64px
+  fragment in the corner. Measuring the union of all frames (rather than each frame separately)
+  is also deliberate: it keeps a `1` in the same place an `8` sits, instead of re-centring every
+  frame and making the digits jitter as the clock runs.
