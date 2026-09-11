@@ -119,30 +119,73 @@ function makeSheet(
   return createImageResource(sheet);
 }
 
+// The clock's digits are seven-segment LEDs, not text. The original builds these sheets at
+// runtime from MovieClips inside digits.swf (SpriteSheetHelper.generateFromMovieClip), and the
+// AWD's own placeholder textures show what they are meant to look like: red segments on black,
+// with the unlit segments still faintly visible. m_delimiter.jpg is a real texture rather than a
+// placeholder and shows the separator is two horizontal bars. The port drew all of it with
+// `ui-monospace` and a red-to-amber-to-CYAN gradient, which is why the clock face read as a
+// different clock — and the colon came out looking like an exclamation mark.
+const SEGMENT_ON = '#ff3a08';
+const SEGMENT_OFF = 'rgba(80, 18, 4, 0.22)';
+// Segments in the conventional a-g order: top, top-right, bottom-right, bottom, bottom-left,
+// top-left, middle.
+const DIGIT_SEGMENTS = [
+  [1, 1, 1, 1, 1, 1, 0], [0, 1, 1, 0, 0, 0, 0], [1, 1, 0, 1, 1, 0, 1], [1, 1, 1, 1, 0, 0, 1],
+  [0, 1, 1, 0, 0, 1, 1], [1, 0, 1, 1, 0, 1, 1], [1, 0, 1, 1, 1, 1, 1], [1, 1, 1, 0, 0, 0, 0],
+  [1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 0, 1, 1],
+] as const;
+
+function drawSevenSegment(
+  context: CanvasRenderingContext2D, digit: number, x: number, y: number, w: number, h: number,
+): void {
+  const t = Math.max(2, Math.round(Math.min(w, h) * 0.11));
+  const mid = y + h / 2;
+  const on = DIGIT_SEGMENTS[digit] ?? DIGIT_SEGMENTS[8]!;
+  const bars: [number, number, number, number][] = [
+    [x + t, y, w - 2 * t, t],
+    [x + w - t, y + t, t, h / 2 - t * 1.5],
+    [x + w - t, mid + t / 2, t, h / 2 - t * 1.5],
+    [x + t, y + h - t, w - 2 * t, t],
+    [x, mid + t / 2, t, h / 2 - t * 1.5],
+    [x, y + t, t, h / 2 - t * 1.5],
+    [x + t, mid - t / 2, w - 2 * t, t],
+  ];
+  for (let i = 0; i < bars.length; i++) {
+    const [bx, by, bw, bh] = bars[i]!;
+    const lit = on[i] === 1;
+    context.shadowColor = lit ? SEGMENT_ON : 'transparent';
+    context.shadowBlur = lit ? t * 0.45 : 0;
+    context.fillStyle = lit ? SEGMENT_ON : SEGMENT_OFF;
+    context.fillRect(bx, by, bw, bh);
+  }
+  context.shadowBlur = 0;
+}
+
 const digitsSheet = makeSheet(10, 6, 160, 96, (context, frame, width, height) => {
   context.clearRect(0, 0, width, height);
-  const gradient = context.createLinearGradient(0, 0, width, 0);
-  gradient.addColorStop(0, '#ff442d');
-  gradient.addColorStop(0.52, '#ffc845');
-  gradient.addColorStop(1, '#6edbff');
-  context.shadowColor = '#ff752f';
-  context.shadowBlur = 12;
-  context.fillStyle = gradient;
-  context.textAlign = 'center';
-  context.textBaseline = 'middle';
-  context.font = '700 72px ui-monospace, monospace';
-  context.fillText(String(frame).padStart(2, '0'), width / 2, height / 2 + 3);
+  const digitWidth = width * 0.31;
+  const digitHeight = height * 0.6;
+  const top = (height - digitHeight) / 2;
+  const gap = width * 0.06;
+  const left = (width - (digitWidth * 2 + gap)) / 2;
+  drawSevenSegment(context, Math.floor(frame / 10) % 10, left, top, digitWidth, digitHeight);
+  drawSevenSegment(context, frame % 10, left + digitWidth + gap, top, digitWidth, digitHeight);
 });
+
+// m_delimiter.jpg: two horizontal bars, the seven-segment colon. Frames pulse their brightness.
 const delimiterSheet = makeSheet(5, 2, 96, 96, (context, frame, width, height) => {
   context.clearRect(0, 0, width, height);
-  const intensity = Math.sin(frame / 9 * Math.PI) ** 2;
-  context.shadowColor = '#fff';
-  context.shadowBlur = 18 * intensity;
-  context.fillStyle = `rgba(255, 245, 220, ${0.12 + intensity * 0.88})`;
-  context.textAlign = 'center';
-  context.textBaseline = 'middle';
-  context.font = '700 72px ui-monospace, monospace';
-  context.fillText(':', width / 2, height / 2);
+  const intensity = Math.sin((frame / 9) * Math.PI) ** 2;
+  const barWidth = width * 0.5;
+  const barHeight = Math.max(3, Math.round(height * 0.12));
+  const x = (width - barWidth) / 2;
+  context.shadowColor = SEGMENT_ON;
+  context.shadowBlur = 14 * intensity;
+  context.fillStyle = `rgba(255, 58, 8, ${0.22 + intensity * 0.78})`;
+  context.fillRect(x, height * 0.28 - barHeight / 2, barWidth, barHeight);
+  context.fillRect(x, height * 0.72 - barHeight / 2, barWidth, barHeight);
+  context.shadowBlur = 0;
 });
 const pulseSheet = makeSheet(4, 3, 96, 96, (context, frame, width, height) => {
   context.clearRect(0, 0, width, height);
