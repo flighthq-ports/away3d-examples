@@ -48,7 +48,12 @@ const ctx = createScene3DContext({
     // The digits are unlit materials at full texture brightness against a near-black room, so
     // they are the only thing above the threshold — the bloom reads as the LEDs themselves
     // emitting rather than as a general haze over the image.
-    createBloomEffect({ threshold: 0.35, intensity: 1.5, radius: 1.1, passes: 4 }),
+    // Threshold has to sit below the DIGITS' luminance, which is far lower than their apparent
+    // brightness: 0xff3a08 decodes to linear (1.0, 0.042, 0.002), and red carries only 0.2126 of
+    // luma, so the digits weigh in at 0.243. A 0.35 threshold excluded them entirely and the
+    // bloom did nothing. Anything above this is the white silkscreen on the display face, which
+    // is a small area and reads fine slightly hot.
+    createBloomEffect({ threshold: 0.15, intensity: 1.4, radius: 1.3, passes: 5 }),
     createToneMapEffect({ exposure: 1.1 }),
     createFxaaEffect(),
   ],
@@ -105,7 +110,9 @@ const displayLights = emitters.map(([x, y, z]) => {
 });
 const lights = createScene3DLights({
   // Barely there — just enough that the wallpaper is a shape rather than a void.
-  ambient: createAmbientLight({ color: 0x04060b, intensity: 1 }),
+  // Just enough to make out the room: the wallpaper and the table edge should be readable
+  // as shapes without competing with the display.
+  ambient: createAmbientLight({ color: 0x0b1018, intensity: 1 }),
   point: displayLights,
 });
 
@@ -200,6 +207,10 @@ walkNodeDescendants(clock.root, (node) => {
       if (mesh.name === 'frontscreen') {
         mesh.materials = [createUnlitMaterial({ baseColor: 0xffffffff, baseColorMap: texture })];
       } else {
+        // The bezel is called `chromebody`, but on an alarm clock of this kind it is chromed
+        // plastic rather than metal. As a metal at 0.82 its albedo tinted the reflection and it
+        // mirrored the room; as a dielectric it keeps a tight specular roll-off along the rim —
+        // which is what actually catches the digits — without behaving like polished steel.
         const chrome = mesh.name === 'chromebody';
         mesh.materials = [createStandardPbrMaterial({
           baseColor: 0xffffffff,
@@ -207,8 +218,8 @@ walkNodeDescendants(clock.root, (node) => {
           normalMap: mesh.name === 'furniture'
             ? createTexture({ source: furnitureNormal, colorSpace: 'linear' })
             : undefined,
-          metallic: chrome ? 0.82 : 0,
-          roughness: chrome ? 0.22 : 0.68,
+          metallic: 0,
+          roughness: chrome ? 0.34 : 0.68,
         })];
       }
     }
