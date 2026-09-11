@@ -1,4 +1,4 @@
-import type { Camera3D, GlPipeline, GlRenderEffectPipeline, GlRenderState, Node3D } from '@flighthq/sdk';
+import type { Camera3D, GlPipeline, GlRenderEffectPipeline, Node3D } from '@flighthq/sdk';
 import {
   beginGlRenderEffectPipeline,
   createFxaaEffect,
