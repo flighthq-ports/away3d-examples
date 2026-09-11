@@ -1,4 +1,4 @@
-import type { Mesh, PerspectiveProjection } from '@flighthq/sdk';
+import type { Mesh, Node3D, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
   addTextureAtlasRegion,
@@ -184,7 +184,25 @@ setVector3(bearMesh.position, 0, 0, -1000);
 let bearHeading = Math.PI / 4;
 setQuaternionFromEuler(bearMesh.rotation, 0, bearHeading, 0);
 invalidateNodeLocalTransform(bearMesh);
+// The walk and run clips animate ZeroJoint, the skeleton's root, and that translation is the
+// bear's forward travel — about 6.2 units a cycle. Left in the pose it carries the whole bear
+// forward inside the container and then snaps back when the clip loops, which is visible as the
+// bear sliding ahead of himself and resetting. Away3D lifts the same motion off the pose and onto
+// the mesh (SkeletonAnimator.updatePosition); here the travel is read from the clip separately
+// and applied to the mesh, so the joint is pinned back to its bind translation every frame. Only
+// x and z are pinned — y is left animated so the body still rises and falls with the gait.
+const ROOT_JOINT = 'ZeroJoint';
+let rootJoint: Node3D | null = null;
+walkNodeDescendants(model.root, (node) => {
+  if (rootJoint === null && node.name === ROOT_JOINT) rootJoint = node as Node3D;
+  return true;
+});
+const rootRest = rootJoint !== null
+  ? { x: (rootJoint as Node3D).position.x, z: (rootJoint as Node3D).position.z }
+  : null;
+
 addNodeChild(scene.root, model.root);
+
 
 
 const groundSampler = createTilingSampler();
@@ -376,6 +394,12 @@ function frame(timestamp: number): void {
   stats.textContent = `FPS: ${displayedFps}\nPLY: ${triangleCount}`;
 
   animation.step(deltaTime, rootDelta);
+  // Take the root motion back out of the pose before the skin is evaluated (see ROOT_JOINT).
+  if (rootJoint !== null && rootRest !== null) {
+    const joint = rootJoint as Node3D;
+    setVector3(joint.position, rootRest.x, joint.position.y, rootRest.z);
+    invalidateNodeLocalTransform(joint);
+  }
   for (const mesh of skinned) updateMeshSkin(mesh);
   bearHeading += rotationPerFrame * deltaTime * 60 * Math.PI / 180;
   setQuaternionFromEuler(bearMesh.rotation, 0, bearHeading, 0);
