@@ -801,6 +801,30 @@ Three follow-ups after looking at it on real hardware:
 - **Ambient lifted slightly** to `0x0b1018`, enough that the wallpaper and the table edge read as
   shapes without competing with the display.
 
+### Only one colon dot showed: the backdrop is not padding
+
+Fitting each cell to the **lit** artwork instead of the full opaque extent looked like an
+improvement on the digits, and it was wrong. The `delimiter` clip is a single dot that fades out
+over six frames, sitting near the middle of a 17x65 black panel, and the colon's two dots come
+from the mesh showing that cell twice. Fit to the dot alone, the cell *became* the dot, and only
+one of the two showed up. The backdrop is not padding — it is what positions the artwork inside
+its cell, which is exactly why `SpriteSheetHelper` measures `sourceMC.width`/`height`, and in
+Flash those include every child.
+
+So the measurement is the opaque extent again. The digits are still large, because what actually
+made them small was the cell geometry, not the backdrop: a cell carved as `sheetSize/rows` gave
+tall cells that letterboxed wide digits, and the fit was uniform with a margin on top of that.
+Sizing the cell to the content's aspect and filling it non-uniformly (as the helper does) is what
+fixed that.
+
+One further trap while fixing this. Measuring at 4x, to keep antialiased edges clear of a
+brightness threshold, silently broke the measurement: these clips place their contents hundreds of
+units from their own origin (`pulse` at y 169..233, `delimiter` at y 96..160), so at 4x they land
+outside the measuring canvas — `pulse` rasterised empty and `delimiter` measured 31.5 tall instead
+of 65, having been cut in half. Alpha needs no upscaling, since the interior of a filled shape is
+fully opaque at any scale. The builder now also throws if a clip's bounds reach the canvas edge,
+so that class of silent clipping cannot recur.
+
 ### The digits read aliased up close
 
 A sprite-sheet cell is the entire resolution a frame ever has, and the sheet was sized like the
