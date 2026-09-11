@@ -960,3 +960,33 @@ of wall clock is about one second of water.
 fluid draws a wake and leaves the camera still. The port bound orbit dragging to the canvas
 independently and did both at once. `bindOrbitDrag` now takes an optional `shouldStart` predicate
 for this; it defaults to allowing the drag, so the other samples are unaffected.
+
+### Panning outside the water, and a finer grid
+
+**The camera gate latched too early.** `disturbing` was set on every `pointerdown` before the pick
+ran, and `pointerdown` fires before the `mousedown` that `bindOrbitDrag` listens for — so the gate
+always saw it true and the camera could never pan, wherever you pressed. In the original,
+`plane.addEventListener(MouseEvent3D.MOUSE_DOWN, ...)` only fires when the press lands on the
+water, and that is what latches `planeDisturb`; a press anywhere else leaves it false and the
+camera pans. The pick now decides the latch, so a press on the sky orbits and a press on the water
+draws a wake without moving the camera. It stays latched for the whole drag, as the original's flag
+does, but only disturbs where the ray still meets the surface.
+
+**Normals now come from the height field, not the mesh.** This was the entire frame budget:
+deriving them geometrically cost 10.6ms per frame at 200 cells and 42.8ms at 400, against
+0.5-1.5ms for the fluid solve itself. `ShallowFluid` supplies normals and tangents directly, and
+although the OpenFL port leaves its PixelBender normal shaders commented out — so upstream
+actually shades the water with the constant normals it was initialised with — the shader it meant
+to run scaled central differences by `-2 * spacing`, which is exactly the gradient used here.
+Cost fell to 3.6ms at 200.
+
+**The grid is 320, up from the original's 200** — 203522 triangles against 79202, 2.6x the detail
+over the same 398-unit pool. Two things bound it. The per-vertex pass scales with cell count,
+while the solver's step count scales with `1 / spacing`, so solver cost scales with the *cube* of
+the grid: measured 3.6ms per frame at 200, 10.4ms at 320, and 400 could not hold a steady frame in
+this harness at all. 320 leaves room inside a 60fps budget on modest hardware.
+
+That step scaling is itself required, not a tuning choice: the scheme is CFL-limited, so a wave
+crosses one cell per step and world wave speed is `spacing / step`. Refining the grid without
+shortening the step would slow every ripple in proportion; the step therefore tracks the spacing,
+holding wave speed at the original's 120 units per second whatever the grid.
