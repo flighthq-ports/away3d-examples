@@ -1056,3 +1056,53 @@ Until then a sharp environment mirror is capped at 64px of reflected detail.
 
 The remaining fine texture along the ripple crests is different again — that is the 320-cell grid
 faceting, and it is a resolution the port chose above the original's 200.
+
+## Fractal tree lighting
+
+Built the original for reference (it shows terrain and sky but no trees, since `generateTree` is
+only reachable from the commented-out GUI) and compared measured pixels. Three real defects.
+
+**The moon lit from the wrong side.** `moonLight` sits at (3500, 4500, 10000) and looks at the
+origin — "appear to come from the moon in the sky box" — an Away3D direction of
+(-0.304, -0.391, -0.869). This port negates Away3D's z, so it must arrive at
+(-0.304, -0.391, **+0.869**); it was hard-coded to (-0.264, -0.396, **-0.880**), the same light
+from the opposite side of the scene, so the shading disagreed with the moon painted in the skybox.
+Its diffuse is 0.5, not the 0.75 that was used.
+
+**The sky fill was missing.** The original carries a third light, `skyLight`, a directional at
+diffuse 0.1 with no direction set — a flat fill. `Scene3DLights` holds only one directional, and a
+hemisphere light is the better reading of it anyway: sky colour above, near-black below. That is
+what lifts the trunks and branches out of flat silhouette, which is the visible improvement here.
+Its `cameraLight` (a point light, radius 1000 / fallOff 2000, re-seated on the camera each frame)
+is left out on purpose — the orbit never comes closer than 8000 units, so a light reaching 2000
+cannot touch anything, and carrying it would cost a per-fragment point light for nothing.
+
+**`Environment.intensity` does two jobs, and lowering it blacked out the sky.** It scales the IBL
+*and* multiplies the drawn skybox (`drawGlEnvironmentSkybox`'s `u_intensity`). Dropping it to 0.18
+to tame the over-bright terrain took the night sky from the original's measured (23,22,39) down to
+(1,1,2). It is back at 1 and brightness is dialled with the key light and exposure instead.
+
+### Why this sample gets no fog
+
+The original's `FogMethod(0, 200000, 0x000000)` is deliberately not reproduced. A screen-space fog
+works in window depth, and this camera spans near 20 to far 250000, so depth is crushed to ~1
+within a few thousand units: `depthAt(25000)` is already **0.99928**, which fogged the whole
+mid-field to black — measured (3,17,5) where the original reads (50,73,41). It also has no
+background skip, so it dimmed the skybox along with it. In the original the distant ridge stays
+clearly lit at this framing, so the fog contributes almost nothing there and omitting it is closer
+than approximating it. (Note this also means the `depthAt` helper must use the camera's real near
+plane — mine assumed 100 against an actual 20, which put the window in the wrong place entirely.)
+
+### Still different: the terrain is too green, and that is albedo
+
+Measured near-terrain against the original: ours (16,70,10) against (19,29,15) — red and blue land
+close, green is about 2.4x high. That is not the lighting, it is the recipe. The original builds
+its terrain as **grass as the base texture** plus
+`TerrainDiffuseMethod([rock.jpg], blendTexture, [20, 20])` — a single rock layer at 20x tiling,
+blended through a **runtime-generated** blend map. The port instead composites grass, rock and
+beach through `terrain_splats.png`, which is *TerrainDemo's* asset, so it averages toward flat
+grass everywhere.
+
+Worth noting what else that blend map carries: `createTreeShadow` paints gradient blobs into it as
+each tree is placed, so in the original the trees darken the ground beneath them. Rebuilding the
+terrain material on the original's recipe would fix both the colour and the missing tree shadows.
