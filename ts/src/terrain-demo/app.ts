@@ -1,13 +1,16 @@
 import type { MeshGeometry, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
+  bakeGlEnvironmentIbl,
   computeMeshGeometryNormals,
   computeMeshGeometryTangents,
+  createEnvironment,
   createFxaaEffect,
   createMesh,
   createPlaneMeshGeometry,
   createScene3D,
   createScene3DLights,
+  createScreenSpaceFogEffect,
   createStandardPbrMaterial,
   createTexture,
   createTilingSampler,
@@ -17,35 +20,89 @@ import {
   getMeshGeometryVertexPosition,
   invalidateMeshGeometry,
   invalidateNodeLocalTransform,
+  isMesh,
   loadImageResourceFromUrl,
   scaleMeshGeometryUvs,
   setMeshGeometryVertexPosition,
   setTextureUvOffset,
   setVector3,
+  walkNodeDescendants,
 } from '@flighthq/sdk';
-import { createCameraFromAway, createFirstPersonControllerFromAway } from '../../shared/camera';
+import { awayDirection, createCameraFromAway, createFirstPersonControllerFromAway } from '../../shared/camera';
 import { createDirectionalLightFromAway } from '../../shared/lighting';
+import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
 import { createScene3DContext } from './renderer';
+
+// Scene constants from the original. Elevation(terrain, heights, 5000, 1300, 5000, 250, 250) at
+// y = 0, water at y = 285, camera.y = 300 with lens near 1 / far 4000.
+const CAMERA_NEAR = 1;
+const CAMERA_FAR = 4000;
+const TERRAIN_SIZE = 5000;
+const TERRAIN_HEIGHT = 1300;
+const TERRAIN_SEGMENTS = 250;
+const WATER_Y = 285;
+// FogMethod(0, 8000, 0xcfd9de). Clear colour and fog are consumed as LINEAR values.
+const FOG_COLOR = 0xcfd9de;
+// The effect ramps over NON-LINEAR window depth, and a near plane of 1 crushes that range hard —
+// depth(100) is already 0.990. So the haze window is chosen against that curve rather than by
+// transplanting the original's world-linear 0..8000.
+const FOG_VISIBLE_NEAR = 500;
+
+function linearChannel(channel: number): number {
+  const v = channel / 255;
+  return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+}
+function linearRgba(srgb: number): number {
+  let out = 0;
+  for (let shift = 16; shift >= 0; shift -= 8) {
+    out = (out << 8) | Math.round(linearChannel((srgb >> shift) & 0xff) * 255);
+  }
+  return ((out << 8) | 0xff) >>> 0;
+}
+function depthAt(distance: number): number {
+  const d = Math.max(distance, CAMERA_NEAR);
+  return (CAMERA_FAR * (d - CAMERA_NEAR)) / (d * (CAMERA_FAR - CAMERA_NEAR));
+}
 
 const ctx = createScene3DContext({
   width: innerWidth,
   height: innerHeight,
-  backgroundColor: 0xbcd5e6ff,
-  effects: [createToneMapEffect({ exposure: 1.05 }), createFxaaEffect()],
+  backgroundColor: linearRgba(FOG_COLOR),
+  effects: [
+    createScreenSpaceFogEffect({
+      color: linearRgba(FOG_COLOR),
+      near: depthAt(FOG_VISIBLE_NEAR),
+      far: depthAt(CAMERA_FAR),
+      density: 1,
+    }),
+    createToneMapEffect({ exposure: 1.05 }),
+    createFxaaEffect(),
+  ],
 });
 const scene = createScene3D();
-const camera = createCameraFromAway({ far: 9000, near: 5 });
-const controller = createFirstPersonControllerFromAway(camera, { x: 0, y: 450, z: -1800, yaw: 180, pitch: 8 });
+const camera = createCameraFromAway({ far: CAMERA_FAR, near: CAMERA_NEAR });
+// FirstPersonController(camera, 180, 0, -80, 80) with camera.y = 300 and no x/z set.
+const controller = createFirstPersonControllerFromAway(camera, {
+  x: 0, y: 300, z: 0, yaw: 180, pitch: 0, minPitch: -80, maxPitch: 80,
+});
+// DirectionalLight(-300, -300, -5000), colour 0xfffdc5, ambient 1; the terrain material carries
+// ambientColor 0x303040 at ambient 1.
 const light = createDirectionalLightFromAway({
-  direction: { x: -0.45, y: -1, z: -0.2 }, diffuse: 1.35, ambient: 0.2, color: 0xfff1d0,
+  direction: awayDirection(-300, -300, -5000),
+  diffuse: 1.35,
+  ambient: 1,
+  ambientColor: 0x303040,
+  color: 0xfffdc5,
 });
 const lights = createScene3DLights({ ambient: light.ambient, directional: light.directional });
 const assetRoot = 'away3d/TerrainDemo/';
-const [heightImage, terrainImage, normalImage, waterNormalImage] = await Promise.all([
+const SKY_FACES = ['positive_x', 'negative_x', 'positive_y', 'negative_y', 'positive_z', 'negative_z'];
+const [heightImage, terrainImage, normalImage, waterNormalImage, ...skyFaces] = await Promise.all([
   loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/terrain_heights.jpg`),
   loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/terrain_diffuse.jpg`),
   loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/terrain_normals.jpg`),
   loadImageResourceFromUrl(ctx.host, `${assetRoot}water_normals.jpg`),
+  ...SKY_FACES.map((face) => loadImageResourceFromUrl(ctx.host, `${assetRoot}skybox/snow_${face}.jpg`)),
 ]);
 
 if (!heightImage.source) throw new Error('The terrain heightmap has no drawable image source');
@@ -56,7 +113,15 @@ if (!heightContext) throw new Error('A 2D canvas is required to decode the heigh
 heightContext.drawImage(heightImage.source, 0, 0);
 const heightPixels = heightContext.getImageData(0, 0, heightCanvas.width, heightCanvas.height).data;
 
-const terrainSize = 5200;
+// SkyBox(cubeTexture) over the same snow cube the water reflects. The port loaded none of these
+// faces, so the sky was a flat clear colour and the water had nothing to mirror.
+const environment = createEnvironment({
+  environment: createCubeTextureFromAwayFaces(ctx.host, skyFaces),
+  intensity: 1,
+});
+bakeGlEnvironmentIbl(ctx.state, environment);
+
+const terrainSize = TERRAIN_SIZE;
 // Elevation reads one texel per vertex, at row `(segmentsH - zi)` — a row that counts DOWN as
 // Away3D z rises. This port negates z against Away3D, so the row must count UP with Flight z;
 // sampling `1 - v` mirrors the whole terrain front-to-back.
@@ -65,10 +130,10 @@ function terrainHeight(x: number, z: number): number {
   const v = Math.max(0, Math.min(1, z / terrainSize + 0.5));
   const px = Math.min(heightCanvas.width - 1, Math.floor(u * (heightCanvas.width - 1)));
   const py = Math.min(heightCanvas.height - 1, Math.floor(v * (heightCanvas.height - 1)));
-  return (heightPixels[(py * heightCanvas.width + px) * 4]! / 255) * 920 - 80;
+  return (heightPixels[(py * heightCanvas.width + px) * 4]! / 255) * TERRAIN_HEIGHT;
 }
 
-const terrainGeometry: MeshGeometry = createPlaneMeshGeometry(terrainSize, terrainSize, 128, 128);
+const terrainGeometry: MeshGeometry = createPlaneMeshGeometry(terrainSize, terrainSize, TERRAIN_SEGMENTS, TERRAIN_SEGMENTS);
 const vertex = createVector3();
 for (let i = 0; i < getMeshGeometryVertexCount(terrainGeometry); i++) {
   getMeshGeometryVertexPosition(vertex, terrainGeometry, i);
@@ -89,12 +154,21 @@ addNodeChild(scene.root, terrain);
 const waterSampler = createTilingSampler();
 const waterTexture = createTexture({ source: waterNormalImage, colorSpace: 'linear', sampler: waterSampler });
 const waterGeometry = createPlaneMeshGeometry(terrainSize, terrainSize);
-scaleMeshGeometryUvs(waterGeometry, 24, 24);
+scaleMeshGeometryUvs(waterGeometry, 50, 50);
+// The original's water is `new BitmapData(512, 512, true, 0xaa404070)` — an ARGB literal, so
+// alpha 0xaa over a dark blue-grey 0x404070 — with alphaBlending, a fresnel specular method and
+// an EnvMapMethod over the same snow cube. The port read that as RGBA: a bright cyan 0x3d92b0 at
+// half alpha, and made it metallic 0.72, which leaves a metal almost no diffuse. Against a pale
+// foggy sky the result was invisible; the lake simply was not there.
 const water = createMesh(waterGeometry, [createStandardPbrMaterial({
-  baseColor: 0x3d92b080, normalMap: waterTexture, metallic: 0.72, roughness: 0.12,
-  alphaMode: 'blend', doubleSided: true,
+  baseColor: 0x404070aa,
+  normalMap: waterTexture,
+  metallic: 0,
+  roughness: 0.08,
+  alphaMode: 'blend',
+  doubleSided: true,
 })]);
-setVector3(water.position, 0, 205, 0); invalidateNodeLocalTransform(water); addNodeChild(scene.root, water);
+setVector3(water.position, 0, WATER_Y, 0); invalidateNodeLocalTransform(water); addNodeChild(scene.root, water);
 
 const keys = new Set<string>();
 window.addEventListener('keydown', (event) => keys.add(event.code));
@@ -121,17 +195,53 @@ function frame(ts: number): void {
   controller.position.z += forward.z * forwardInput * speed + right.z * rightInput * speed;
   controller.position.x = Math.max(-2500, Math.min(2500, controller.position.x));
   controller.position.z = Math.max(-2500, Math.min(2500, controller.position.z));
-  const groundY = terrainHeight(controller.position.x, controller.position.z) + 70;
+  const groundY = terrainHeight(controller.position.x, controller.position.z) + 20;
   controller.position.y += (groundY - controller.position.y) * Math.min(1, seconds * 5);
   controller.update();
+  framesThisSecond++;
+  if (ts - statsWindowStart >= 1000) {
+    displayedFps = Math.round((framesThisSecond * 1000) / (ts - statsWindowStart));
+    framesThisSecond = 0;
+    statsWindowStart = ts;
+  }
+  stats.textContent = `FPS: ${displayedFps}\nPLY: ${triangleCount}`;
   setTextureUvOffset(waterTexture, ts * 0.000025, ts * -0.000018);
-  ctx.render(scene.root, camera, lights); requestAnimationFrame(frame);
+  ctx.render(scene.root, camera, lights, environment);
+  requestAnimationFrame(frame);
 }
 
+// The original's instructions, verbatim (its drop-shadow filter line is commented out).
 const help = document.createElement('div');
-help.textContent = 'WASD / arrows to explore · Shift to run · drag to look';
-Object.assign(help.style, { position: 'fixed', left: '18px', top: '16px', color: '#fff', font: '14px system-ui', textShadow: '0 1px 5px #000', pointerEvents: 'none' });
+help.textContent = 'Mouse click and drag - rotate\nCursor keys / WSAD - move';
+Object.assign(help.style, {
+  position: 'fixed', left: '0px', top: '0px', zIndex: '2', color: '#ffffff',
+  font: '11px sans-serif', whiteSpace: 'pre', pointerEvents: 'none',
+});
 document.body.appendChild(help);
+
+// Stands in for AwayStats, which this sample moves to the top right in onResize
+// (`awayStats.x = stage.stageWidth - awayStats.width`).
+let triangleCount = 0;
+walkNodeDescendants(scene.root, (node) => {
+  if (isMesh(node) && node.geometry && node.geometry.topology === 'triangle-list') {
+    const geometry = node.geometry;
+    const indexed = geometry.indices !== null
+      ? geometry.indices.length
+      : geometry.vertices.length / (geometry.layout.stride / 4);
+    triangleCount += Math.floor(indexed / 3);
+  }
+  return true;
+});
+const stats = document.createElement('div');
+Object.assign(stats.style, {
+  position: 'fixed', right: '10px', top: '10px', zIndex: '2', color: '#ffffff',
+  font: '12px ui-monospace, monospace', whiteSpace: 'pre', textAlign: 'right',
+  pointerEvents: 'none',
+});
+document.body.appendChild(stats);
+let framesThisSecond = 0;
+let statsWindowStart = performance.now();
+let displayedFps = 0;
 window.addEventListener('resize', () => {
   const width = innerWidth; const height = innerHeight; const pixelRatio = devicePixelRatio || 1;
   ctx.canvas.width = width * pixelRatio; ctx.canvas.height = height * pixelRatio;

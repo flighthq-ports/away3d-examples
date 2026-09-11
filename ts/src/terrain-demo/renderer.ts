@@ -1,6 +1,7 @@
 import type {
   Adjustment,
   Camera3D,
+  Environment,
   GlRenderEffectPipeline,
   GlRenderState,
   Node3D,
@@ -18,7 +19,9 @@ import {
   createGlRenderState,
   createToneMapEffect,
   defaultGlFxaaEffectRunner,
+  defaultGlScreenSpaceFogEffectRunner,
   defaultGlToneMapEffectRunner,
+  drawGlEnvironmentSkybox,
   drawGlScene3D,
   endGlRenderEffectPipeline,
   registerGlBlinnPhongMaterial,
@@ -41,7 +44,12 @@ export interface Scene3DContext {
   canvas: HTMLCanvasElement;
   height: number;
   host: typeof webHost;
-  render: (scene: Readonly<Node3D>, camera: Readonly<Camera3D>, lights: Readonly<Scene3DLights>) => void;
+  render: (
+    scene: Readonly<Node3D>,
+    camera: Readonly<Camera3D>,
+    lights: Readonly<Scene3DLights>,
+    environment?: Readonly<Environment>,
+  ) => void;
   state: GlRenderState;
   width: number;
 }
@@ -90,6 +98,7 @@ export function createScene3DContext(options: Readonly<Scene3DOptions> = {}): Sc
   registerBuiltInGlModifierSnippets(state);
   const effects = options.effects ?? [createToneMapEffect()];
   registerGlRenderEffect(state, 'FxaaEffect', defaultGlFxaaEffectRunner);
+  registerGlRenderEffect(state, 'ScreenSpaceFogEffect', defaultGlScreenSpaceFogEffectRunner);
   registerGlRenderEffect(state, 'ToneMapEffect', defaultGlToneMapEffectRunner);
 
   let pipeline: GlRenderEffectPipeline | null = null;
@@ -98,9 +107,9 @@ export function createScene3DContext(options: Readonly<Scene3DOptions> = {}): Sc
     canvas,
     height,
     host: webHost,
-    render(scene, camera, lights) {
+    render(scene, camera, lights, environment) {
       if (pipeline === null) {
-        pipeline = createGlRenderEffectPipeline(state, { format: 'rgba16f', depth: 'depth-stencil' });
+        pipeline = createGlRenderEffectPipeline(state, { format: 'rgba16f', depth: 'depth-stencil-sampled' });
       }
       beginGlRenderEffectPipeline(state, pipeline);
       renderGlBackground(state);
@@ -108,6 +117,7 @@ export function createScene3DContext(options: Readonly<Scene3DOptions> = {}): Sc
       gl.depthMask(true);
       gl.clearDepth(1);
       gl.clear(gl.DEPTH_BUFFER_BIT);
+      if (environment) drawGlEnvironmentSkybox(state, environment, camera, canvas.width / canvas.height);
       drawGlScene3D(state, scene, camera, lights);
       endGlRenderEffectPipeline(state, pipeline, effects);
     },

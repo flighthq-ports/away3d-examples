@@ -47,10 +47,8 @@ ctx.canvas.addEventListener('pointerup', (event) => {
   targetX = picked.pointX; targetZ = picked.pointZ; started = performance.now();
 });
 
-const help = document.createElement('div');
-help.textContent = 'Click the floor to move the cube along a curved path';
-Object.assign(help.style, { position: 'fixed', left: '16px', top: '14px', color: '#fff', font: '14px system-ui', textShadow: '0 1px 4px #000' });
-document.body.appendChild(help);
+// This sample has no overlay at all: the original adds neither a TextField nor AwayStats, so the
+// only thing on screen is the floor and the crate.
 function frame(ts: number): void {
   if (started >= 0) {
     const t = Math.min(1, (ts - started) / 500);
