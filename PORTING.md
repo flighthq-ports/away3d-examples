@@ -678,3 +678,34 @@ drops. Measured over a 25-second walk, minimum camera clearance above the ground
 Note the camera does still start inside the terrain for a moment: `camera.y = 300` while the
 ground at the origin is 617, so the first frames rise out of the hillside. That is the original's
 behaviour too and was left alone.
+
+## Sprite sheet animation
+
+The upstream OpenFL demo does not run here: it throws `Invalid code point 4038624` out of the SWF
+asset library and renders black. As with the fractal tree and the head, the port is judged against
+the source and the shipped art rather than a running original.
+
+### The clock face was a font, not a display
+
+The original builds all three animated sheets at runtime from MovieClips inside `digits.swf`
+(`SpriteSheetHelper.generateFromMovieClip`): `digits` at 60 frames over 2 maps of 6x5 at 512,
+`pulse` at 12 frames 4x3 at 256 driven back-and-forth at 12fps, and `delimiter` at 5 frames 5x2 at
+256 at 6fps.
+
+The port could not read the SWF, so it drew its own sheets — with `ui-monospace` text and a
+red-to-amber-to-**cyan** gradient. That is why the clock read as a different clock, and why the
+separator looked like an exclamation mark rather than a colon.
+
+The shipped art says plainly what these should look like. `m_hours.jpg`, `m_minutes.jpg` and
+`m_seconds.jpg` are placeholders — red seven-segment digits with the element's name and a cross
+through them — and `m_delimiter.jpg` is a real texture showing the separator is two horizontal
+bars, with the unlit segments still faintly visible beside the lit ones. The sheets are now drawn
+as seven-segment LEDs on that model: bright `#ff3a08` segments with a small bloom, unlit segments
+at low alpha, and a two-bar colon that pulses.
+
+*Not yet faithful:* the exact glyph shapes still come from this port rather than from `digits.swf`.
+The SDK can read SWF — `createScene2DSymbolFromSwf` plus `renderCanvasScene2D` is the path, and
+`@flighthq/swf` and `@flighthq/scene2d-canvas` are already present as transitive dependencies —
+but doing it properly means promoting both to direct dependencies and working out symbol
+instancing and frame stepping to rasterise 60 + 12 + 5 frames into sheets. That is a real piece of
+work rather than a tweak, and it is left as a follow-up instead of half-built.
