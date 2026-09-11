@@ -801,6 +801,22 @@ Three follow-ups after looking at it on real hardware:
 - **Ambient lifted slightly** to `0x0b1018`, enough that the wallpaper and the table edge read as
   shapes without competing with the display.
 
+### The digits read aliased up close
+
+A sprite-sheet cell is the entire resolution a frame ever has, and the sheet was sized like the
+original's: 1024 over a 10x6 grid, so about 102x52 texels per digit pair. The camera pans right up
+to the display, which magnifies that several times over and shows as stair-stepping on the segment
+diagonals. Two changes:
+
+- **Bigger cells.** 2048 across ten columns gives each digit pair 204 texels. The source is vector
+  art, so it re-rasterises crisply at any size — this costs memory, not fidelity. 4096 was tried
+  first and is indistinguishable at the closest camera position, so it was not worth four times
+  the memory (a 4090x1890 sheet is ~31MB against ~7.7MB).
+- **Trilinear plus 8x anisotropy** instead of plain bilinear. The display is usually seen at a
+  slant, which is the case bilinear handles worst. Mipmapping a sprite sheet normally risks
+  neighbouring cells bleeding together at the coarser levels, but each frame is inset to 84% of
+  its cell (`CONTENT_FILL`), leaving an 8% gutter on every side to absorb it.
+
 ### What the original's lighting actually does
 
 ### The scene is lit blue, and that is correct
