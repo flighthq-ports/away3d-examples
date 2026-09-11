@@ -746,6 +746,26 @@ Frames are also scaled to fill their cell on both axes independently, which is w
 uniform fit with a margin left the content letterboxed a second time. Because the cell is sized to
 the content's aspect first, this stays close to uniform and simply removes the dead margin.
 
+### Deliberate deviation: the clock lights its own room
+
+The faithful lighting below is documented because it explains what the original does, but the
+sample no longer uses it. Its conclusion — that only the blue key reaches the clock — also means
+the room is lit blue by a lamp that exists nowhere in the scene. At the user's request the sample
+now lights the room from the one source it actually contains:
+
+- a dim cool ambient (`0x0c1018`) standing in for night through a window, and
+- a warm point light in the LED's own colour (`0xff3a08`) just in front of the display, at
+  `(-564, 237, 3800)`. The display face centres on the frontscreen mesh at `(286, 237, 2952)` and
+  hours-to-minutes runs along `(0.707, 0, 0.708)`, so the face normal toward the viewer is
+  `(-0.708, 0, 0.707)`; the light sits along it, in front of the glass rather than inside the case.
+
+The display meshes are unlit materials, so the digits keep glowing at full strength while the
+table and wallpaper fall away into the dark and pick up the red spill. The digits are also inset
+to 84% of their cell (`CONTENT_FILL`), because the display quad maps the whole cell and filling it
+edge to edge pushes them against the bezel.
+
+### What the original's lighting actually does
+
 ### The scene is lit blue, and that is correct
 
 The port had invented light values: diffuse 0.9 and 0.5 where the original uses 0.3 and 0.1, radii
