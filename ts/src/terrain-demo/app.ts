@@ -42,6 +42,7 @@ const TERRAIN_SIZE = 5000;
 const TERRAIN_HEIGHT = 1300;
 const TERRAIN_SEGMENTS = 250;
 const WATER_Y = 285;
+const WALK_SPEED = 2 * 60;
 const WATER_SCROLL_X = 0.005 * 60;
 const WATER_SCROLL_Y = 0.007 * 60;
 // FogMethod(0, 8000, 0xcfd9de). Clear colour and fog are consumed as LINEAR values.
@@ -213,7 +214,11 @@ let previousTime = performance.now();
 function frame(ts: number): void {
   const seconds = Math.min(0.05, (ts - previousTime) / 1000); previousTime = ts;
   controller.forward(forward); controller.right(right);
-  const speed = (keys.has('ShiftLeft') || keys.has('ShiftRight') ? 1050 : 480) * seconds;
+  // walkIncrement 2 against drag 0.5 settles at s = (s + 2) * 0.5 => 2 units per frame, so 120
+  // units/second at 60fps. The port ran at 480, or 1050 with a Shift-to-run the original does not
+  // have and its instructions do not mention — fast enough to outrun the height follow below and
+  // push the camera through the hillside.
+  const speed = WALK_SPEED * seconds;
   const forwardInput = Number(keys.has('KeyW') || keys.has('ArrowUp')) - Number(keys.has('KeyS') || keys.has('ArrowDown'));
   const rightInput = Number(keys.has('KeyD') || keys.has('ArrowRight')) - Number(keys.has('KeyA') || keys.has('ArrowLeft'));
   controller.position.x += forward.x * forwardInput * speed + right.x * rightInput * speed;
@@ -221,7 +226,11 @@ function frame(ts: number): void {
   controller.position.x = Math.max(-2500, Math.min(2500, controller.position.x));
   controller.position.z = Math.max(-2500, Math.min(2500, controller.position.z));
   const groundY = terrainHeight(controller.position.x, controller.position.z) + 20;
-  controller.position.y += (groundY - controller.position.y) * Math.min(1, seconds * 5);
+  // `camera.y += 0.2 * (getHeightAt + 20 - camera.y)` every frame — a 0.2 step at 60fps, which the
+  // port had as seconds * 5 (0.083 per frame), lagging 2.4x further behind rising ground.
+  // Expressed framerate-independently so the follow does not slow down when the frame rate does.
+  const follow = 1 - Math.pow(1 - 0.2, seconds * 60);
+  controller.position.y += (groundY - controller.position.y) * Math.min(1, follow);
   controller.update();
   framesThisSecond++;
   if (ts - statsWindowStart >= 1000) {
