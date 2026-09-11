@@ -29,6 +29,7 @@ import {
   invalidateMeshGeometry,
   loadImageResourceFromUrl,
   setMeshGeometryVertexPosition,
+  setQuaternionFromEuler,
   setQuaternionFromUnitVectors,
 } from '@flighthq/sdk';
 import { awayDirection, bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
@@ -124,7 +125,7 @@ const lights = createScene3DLights({
 
 const assetRoot = 'away3d/FractalTreeDemo/';
 const [
-  bark, barkNormal, barkSpecular, leaf, grass, rock, beach, heightImage, terrainNormal, splatImage, skyFaces,
+  bark, barkNormal, barkSpecular, leaf, grass, rock, heightImage, terrainNormal, splatImage, skyFaces,
 ] = await Promise.all([
   loadImageResourceFromUrl(ctx.host, `${assetRoot}tree/bark0.jpg`),
   loadImageResourceFromUrl(ctx.host, `${assetRoot}tree/barkNRM.png`),
@@ -132,7 +133,6 @@ const [
   loadImageResourceFromUrl(ctx.host, `${assetRoot}tree/leaf4.jpg`),
   loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/grass.jpg`),
   loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/rock.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/beach.jpg`),
   loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/terrain_heights.jpg`),
   loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/terrain_normals.jpg`),
   loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/terrain_splats.png`),
@@ -176,33 +176,138 @@ function terrainHeight(x: number, z: number): number {
   return TERRAIN_BASE + heightPixels.data[(py * heightPixels.width + px) * 4]! / 255 * TERRAIN_HEIGHT;
 }
 
-function buildSplatTexture(): ImageResource {
+let randomState = 0x4f1bbcdc;
+function random(): number {
+  randomState |= 0;
+  randomState = randomState + 0x6d2b79f5 | 0;
+  let value = Math.imul(randomState ^ randomState >>> 15, 1 | randomState);
+  value = value + Math.imul(value ^ value >>> 7, 61 | value) ^ value;
+  return ((value ^ value >>> 14) >>> 0) / 4294967296;
+}
+
+// Tree placements are decided before the terrain texture is built, because the ground under each
+// tree has to be painted into it — see buildTerrainTexture.
+interface TreePlacement { scale: number; x: number; yaw: number; z: number }
+const treePlacements: TreePlacement[] = [];
+// Where the camera opens, derived from the orbit the original sets up
+// (`HoverController(0, 10, 25000)` with a target 4500 up and AwayJS's yFactor of 2):
+//   eye.x = 0, eye.z = -25000 * cos(10deg), eye.y = 4500 + 25000 * sin(10deg) * 2
+const cameraEyeX = 0;
+const cameraEyeZ = -25000 * Math.cos(10 * Math.PI / 180);
+// A clone landing near that point fills the frame with one leaf cluster, close enough that the
+// leaf texture reads as a pattern rather than foliage. The original scatters blind — it has no
+// trees at all as shipped — so keeping a clearing around the viewpoint is a deliberate choice.
+const CAMERA_CLEARANCE = 16_000;
+
+for (let treeIndex = 0; treeIndex < TREE_COUNT; treeIndex++) {
+  // onTreeTimer scatters each clone across the whole terrain
+  // (`terrainWidth*Math.random() - terrainWidth/2`).
+  let x = 0;
+  let z = 0;
+  if (treeIndex > 0) {
+    for (let attempt = 0; attempt < 24; attempt++) {
+      x = (random() - 0.5) * TERRAIN_SIZE;
+      z = (random() - 0.5) * TERRAIN_SIZE;
+      if (Math.hypot(x - cameraEyeX, z - cameraEyeZ) >= CAMERA_CLEARANCE) break;
+    }
+  }
+  const yaw = random() * Math.PI * 2;
+  // generateTree() places the first tree at the origin unscaled; only generateClones() varies.
+  const scale = treeIndex === 0 ? 1 : 0.75 + random() * 0.5;
+  treePlacements.push({ scale, x, yaw, z });
+}
+
+// The terrain diffuse, rebuilt on the original's recipe and then graded for looks.
+//
+// Two things were wrong before. The layers were "tiled" as `(x * 20) % source.width`, which is not
+// tiling at all — it steps 20 source pixels per output pixel, point-sampling a sparse comb out of
+// the grass bitmap, and that aliasing is where the fluorescent green speckle came from. And the
+// recipe was TerrainDemo's: three textures through `terrain_splats.png`. FractalTreeDemo actually
+// uses grass as the BASE with `TerrainDiffuseMethod([rock.jpg], blendTexture, [20, 20])` — a
+// single rock layer at 20x tiling, blended through a map it generates at runtime.
+//
+// That generated map is also how the original grounds its trees: `createTreeShadow` paints a soft
+// blob into it as each tree is placed, so the ground beneath a tree turns rocky and dark. The same
+// blobs are painted here, which is what stops the trees floating.
+//
+// The grade on top is a deliberate deviation, asked for because the original reads dark and harsh:
+// the blend is pulled toward rock, and the result is desaturated and warmed a little so the grass
+// is moss rather than fluorescent.
+const TERRAIN_TEXTURE_SIZE = 2048;
+const GRASS_REPEATS = 14;
+const ROCK_REPEATS = 20;
+const DESATURATION = 0.42;
+
+function sampleTiled(
+  source: { data: Uint8ClampedArray; height: number; width: number },
+  u: number, v: number, repeats: number, channel: number,
+): number {
+  const x = Math.floor(((u * repeats) % 1) * source.width);
+  const y = Math.floor(((v * repeats) % 1) * source.height);
+  return source.data[(y * source.width + x) * 4 + channel]!;
+}
+
+function buildTerrainTexture(): ImageResource {
+  const size = TERRAIN_TEXTURE_SIZE;
+  const grassPixels = pixels(grass);
+  const rockPixels = pixels(rock);
   const splat = pixels(splatImage);
-  const sources = [pixels(grass), pixels(rock), pixels(beach)];
-  const canvas = document.createElement('canvas');
-  canvas.width = splat.width;
-  canvas.height = splat.height;
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('A 2D canvas is required to composite the terrain splat map');
-  const output = context.createImageData(splat.width, splat.height);
-  for (let y = 0; y < splat.height; y++) {
-    for (let x = 0; x < splat.width; x++) {
-      const index = (y * splat.width + x) * 4;
-      const red = splat.data[index]! / 255;
-      const green = splat.data[index + 1]! / 255;
-      const blue = splat.data[index + 2]! / 255;
-      const weights = [Math.max(green, 1 - red - green - blue), red, blue];
-      const weightSum = Math.max(0.0001, weights[0]! + weights[1]! + weights[2]!);
-      for (let channel = 0; channel < 3; channel++) {
-        let value = 0;
-        for (let layer = 0; layer < sources.length; layer++) {
-          const source = sources[layer]!;
-          const sampleX = (x * 20) % source.width;
-          const sampleY = (y * 20) % source.height;
-          value += source.data[(sampleY * source.width + sampleX) * 4 + channel]! * weights[layer]! / weightSum;
-        }
-        output.data[index + channel] = value;
+
+  // 0 = grass, 1 = rock. Large-scale variation comes off the splat map's red channel, which keeps
+  // that asset doing useful work, and the tree blobs are added on top.
+  const blend = new Float32Array(size * size);
+  for (let y = 0; y < size; y++) {
+    const sv = Math.floor((y / size) * splat.height);
+    for (let x = 0; x < size; x++) {
+      const su = Math.floor((x / size) * splat.width);
+      blend[y * size + x] = 0.22 + (splat.data[(sv * splat.width + su) * 4]! / 255) * 0.4;
+    }
+  }
+  for (const placement of treePlacements) {
+    const centerX = (placement.x / TERRAIN_SIZE + 0.5) * size;
+    const centerY = (placement.z / TERRAIN_SIZE + 0.5) * size;
+    const radius = size * 0.038 * placement.scale;
+    const minX = Math.max(0, Math.floor(centerX - radius));
+    const maxX = Math.min(size - 1, Math.ceil(centerX + radius));
+    const minY = Math.max(0, Math.floor(centerY - radius));
+    const maxY = Math.min(size - 1, Math.ceil(centerY + radius));
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const distance = Math.hypot(x - centerX, y - centerY);
+        if (distance > radius) continue;
+        const falloff = 1 - distance / radius;
+        blend[y * size + x] = Math.min(1, blend[y * size + x]! + falloff * falloff * 0.95);
       }
+    }
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('A 2D canvas is required to composite the terrain');
+  const output = context.createImageData(size, size);
+  for (let y = 0; y < size; y++) {
+    const v = y / size;
+    for (let x = 0; x < size; x++) {
+      const u = x / size;
+      const index = (y * size + x) * 4;
+      const rock = blend[y * size + x]!;
+      let red = 0;
+      let green = 0;
+      let blue = 0;
+      for (let channel = 0; channel < 3; channel++) {
+        const value = sampleTiled(grassPixels, u, v, GRASS_REPEATS, channel) * (1 - rock)
+          + sampleTiled(rockPixels, u, v, ROCK_REPEATS, channel) * rock;
+        if (channel === 0) red = value;
+        else if (channel === 1) green = value;
+        else blue = value;
+      }
+      // Desaturate toward luminance, then nudge warm, so the grass reads as moss at night.
+      const luma = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+      output.data[index] = red + (luma - red) * DESATURATION + 6;
+      output.data[index + 1] = green + (luma - green) * DESATURATION;
+      output.data[index + 2] = blue + (luma - blue) * DESATURATION + 4;
       output.data[index + 3] = 255;
     }
   }
@@ -227,7 +332,7 @@ computeMeshGeometryTangents(terrainGeometry, terrainGeometry);
 invalidateMeshGeometry(terrainGeometry);
 const terrain = createMesh(terrainGeometry, [createStandardPbrMaterial({
   baseColor: 0xffffffff,
-  baseColorMap: createTexture({ source: buildSplatTexture() }),
+  baseColorMap: createTexture({ source: buildTerrainTexture() }),
   normalMap: createTexture({ source: terrainNormal, colorSpace: 'linear' }),
   metallic: 0,
   roughness: 0.96,
@@ -346,25 +451,10 @@ const instanceScale = createVector3();
 const instanceRotation = createQuaternion();
 const instanceMatrix = createMatrix4();
 
-let randomState = 0x4f1bbcdc;
-function random(): number {
-  randomState |= 0;
-  randomState = randomState + 0x6d2b79f5 | 0;
-  let value = Math.imul(randomState ^ randomState >>> 15, 1 | randomState);
-  value = value + Math.imul(value ^ value >>> 7, 61 | value) ^ value;
-  return ((value ^ value >>> 14) >>> 0) / 4294967296;
-}
-
-for (let treeIndex = 0; treeIndex < TREE_COUNT; treeIndex++) {
-  // onTreeTimer scatters each clone across the WHOLE terrain
-  // (`terrainWidth*Math.random() - terrainWidth/2`). Bunching them into the middle instead put
-  // trunks right next to the camera and buried the tree the framing is built around.
-  const x = treeIndex === 0 ? 0 : (random() - 0.5) * TERRAIN_SIZE;
-  const z = treeIndex === 0 ? 0 : (random() - 0.5) * TERRAIN_SIZE;
+for (const placement of treePlacements) {
+  const { x, yaw, z } = placement;
+  const treeScale = placement.scale;
   const y = terrainHeight(x, z);
-  const yaw = random() * Math.PI * 2;
-  // generateTree() places the first tree at the origin unscaled; only generateClones() varies.
-  const treeScale = treeIndex === 0 ? 1 : 0.75 + random() * 0.5;
   const cosine = Math.cos(yaw);
   const sine = Math.sin(yaw);
   for (const branch of branchDefinitions) {
@@ -385,13 +475,20 @@ for (let treeIndex = 0; treeIndex < TREE_COUNT; treeIndex++) {
     instancePosition.x = x + (leafPosition.x * cosine + leafPosition.z * sine) * treeScale;
     instancePosition.y = y + leafPosition.y * treeScale;
     instancePosition.z = z + (-leafPosition.x * sine + leafPosition.z * cosine) * treeScale;
-    instanceRotation.x = 0;
-    instanceRotation.y = 0;
-    instanceRotation.z = 0;
-    instanceRotation.w = 1;
-    instanceScale.x = LEAF_CLUSTER_RADIUS * treeScale;
-    instanceScale.y = LEAF_CLUSTER_RADIUS * 0.69 * treeScale;
-    instanceScale.z = LEAF_CLUSTER_RADIUS * treeScale;
+    // Every tip sits at much the same height, so identical upright spheres merged into one flat
+    // pancake per tree. Jittering each cluster's size, position and orientation breaks that into
+    // something that reads as a canopy: the facets of neighbouring icospheres no longer line up,
+    // and the silhouette gains a ragged edge.
+    const clusterScale = (0.62 + random() * 0.55) * LEAF_CLUSTER_RADIUS * treeScale;
+    instancePosition.x += (random() - 0.5) * clusterScale * 0.7;
+    instancePosition.y += (random() - 0.5) * clusterScale * 0.5;
+    instancePosition.z += (random() - 0.5) * clusterScale * 0.7;
+    setQuaternionFromEuler(
+      instanceRotation, random() * Math.PI, random() * Math.PI, random() * Math.PI,
+    );
+    instanceScale.x = clusterScale;
+    instanceScale.y = clusterScale * 0.82;
+    instanceScale.z = clusterScale;
     composeMatrix4(instanceMatrix, instancePosition, instanceRotation, instanceScale);
     appendInstance(crownBatches, crownCursor, instanceMatrix);
   }
