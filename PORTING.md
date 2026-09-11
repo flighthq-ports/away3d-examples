@@ -459,3 +459,44 @@ leaves the map unbound; the stubble still reads, because it is painted into the 
 Also worth noting for other ports: Away3D specular maps are grayscale RGB, while
 `SpecularPbrExtension.specularMap` follows glTF and samples **alpha**, which a JPEG does not have.
 `specularColorMap` is the RGB-reading slot.
+
+## Load DAE
+
+The original builds the room in code, not from the COLLADA file: a 2500x2500 carpet plus **four**
+walls, each a 2500x2500 plane standing on a shared template (`rotationX = -90`, `y = 1250`) and
+turned into place by its own `rotationY`. There is no ceiling.
+
+### Two walls lay flat as a ceiling
+
+The port collapsed those two rotations into a single axis-angle per wall, and for the two side
+walls it picked the **Y** axis — which leaves a horizontal plane horizontal. Instead of standing at
+x = +/-1250 they lay flat at y = 1250, so the room lost two walls and gained a lopsided ceiling
+made of them.
+
+Standing them up about Z instead fixes the geometry but rotates the UVs with the wall, which lays
+the wallpaper's stripes on their side. The fix keeps the original's structure: one shared X
+rotation for every wall, with only the yaw differing, composed via
+`setQuaternionFromEuler(..., 'YXZ')` because YXZ applies X before Y — the order the original
+composes them in. Both angles flip sign against Away3D (mirroring Z negates rotations about X and
+Y), and the wall positions on Z negate with them.
+
+### parseCollada merges every `<triangles>` group into one subset
+
+`hobbelpaard.dae` has one geometry with two `<triangles>` groups — 3366 triangles on `material0`
+and 444 on `material1`, the black rocker runners and the eye. The import resolves both materials
+(`materials.length === 2`, so `instance_material` binding works now), but emits a single geometry
+subset spanning all 11430 indices:
+
+```
+mesh#0 tris=3810 materials=2 subsets=1 [0+11430]
+```
+
+The renderer resolves a material per subset and `MeshGeometry.subsets` exists for exactly this, so
+with one subset `materials[1]` is unreachable and the whole model draws with the first material —
+the runners came out wood-coloured instead of black. The sample rebuilds the subsets from the
+group sizes in the source document; the groups are concatenated in document order, which is what
+makes the offsets recoverable, and the runners turning black confirms it.
+
+*Worth raising upstream:* one subset per `<triangles>` group would fix this at the importer, and
+it is the last of the three COLLADA defects this port has hit — the other two (TEXCOORD not read,
+only the first group imported) are no longer reproducible.
