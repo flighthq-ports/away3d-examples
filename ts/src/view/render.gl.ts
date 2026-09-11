@@ -26,8 +26,6 @@ import {
 import { enableHostWebGlRenderSurface } from '@flighthq/host-web';
 
 function createMinimalScene3DGlPipeline(): GlPipeline {
-  // return scene3DGlPipeline; // Batteries-included alternative
-
   const registries = createEmptyGlRegistries();
   return createGlPipeline({
     ...registries,
@@ -55,9 +53,10 @@ export function setupRenderer() {
   const gl = createGlContextFromCanvasElement(canvas, {
     contextAttributes: { alpha: false, depth: true, preserveDrawingBuffer: false },
   });
+  const pipeline = createMinimalScene3DGlPipeline(); // Or use scene3DGlPipeline.
   const state = createGlRenderState(
     createGlContextState(gl),
-    createMinimalScene3DGlPipeline(),
+    pipeline,
     { backgroundColor: 0x000000ff, pixelRatio },
   );
   registerGlToneMapEffect(state);
@@ -72,9 +71,6 @@ export function setupRenderer() {
       effectPipeline ??= createGlRenderEffectPipeline(state, { format: 'rgba16f', depth: 'depth-stencil' });
       beginGlRenderEffectPipeline(state, effectPipeline, 'linear');
       renderGlBackground(state);
-      state.gl.depthMask(true);
-      state.gl.clearDepth(1);
-      state.gl.clear(state.gl.DEPTH_BUFFER_BIT);
       drawGlScene3D(state, scene, camera, lights);
       endGlRenderEffectPipeline(state, effectPipeline, effects);
     },

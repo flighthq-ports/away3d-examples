@@ -6,7 +6,7 @@ import {
   createCanvasRenderSurface,
   createCanvasTextureResolvers,
   renderCanvasScene2D,
-  scene2dCanvasPipeline,
+  scene2DCanvasPipeline,
   setCanvasRenderTransform2D,
 } from '@flighthq/scene2d-canvas';
 import { createWebCanvasRenderSurfaceCreator } from '@flighthq/host-web';
@@ -40,7 +40,7 @@ const surfaceCreator = createWebCanvasRenderSurfaceCreator();
 function canvasStateFor(canvas: HTMLCanvasElement) {
   return createCanvasRenderState(
     createCanvasRenderSurface(surfaceCreator, canvas),
-    scene2dCanvasPipeline,
+    scene2DCanvasPipeline,
     createCanvasTextureResolvers(surfaceCreator),
   );
 }

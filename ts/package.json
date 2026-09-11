@@ -23,14 +23,14 @@
     "check": "npm run typecheck && npm run lint:assets && npm run build"
   },
   "dependencies": {
-    "@flighthq/effects-gl": "^0.5.1-next.1059.c56d3cd",
-    "@flighthq/host-web": "^0.5.1-next.1059.c56d3cd",
-    "@flighthq/movieclip": "^0.5.1-next.1059.c56d3cd",
-    "@flighthq/render": "^0.5.1-next.1059.c56d3cd",
-    "@flighthq/render-gl": "^0.5.1-next.1059.c56d3cd",
-    "@flighthq/scene2d-canvas": "^0.5.1-next.1059.c56d3cd",
-    "@flighthq/sdk": "^0.5.1-next.1059.c56d3cd",
-    "@flighthq/swf": "^0.5.1-next.1059.c56d3cd"
+    "@flighthq/effects-gl": "^0.5.1-next.1066.36fe89b",
+    "@flighthq/host-web": "^0.5.1-next.1066.36fe89b",
+    "@flighthq/movieclip": "^0.5.1-next.1066.36fe89b",
+    "@flighthq/render": "^0.5.1-next.1066.36fe89b",
+    "@flighthq/render-gl": "^0.5.1-next.1066.36fe89b",
+    "@flighthq/scene2d-canvas": "^0.5.1-next.1066.36fe89b",
+    "@flighthq/sdk": "^0.5.1-next.1066.36fe89b",
+    "@flighthq/swf": "^0.5.1-next.1066.36fe89b"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
