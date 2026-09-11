@@ -13,7 +13,7 @@ import {
 } from '@flighthq/sdk';
 
 import { createCameraFromAway } from '../../shared/camera';
-import { setupRendering } from './rendering';
+import { setupRendering } from './render.gl';
 
 const rendering = setupRendering();
 const scene = createScene3D();

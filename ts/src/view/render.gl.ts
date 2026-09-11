@@ -1,4 +1,4 @@
-import type { Camera3D, GlRenderEffectPipeline, GlRenderState, Node3D } from '@flighthq/sdk';
+import type { Camera3D, GlPipeline, GlRenderEffectPipeline, Node3D } from '@flighthq/sdk';
 import {
   beginGlRenderEffectPipeline,
   createFxaaEffect,
@@ -11,33 +11,33 @@ import {
   createGlRenderState,
   createScene3DLights,
   createToneMapEffect,
-  defaultGlFxaaEffectRunner,
-  defaultGlToneMapEffectRunner,
   drawGlScene3D,
   endGlRenderEffectPipeline,
-  registerGlRenderEffect,
-  registerStandardGlTextureResolvers,
-  registerGlUnlitMaterial,
+  registerGlFxaaEffect,
+  registerGlToneMapEffect,
   renderGlBackground,
   setCamera3DAspect,
+  standardGlTextureResolvers,
+  UnlitMaterialKind,
+  unlitGlMeshMaterialRenderer,
+  withRegistryTableEntry,
 } from '@flighthq/sdk';
 import { enableHostWebGlRenderSurface, webHost } from '@flighthq/host-web';
 
-function createRenderState(canvas: HTMLCanvasElement, pixelRatio: number): GlRenderState {
-  const gl = createGlContextFromCanvasElement(canvas, {
-    contextAttributes: { alpha: false, depth: true, preserveDrawingBuffer: false },
-  });
+function createPipeline(): GlPipeline {
+  // Batteries-included alternative:
+  // return scene3dGlPipeline;
 
-  const state = createGlRenderState(
-    createGlContextState(gl),
-    createGlPipeline(createEmptyGlRegistries()), // Use scene3DGlPipeline here for the complete registry.
-    { backgroundColor: 0x000000ff, pixelRatio },
-  );
-  registerStandardGlTextureResolvers(state);
-  registerGlUnlitMaterial(state);
-  registerGlRenderEffect(state, 'FxaaEffect', defaultGlFxaaEffectRunner);
-  registerGlRenderEffect(state, 'ToneMapEffect', defaultGlToneMapEffectRunner);
-  return state;
+  const registries = createEmptyGlRegistries();
+  return createGlPipeline({
+    ...registries,
+    meshMaterialRenderers: withRegistryTableEntry(
+      registries.meshMaterialRenderers,
+      UnlitMaterialKind,
+      unlitGlMeshMaterialRenderer,
+    ),
+    textureResolvers: standardGlTextureResolvers,
+  });
 }
 
 export function setupRendering() {
@@ -52,22 +52,32 @@ export function setupRendering() {
     document.body.appendChild(canvas);
   }
 
-  const state = createRenderState(canvas, pixelRatio);
+  const gl = createGlContextFromCanvasElement(canvas, {
+    contextAttributes: { alpha: false, depth: true, preserveDrawingBuffer: false },
+  });
+  const state = createGlRenderState(
+    createGlContextState(gl),
+    createPipeline(),
+    { backgroundColor: 0x000000ff, pixelRatio },
+  );
+  registerGlToneMapEffect(state);
+  registerGlFxaaEffect(state);
+
   const lights = createScene3DLights();
   const effects = [createToneMapEffect(), createFxaaEffect()];
-  let pipeline: GlRenderEffectPipeline | null = null;
+  let effectPipeline: GlRenderEffectPipeline | null = null;
 
   return {
     host: webHost,
     render(scene: Readonly<Node3D>, camera: Readonly<Camera3D>): void {
-      pipeline ??= createGlRenderEffectPipeline(state, { format: 'rgba16f', depth: 'depth-stencil' });
-      beginGlRenderEffectPipeline(state, pipeline);
+      effectPipeline ??= createGlRenderEffectPipeline(state, { format: 'rgba16f', depth: 'depth-stencil' });
+      beginGlRenderEffectPipeline(state, effectPipeline, 'linear');
       renderGlBackground(state);
       state.gl.depthMask(true);
       state.gl.clearDepth(1);
       state.gl.clear(state.gl.DEPTH_BUFFER_BIT);
       drawGlScene3D(state, scene, camera, lights);
-      endGlRenderEffectPipeline(state, pipeline, effects);
+      endGlRenderEffectPipeline(state, effectPipeline, effects);
     },
     resize(camera: Camera3D): void {
       const width = window.innerWidth;

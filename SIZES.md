@@ -39,4 +39,4 @@ Measured against `@flighthq/sdk` **0.5.1-next.1059.c56d3cd** on 2026-09-11. Rege
 | `terrain-demo` | 78.6 KB |
 | `tweening-3d` | 73.4 KB |
 | `uv-animation` | 70.8 KB |
-| `view` | 53.9 KB |
+| `view` | 53.8 KB |
