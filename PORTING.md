@@ -659,3 +659,22 @@ discriminate — and the row-mapping rule in use here is the one verified agains
 
 Matches the original closely. The only change: the port added an instructions line, and the
 original has no overlay at all — neither a TextField nor AwayStats.
+
+### Walking clipped through the terrain
+
+Two compounding errors, both in the port. The original's walk settles at `s = (s + walkIncrement)
+* drag` with `walkIncrement = 2` and `drag = 0.5`, i.e. **2 units per frame — 120/second at
+60fps**. The port ran at 480, or 1050 with a Shift-to-run the original does not have and its own
+instructions do not mention. Meanwhile the height follow was *slower* than the original's:
+`camera.y += 0.2 * (getHeightAt + 20 - camera.y)` every frame against the port's `seconds * 5`,
+which is 0.083 per frame at 60fps — lagging 2.4x further behind rising ground. Moving up to 8.75x
+too fast with a follow 2.4x too slow pushed the camera straight through hillsides.
+
+Speed is now the original's 120/second, and the follow is its 0.2-per-frame step written
+framerate-independently (`1 - pow(0.8, seconds * 60)`) so it does not slacken when the frame rate
+drops. Measured over a 25-second walk, minimum camera clearance above the ground went from
+**-125.5** (that far *inside* the hill) to **+12.1**, against a settled target of 20.
+
+Note the camera does still start inside the terrain for a moment: `camera.y = 300` while the
+ground at the origin is 617, so the first frames rise out of the hillside. That is the original's
+behaviour too and was left alone.
