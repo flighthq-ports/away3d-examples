@@ -15,7 +15,6 @@ import {
   endGlRenderEffectPipeline,
   registerGlFxaaEffect,
   registerGlToneMapEffect,
-  renderGlBackground,
   // scene3DGlPipeline,
   setCamera3DAspect,
   standardGlTextureResolvers,
@@ -70,7 +69,6 @@ export function setupRenderer() {
     render(scene: Readonly<Node3D>, camera: Readonly<Camera3D>): void {
       effectPipeline ??= createGlRenderEffectPipeline(state, { format: 'rgba16f', depth: 'depth-stencil' });
       beginGlRenderEffectPipeline(state, effectPipeline, 'linear');
-      renderGlBackground(state);
       drawGlScene3D(state, scene, camera, lights);
       endGlRenderEffectPipeline(state, effectPipeline, effects);
     },
