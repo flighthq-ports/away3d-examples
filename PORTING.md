@@ -1106,3 +1106,37 @@ grass everywhere.
 Worth noting what else that blend map carries: `createTreeShadow` paints gradient blobs into it as
 each tree is placed, so in the original the trees darken the ground beneath them. Rebuilding the
 terrain material on the original's recipe would fix both the colour and the missing tree shadows.
+
+### Made deliberately more pleasant than the original
+
+The original reads dark and harsh, and the user asked for something nicer, so the following go
+beyond fidelity. All of it is in service of the same night-forest idea.
+
+**The terrain texture was rebuilt, and it fixed a real bug on the way.** The layers had been
+"tiled" as `(x * 20) % source.width`, which is not tiling — it steps 20 source pixels per output
+pixel, point-sampling a sparse comb out of the grass bitmap. That aliasing *was* the fluorescent
+green speckle. The texture is now baked at 2048 with genuine repeats: grass as the base at 14
+repeats and rock at the original's 20, which is also the correct recipe — FractalTreeDemo uses
+grass as its base with `TerrainDiffuseMethod([rock.jpg], blendTexture, [20, 20])`, not
+TerrainDemo's three-way `terrain_splats.png` (that asset now only supplies large-scale variation
+for the rock blend, and `beach.jpg` is no longer loaded because this sample never used it).
+
+**The trees are grounded.** The original's blend map is generated at runtime and `createTreeShadow`
+paints a soft blob into it as each tree is placed, so the ground beneath a tree turns rocky and
+dark. Those blobs are painted here too, which is why the trunks no longer float. It needed the
+tree placements to be decided *before* the terrain texture is built, so they are precomputed into
+a list that the instancing pass then consumes.
+
+**The grade.** The composite is desaturated 42% toward luminance and nudged slightly warm, so the
+grass reads as moss at night rather than as a lit green screen.
+
+**The canopy.** Every branch tip sits at much the same height, so identical upright spheres merged
+into one flat pancake per tree. Each cluster now gets a jittered size, position and orientation:
+neighbouring icosphere facets stop lining up, and the silhouette gains a ragged edge that reads as
+foliage.
+
+**A clearing around the viewpoint.** The opening camera sits at
+`(0, -25000 * cos(10deg))`, and a scattered clone landing there filled the frame with a single leaf
+cluster, close enough that the leaf texture read as a pattern. Clones are now resampled if they
+fall within 16000 units of it. The original scatters blind, but it also ships with no trees at all,
+so there is nothing to be unfaithful to.
