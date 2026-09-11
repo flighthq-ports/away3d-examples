@@ -922,3 +922,41 @@ commented instructions describe ("Click on the fluid to disturb it").
 `poolMaterial`, and a screen-space fog cannot be scoped to one material — applied globally it
 would blacken the skybox, which is the backdrop the whole sample exists to reflect. The rim is
 already near-black, so the fog's contribution there is negligible.
+
+### The solver, the brush and the camera gate
+
+Three follow-ups after watching it run, two of them regressions I introduced when I corrected the
+grid.
+
+**The solver was not the original's.** `ShallowFluid` precalculates
+
+```
+realWaveSpeed = speed * (spacing / (2 * dt)) * sqrt(viscosity * dt + 2)
+f1 = realWaveSpeed^2 * dt^2 / spacing^2      f2 = 1 / (viscosity * dt + 2)
+k1 = (4 - 8 * f1) * f2    k2 = (viscosity * dt - 2) * f2    k3 = 2 * f1 * f2
+```
+
+and steps `u_next = k1*u + k2*u_prev + k3*(four neighbours)` over two buffers. Substituting
+`realWaveSpeed` collapses `f1` to `speed^2 * (viscosity*dt + 2) / 4` — **independent of spacing
+and dt**, because the scheme is CFL-limited: a wave advances about one cell per step whatever the
+grid. `speed` must stay below 1 or it diverges, which the original notes on the constant itself.
+
+The port had a different solver whose wave speed went as `gravity * depth / spacing^2`. That made
+it sensitive to the grid, so when I corrected the spacing from 12.5 to the original's 2, the
+acceleration term grew about **39x**: the surface churned without ever calming, and the
+high-frequency chop it produced is what read as pixelation, since a mirror amplifies every normal.
+Ported properly, `k1 + k2 + 4*k3 = 1.00000` exactly, so a flat surface stays flat.
+
+**The brush was five times too strong.** `mouseBrushStrength = 5`, applied as
+`disturbBitmapInstant(..., -mouseBrushStrength, ...)`; the port pushed 24. The scheme is linear, so
+settling time is unchanged either way — measured over simulated time, amplitude falls to 19% of
+peak after 2s, under 10% by 8s and 1% by 20s — but five times the depth on a mirrored surface is
+what made it look like it never settled. Note this cannot be judged from a headless capture: at 2
+FPS the fixed-step accumulator only advances about 0.05s of simulation per frame, so nine seconds
+of wall clock is about one second of water.
+
+**The camera must not orbit while you disturb the water.** The original runs
+`if (planeDisturb) { disturb } else if (move) { rotate camera }`, so a drag that starts on the
+fluid draws a wake and leaves the camera still. The port bound orbit dragging to the canvas
+independently and did both at once. `bindOrbitDrag` now takes an optional `shouldStart` predicate
+for this; it defaults to allowing the drag, so the other samples are unaffected.
