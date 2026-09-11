@@ -879,3 +879,46 @@ past `fallOff`, and only one of the three lights reaches the clock at all:
 The warm red glow the port used to show came entirely from stretching those two short-range
 accent lights to 40000-60000 range. Faithfully, they are local lights that never touch the clock,
 and the scene reads as a cool blue night-time bedside shot lit by one dim blue key.
+
+## Shallow water demo
+
+The port read as a different demo: a cyan tray of translucent water seen from above. Against the
+built original, six things were wrong, and the poly readout now matches it exactly at 79250
+(2 x 199^2 water triangles plus four pool cubes at 12 each).
+
+- **Grid and plane size.** `ShallowFluid(200, 200, 2, ...)` means 199 segments of 2 units — a
+  398-unit pool at 79202 triangles. The port used a 73x73 grid on a 900-unit plane: about an
+  eighth of the resolution spread over more than twice the area, so ripples were coarse and the
+  camera had to sit far back to frame it. Matching the dimensions also let the camera values
+  transfer directly.
+- **The water was tinted glass, not a mirror.** The original is `ColorMaterial(0xFFFFFF)` carrying
+  `EnvMapMethod(cubeTexture, 1)` at full strength — a white surface mirroring the snow skybox,
+  which is the stated point of the sample ("how to apply an environment map to a material"). The
+  port had `baseColor 0x5cbde0c8`, `metallic 0.68`, alpha-blended: tinted glass reflecting almost
+  nothing.
+- **The pool was a paddling pool.** The original's four walls are 5 units thick and 500000 tall,
+  sunk so only 5 units stand above the water — a thin dark rim and nothing else. The port built a
+  floor slab and 115-unit walls in bright cyan. Their material is a perlin bitmap through a 0.1
+  colour transform, generated here rather than faked flat, because the mottle is what stops the
+  rim reading as a solid band.
+- **That rim must be unlit.** `poolMaterial` never gets a `lightPicker`, which in Away3D means no
+  diffuse lighting at all — it just shows its texture. Shaded as PBR, the blue headlight washed it
+  bright blue and it read as a painted kerb.
+- **The light is a blue headlight.** A single `PointLight` at `0x0000FF`, `diffuse 2`,
+  `specular 0.5`, which the original re-seats on the camera every frame
+  (`skyLight.transform = camera.transform.clone()`). That is what puts a bright specular wherever
+  you are looking. The port had a fixed white directional light instead, losing it entirely.
+- **Camera.** `HoverController(camera, null, 180, 20, 320, 5)` against the port's distance 1100 at
+  pan 30 — the original sits low and close so the water fills the lower frame.
+
+Two behavioural corrections. The original disturbs the fluid on `MOUSE_DOWN` over the plane and
+again on every `MOUSE_MOVE` while held, so a drag draws a wake; the port disturbed once on
+pointerup and felt unresponsive. And the port rained automatically every 350ms — the original's
+rain sits behind a `toggleRain` GUI control, and the whole GUI is commented out, so it never runs.
+The surface starts as a still mirror and only moves when you touch it, which is also what its
+commented instructions describe ("Click on the fluid to disturb it").
+
+`FogMethod(0, 2500, 0x000000)` is deliberately not reproduced: it is attached only to
+`poolMaterial`, and a screen-space fog cannot be scoped to one material — applied globally it
+would blacken the skybox, which is the backdrop the whole sample exists to reflect. The rim is
+already near-black, so the fog's contribution there is negligible.
