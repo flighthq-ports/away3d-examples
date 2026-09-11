@@ -764,6 +764,28 @@ table and wallpaper fall away into the dark and pick up the red spill. The digit
 to 84% of their cell (`CONTENT_FILL`), because the display quad maps the whole cell and filling it
 edge to edge pushes them against the bezel.
 
+Taken further at the user's request: the room is now near black and the light comes off the digit
+groups themselves rather than from one lamp in front of the case.
+
+- **Four emitters, one per lit element** — hours, minutes, seconds and the delimiter — each at its
+  own mesh position pushed `400` clear of the glass along the face normal, each individually weak
+  (`diffuse 0.85`, `range 9000`, `referenceDistance 1100`) so the glow dies within arm's reach.
+  Four is the entire forward-light budget (`MAX_FORWARD_LIGHTS = 4`), which is exactly the number
+  of lit elements on the clock.
+- **Bloom** (`threshold 0.35`, `intensity 1.5`, `radius 1.1`, `passes 4`), registered in this
+  sample's renderer. The digits are unlit materials at full texture brightness against a near
+  black room, so they are the only thing over the threshold and the bloom reads as the LEDs
+  emitting rather than as haze over the image.
+- **Ambient down to `0x04060b`**, and two things that were quietly keeping the room lit:
+  - `bakeGlEnvironmentIbl` was baking the `back_CB*` cube at intensity `0.7`. The original uses
+    that cube through an `EnvMapMethod` — a reflection on specific materials, not a light — but
+    baked as scene IBL it behaves as a large ambient source and lit the whole room regardless of
+    the lamps. Now `0.05`, enough to catch the chrome bezel and nothing more.
+  - the clear colour. The room is a partial set (a wall and a table, no floor), so the clear
+    colour shows at the edges of frame. It is consumed as LINEAR and re-encoded for display, so
+    it comes out far brighter than the hex suggests — `0x02040a` displayed as roughly
+    `(16, 23, 56)`, reading as a lit wall. Now black.
+
 ### What the original's lighting actually does
 
 ### The scene is lit blue, and that is correct
