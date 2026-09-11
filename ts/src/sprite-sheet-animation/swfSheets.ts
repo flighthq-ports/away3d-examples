@@ -26,6 +26,9 @@ import { createScene2DFromSwf } from '@flighthq/swf';
 const MEASURE_SIZE = 1024;
 const MEASURE_ORIGIN = MEASURE_SIZE / 2;
 const placement = createMatrix();
+// How much of its cell the artwork fills. The display quad maps the whole cell, so filling it
+// edge to edge puts the digits hard against the bezel and reads as oversized.
+const CONTENT_FILL = 0.84;
 
 const surfaceCreator = createWebCanvasRenderSurfaceCreator();
 function canvasStateFor(canvas: HTMLCanvasElement) {
@@ -121,15 +124,19 @@ export function createSwfSheetBuilder(swf: Uint8Array) {
     // (`sclw = destCellW/mcFrameW; sclh = destCellH/mcFrameH`), so the content fills the cell
     // exactly rather than being letterboxed inside it. The cell is sized to the content's own
     // aspect first, so this stays close to uniform and just removes the dead margin.
-    const scaleX = cellWidth / contentWidth;
-    const scaleY = cellHeight / contentHeight;
+    const scaleX = (cellWidth / contentWidth) * CONTENT_FILL;
+    const scaleY = (cellHeight / contentHeight) * CONTENT_FILL;
     const sheet = document.createElement('canvas');
     sheet.width = cellWidth * columns;
     sheet.height = cellHeight * rows;
     const sheetContext = sheet.getContext('2d');
     if (!sheetContext) throw new Error('A 2D canvas is required to assemble the sprite sheet');
 
-    setMatrix(placement, scaleX, 0, 0, scaleY, -contentX * scaleX, -contentY * scaleY);
+    setMatrix(
+      placement, scaleX, 0, 0, scaleY,
+      (cellWidth - contentWidth * scaleX) / 2 - contentX * scaleX,
+      (cellHeight - contentHeight * scaleY) / 2 - contentY * scaleY,
+    );
     setCanvasRenderTransform2D(measureState, placement);
     for (let frame = 0; frame < frames; frame++) {
       gotoAndStopMovieClip(clip as never, frame + 1);

@@ -24,6 +24,7 @@ import {
   setCamera3DViewMatrix4FromLookAt,
   setTextureUvOffset,
   setTextureUvScale,
+  setVector3,
   walkNodeDescendants,
 } from '@flighthq/sdk';
 import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
@@ -50,33 +51,34 @@ const camera3d = createCamera3D({
 const origin = createVector3();
 const up = createVector3(0, 1, 0);
 
-// Three PointLights, verbatim from the original. The port had invented diffuse strengths (0.9 and
-// 0.5 against the original's 0.3 and 0.1) and invented radii, and carried no ambient at all —
-// each of the original's lights contributes its own ambient colour, which is where the scene's
-// cool blue fill comes from. Away3D PointLight defaults are radius 90000 / fallOff 100000, which
-// is what plight1 uses; the other two set radius 1000 / fallOff 6759 explicitly.
-const lights = createScene3DLights({
-  ambient: createAmbientLight({
-    // Sum of the three lights' ambient contributions:
-    // 0.3 x 0x18235B + 0.09 x 0xC2CDFF + 0.01 x 0xFFFFFF.
-    color: 0x1b1f35,
-    intensity: 1,
-  }),
-  point: [
-    createPointLightFromAway({ color: 0x2e71ff, diffuse: 0.3, range: 100000, referenceDistance: 90000 }),
-    createPointLightFromAway({ color: 0xffa825, diffuse: 0.1, range: 6759, referenceDistance: 1000 }),
-    createPointLightFromAway({ color: 0xff0500, diffuse: 1.3, range: 6759, referenceDistance: 1000 }),
-  ],
+// DELIBERATE DEVIATION from the original's lighting, at the user's request.
+//
+// The original lights the room with three PointLights, and of the three only the blue key
+// (0x2E71FF, diffuse 0.3) reaches the clock at all — the warm orange and red are short-range
+// accents with fallOff 6759 sitting 20760 and 11194 units away, so they contribute exactly zero
+// here. The result is a bedroom washed in blue by a lamp that exists nowhere in the scene.
+//
+// The clock lights its own room instead, since its display is the only light source the scene
+// actually contains. A dim cool ambient stands in for night through a window, and a warm point
+// light in front of the display carries the LED colour onto the table and the wallpaper behind.
+// The display meshes are unlit, so the digits keep glowing at full strength while everything
+// around them falls away into the dark.
+const DISPLAY_GLOW_COLOR = 0xff3a08;
+// The display centres on the frontscreen mesh at (286, 237, 2952), and hours-to-minutes runs
+// along (0.707, 0, 0.708), so the face normal toward the viewer is (-0.708, 0, 0.707). The light
+// sits a little way along it, in front of the glass rather than inside the case.
+const displayGlow = createPointLightFromAway({
+  color: DISPLAY_GLOW_COLOR,
+  diffuse: 2.2,
+  range: 22000,
+  referenceDistance: 2600,
 });
-lights.point![0]!.position.x = 5691;
-lights.point![0]!.position.y = 10893;
-lights.point![0]!.position.z = 11242;
-lights.point![1]!.position.x = -20250;
-lights.point![1]!.position.y = 4545;
-lights.point![1]!.position.z = -500;
-lights.point![2]!.position.x = -7031;
-lights.point![2]!.position.y = 2583;
-lights.point![2]!.position.z = 8319;
+const lights = createScene3DLights({
+  // Night, not blackness: enough that the wallpaper still reads as a shape.
+  ambient: createAmbientLight({ color: 0x0c1018, intensity: 1 }),
+  point: [displayGlow],
+});
+setVector3(displayGlow.position, -564, 237, 3800);
 
 const assetRoot = 'away3d/SpriteSheetAnimation/';
 
