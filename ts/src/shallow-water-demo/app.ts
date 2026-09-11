@@ -42,6 +42,7 @@ const ctx = createScene3DContext({
   effects: [createToneMapEffect({ exposure: 1.25 }), createFxaaEffect()],
 });
 const scene = createScene3D();
+let disturbing = false;
 // ShallowFluid(gridDimension 200, gridDimension 200, gridSpacing 2, ...): 199 segments of 2 units
 // gives a 398-unit pool, and 2 x 199^2 = 79202 triangles, which is the original's POLY 79250. The
 // port had a 73x73 grid on a 900-unit plane — about an eighth of the resolution, spread over more
@@ -59,7 +60,14 @@ const orbit = createOrbitControllerFromAway(camera, {
   tiltAngle: 20,
   minTiltAngle: 5,
 });
-bindOrbitDrag(ctx.canvas, orbit, { minDistance: 120, maxDistance: 900 });
+// `if (planeDisturb) { disturb } else if (move) { rotate }` — a drag that starts on the water
+// disturbs it and does NOT also spin the camera. `disturbing` is set by the pointerdown handler
+// further down, which runs first because it is registered first.
+bindOrbitDrag(ctx.canvas, orbit, {
+  minDistance: 120,
+  maxDistance: 900,
+  shouldStart: () => !disturbing,
+});
 // A single blue PointLight with diffuse 2 and specular 0.5, which the original re-seats on the
 // camera every frame (`skyLight.transform = camera.transform.clone()`) — a headlight, and the
 // reason a bright specular sits wherever you happen to be looking. The port replaced it with a
@@ -163,14 +171,35 @@ for (let i = 0; i < vertexCount; i++) {
 
 const gridWidth = GRID_DIMENSION;
 const gridHeight = GRID_DIMENSION;
-const gridSpacing = GRID_SPACING;
-const gravity = 980;
-const fluidDepth = 8;
-const viscosity = 0.3;
-const fixedStep = 1 / 120;
+// GRID_SPACING sets the plane's physical size; the solver itself is spacing-independent.
+// ShallowFluid's own scheme, rather than an invented one. It is the damped 2D wave equation
+// solved over two buffers, with constants precalculated as:
+//
+//   realWaveSpeed = speed * (spacing / (2 * dt)) * sqrt(viscosity * dt + 2)
+//   f1 = realWaveSpeed^2 * dt^2 / spacing^2   f2 = 1 / (viscosity * dt + 2)
+//   k1 = (4 - 8 * f1) * f2   k2 = (viscosity * dt - 2) * f2   k3 = 2 * f1 * f2
+//
+// Substituting realWaveSpeed collapses f1 to `speed^2 * (viscosity * dt + 2) / 4`, which is
+// independent of both spacing and dt: the scheme is CFL-limited, so a wave advances about one
+// cell per step whatever the grid. `speed` must stay below 1 or it diverges — the original notes
+// this on the constant itself.
+//
+// The port had a different solver whose wave speed went as `gravity * depth / spacing^2`. That
+// made it sensitive to the grid, and when the spacing was corrected from 12.5 to the original's
+// 2 the acceleration term grew about 39x: the surface churned continuously and the high-frequency
+// chop it produced was what read as pixelation, since a mirror amplifies every normal.
+const WAVE_SPEED = 0.99;
+const VISCOSITY = 0.3;
+// The original derives dt from `stage.frameRate`, i.e. 1/60, and steps once per frame.
+const fixedStep = 1 / 60;
+const f1 = WAVE_SPEED * WAVE_SPEED * (VISCOSITY * fixedStep + 2) / 4;
+const f2 = 1 / (VISCOSITY * fixedStep + 2);
+const k1 = (4 - 8 * f1) * f2;
+const k2 = (VISCOSITY * fixedStep - 2) * f2;
+const k3 = 2 * f1 * f2;
+
 let displacement = new Float32Array(gridWidth * gridHeight);
-let nextDisplacement = new Float32Array(gridWidth * gridHeight);
-const velocity = new Float32Array(gridWidth * gridHeight);
+let previousDisplacement = new Float32Array(gridWidth * gridHeight);
 const vertexCell = new Uint32Array(vertexCount);
 for (let i = 0; i < vertexCount; i++) {
   const column = Math.round((baseX[i]! / PLANE_SIZE + 0.5) * (gridWidth - 1));
@@ -178,10 +207,14 @@ for (let i = 0; i < vertexCount; i++) {
   vertexCell[i] = row * gridWidth + column;
 }
 
-function disturb(x: number, z: number, strength = 18): void {
+// `mouseBrushStrength = 5`, applied as `disturbBitmapInstant(planeX, planeY, -mouseBrushStrength,
+// ...)`. The port pushed 24, nearly five times as deep — the scheme is linear so it settles just
+// as fast either way (about 19% of peak after 2s, under 10% by 8s), but five times the amplitude
+// on a mirrored surface is what made it look like it never calmed down.
+function disturb(x: number, z: number, strength = 5): void {
   const centerX = Math.round((x / PLANE_SIZE + 0.5) * (gridWidth - 1));
   const centerZ = Math.round((z / PLANE_SIZE + 0.5) * (gridHeight - 1));
-  const brushRadius = 4;
+  const brushRadius = 6;
   for (let dz = -brushRadius; dz <= brushRadius; dz++) {
     for (let dx = -brushRadius; dx <= brushRadius; dx++) {
       const column = centerX + dx;
@@ -190,41 +223,34 @@ function disturb(x: number, z: number, strength = 18): void {
       const distance = Math.hypot(dx, dz);
       if (distance > brushRadius) continue;
       const falloff = 1 - distance / brushRadius;
-      displacement[row * gridWidth + column] += strength * falloff * falloff;
+      displacement[row * gridWidth + column]! += strength * falloff * falloff;
     }
   }
 }
 
-function solveShallowWater(deltaTime: number): void {
-  const accelerationScale = gravity * fluidDepth / (gridSpacing * gridSpacing);
-  const damping = Math.exp(-viscosity * deltaTime);
-  nextDisplacement.fill(0);
+function solveShallowWater(): void {
+  const next = previousDisplacement;
   for (let row = 1; row < gridHeight - 1; row++) {
+    const base = row * gridWidth;
     for (let column = 1; column < gridWidth - 1; column++) {
-      const index = row * gridWidth + column;
-      const laplacian = displacement[index - 1]! + displacement[index + 1]!
-        + displacement[index - gridWidth]! + displacement[index + gridWidth]!
-        - 4 * displacement[index]!;
-      velocity[index] = (velocity[index]! + accelerationScale * laplacian * deltaTime) * damping;
-      nextDisplacement[index] = displacement[index]! + velocity[index]! * deltaTime;
+      const index = base + column;
+      next[index] = k1 * displacement[index]!
+        + k2 * next[index]!
+        + k3 * (displacement[index - 1]! + displacement[index + 1]!
+          + displacement[index - gridWidth]! + displacement[index + gridWidth]!);
     }
   }
-  const previous = displacement;
-  displacement = nextDisplacement;
-  nextDisplacement = previous;
+  previousDisplacement = displacement;
+  displacement = next;
 }
 
-// "Click on the fluid to disturb it" — the original arms a brush on MOUSE_DOWN over the plane and
-// keeps disturbing on every MOUSE_MOVE while it is held, so a drag draws a wake. The port only
-// disturbed once on pointerup, which made the surface feel unresponsive.
 const hit = createScene3DHit();
-let disturbing = false;
 function disturbAtPointer(event: PointerEvent): void {
   const rect = ctx.canvas.getBoundingClientRect();
   const screenX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   const screenY = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
   const picked = pickScene3D(scene.root, camera, screenX, screenY, hit);
-  if (picked?.node === water) disturb(picked.pointX, picked.pointZ, -24);
+  if (picked?.node === water) disturb(picked.pointX, picked.pointZ, -5);
 }
 ctx.canvas.addEventListener('pointerdown', (event) => {
   disturbing = true;
@@ -276,7 +302,7 @@ function frame(ts: number): void {
   simulationAccumulator += Math.min(0.05, (ts - previousTime) / 1000);
   previousTime = ts;
   while (simulationAccumulator >= fixedStep) {
-    solveShallowWater(fixedStep);
+    solveShallowWater();
     simulationAccumulator -= fixedStep;
   }
   for (let i = 0; i < vertexCount; i++) {

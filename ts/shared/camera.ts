@@ -248,6 +248,13 @@ export interface BindOrbitDragOptions {
    * delta is nearer 0.15.
    */
   wheelScale?: number;
+  /**
+   * Consulted on mousedown; the drag only begins when it returns true. Away3D samples that let
+   * the mouse act on the scene gate the camera the same way — ShallowWaterDemo runs
+   * `if (planeDisturb) { disturb } else if (move) { rotate }`, so dragging on the water disturbs
+   * it without also spinning the camera. Defaults to always allowing the drag.
+   */
+  shouldStart?: (event: MouseEvent) => boolean;
 }
 
 export function bindOrbitDrag(
@@ -262,7 +269,9 @@ export function bindOrbitDrag(
   let savedTilt = orbit.tiltAngle;
   const sensitivity = (opts?.degreesPerPixel ?? 0.3) * DEG_TO_RAD;
 
+  const shouldStart = opts?.shouldStart;
   canvas.addEventListener('mousedown', (e: MouseEvent) => {
+    if (shouldStart && !shouldStart(e)) return;
     dragging = true;
     lastMouseX = e.clientX;
     lastMouseY = e.clientY;
