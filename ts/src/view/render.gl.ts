@@ -16,6 +16,7 @@ import {
   registerGlFxaaEffect,
   registerGlToneMapEffect,
   renderGlBackground,
+  // scene3dGlPipeline, // Batteries-included alternative
   setCamera3DAspect,
   standardGlTextureResolvers,
   UnlitMaterialKind,
@@ -24,7 +25,7 @@ import {
 } from '@flighthq/sdk';
 import { enableHostWebGlRenderSurface, webHost } from '@flighthq/host-web';
 
-function createPipeline(): GlPipeline {
+function createMinimalScene3DGlPipeline(): GlPipeline {
   // Batteries-included alternative:
   // return scene3dGlPipeline;
 
@@ -47,7 +48,7 @@ export function setupRendering() {
   const canvas = createGlCanvasElement(window.innerWidth, window.innerHeight, pixelRatio);
   const mount = document.getElementById('app');
   if (mount) {
-    mount.replaceWith(canvas);
+    mount.replaceChildren(canvas);
   } else {
     document.body.appendChild(canvas);
   }
@@ -57,7 +58,7 @@ export function setupRendering() {
   });
   const state = createGlRenderState(
     createGlContextState(gl),
-    createPipeline(),
+    createMinimalScene3DGlPipeline(),
     { backgroundColor: 0x000000ff, pixelRatio },
   );
   registerGlToneMapEffect(state);
@@ -83,6 +84,7 @@ export function setupRendering() {
       const width = window.innerWidth;
       const height = window.innerHeight;
       const pixelRatio = window.devicePixelRatio || 1;
+      state.pixelRatio = pixelRatio;
       canvas.width = width * pixelRatio;
       canvas.height = height * pixelRatio;
       canvas.style.width = `${width}px`;
