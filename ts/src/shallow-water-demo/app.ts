@@ -112,6 +112,9 @@ const waterGeometry: MeshGeometry = createPlaneMeshGeometry(
 const waterMaterial = createStandardPbrMaterial({
   baseColor: 0xffffffff,
   metallic: 1,
+  // Kept sharp. The reflection's blockiness is not roughness — it is the IBL prefilter
+  // resolution (see PORTING.md); blurring it to 0.24 hides that but turns the water to plastic,
+  // and the original is a sharp mirror.
   roughness: 0.04,
 });
 const water = createMesh(waterGeometry, [waterMaterial]);
