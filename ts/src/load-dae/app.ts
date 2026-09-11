@@ -19,12 +19,14 @@ import {
   createVector3,
   drawGlScene3DShadowMap,
   findNode,
+  invalidateMeshGeometry,
   invalidateNodeLocalTransform,
   isMesh,
   loadImageResourceFromUrl,
   loadScene3DResources,
   parseCollada,
   setQuaternionFromAxisAngle,
+  setQuaternionFromEuler,
   setVector3,
   walkNodeDescendants,
 } from '@flighthq/sdk';
@@ -84,6 +86,28 @@ const resolver = createBuiltInScene3DResourceResolver(ctx.host, {
 await loadScene3DResources(model, resolver);
 const horse = findNode(model.root, isMesh) as Mesh | null;
 if (!horse) throw new Error('The COLLADA carousel contains no renderable mesh.');
+// parseCollada merges every <triangles> group of a geometry into ONE MeshGeometry subset while
+// still recording one material per group, so materials[1] is unreachable and the whole model
+// draws with the first material — the rocking horse's runners came out wood instead of black.
+// The renderer itself is fine: it resolves a material per subset (drawGlScene3D), and
+// MeshGeometry.subsets exists for exactly this. So the subsets are rebuilt here from the group
+// sizes in the source document. The groups are concatenated in document order, which is what
+// makes the offsets recoverable.
+const triangleGroupCounts = [...source.matchAll(/<triangles[^>]*\bcount="(\d+)"/g)]
+  .map((match) => Number(match[1]));
+if (horse.geometry && triangleGroupCounts.length > 1 && horse.geometry.subsets.length === 1) {
+  const total = triangleGroupCounts.reduce((sum, count) => sum + count, 0) * 3;
+  if (total === horse.geometry.subsets[0]!.indexCount) {
+    let indexOffset = 0;
+    horse.geometry.subsets = triangleGroupCounts.map((count) => {
+      const subset = { indexCount: count * 3, indexOffset };
+      indexOffset += count * 3;
+      return subset;
+    });
+    invalidateMeshGeometry(horse.geometry);
+  }
+}
+
 addNodeChild(scene.root, model.root);
 
 // The original enables texture repeat but never scales the UVs, so each 2500-unit surface shows
@@ -109,16 +133,28 @@ const wallMaterial = createStandardPbrMaterial({
 });
 wallMaterial.doubleSided = true;
 const wallGeometry = createPlaneMeshGeometry(2500, 2500, 1, 1);
+// The original stands every wall up with `rotationX = -90` on a shared template and then turns
+// each one into place with its own `rotationY` — two rotations composed, in that order. Both
+// parts matter. Collapsing them into a single axis-angle broke the side walls: a rotation about
+// Y alone leaves a horizontal plane horizontal, so instead of standing at x = +/-1250 they lay
+// flat at y = 1250 and read as a lopsided ceiling. Standing them up about Z instead fixes the
+// geometry but carries the UVs round with it, which lays the wallpaper's stripes on their side.
+// Keeping the shared X rotation and varying only the yaw keeps the stripes upright on all four.
+//
+// Both angles flip sign against Away3D: mirroring Z negates rotations about X and Y, and the
+// wall positions on Z negate with it.
+const WALL_PITCH = Math.PI / 2; // Away3D rotationX = -90
 const wallSpecs = [
-  { x: -1250, y: 1250, z: 0, axis: createVector3(0, 1, 0), angle: -Math.PI / 2 },
-  { x: 1250, y: 1250, z: 0, axis: createVector3(0, 1, 0), angle: Math.PI / 2 },
-  { x: 0, y: 1250, z: 1250, axis: createVector3(1, 0, 0), angle: Math.PI / 2 },
-  { x: 0, y: 1250, z: -1250, axis: createVector3(1, 0, 0), angle: -Math.PI / 2 },
+  { x: -1250, z: 0, yaw: Math.PI / 2 }, // Away3D x = -1250, rotationY = -90
+  { x: 1250, z: 0, yaw: -Math.PI / 2 }, // Away3D x =  1250, rotationY =  90
+  { x: 0, z: -1250, yaw: 0 }, // Away3D z =  1250, rotationY =   0
+  { x: 0, z: 1250, yaw: Math.PI }, // Away3D z = -1250, rotationY = 180
 ] as const;
 for (const spec of wallSpecs) {
   const wall = createMesh(wallGeometry, [wallMaterial]);
-  setVector3(wall.position, spec.x, spec.y, spec.z);
-  setQuaternionFromAxisAngle(wall.rotation, spec.axis, spec.angle);
+  setVector3(wall.position, spec.x, 1250, spec.z);
+  // YXZ applies X before Y, which is the order the original composes them in.
+  setQuaternionFromEuler(wall.rotation, WALL_PITCH, spec.yaw, 0, 'YXZ');
   invalidateNodeLocalTransform(wall);
   addNodeChild(scene.root, wall);
 }
