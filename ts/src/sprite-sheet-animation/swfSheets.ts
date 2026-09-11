@@ -47,11 +47,20 @@ function findClip(root: Node2D, name: string): Node2D | null {
 
 interface Bounds { maxX: number; maxY: number; minX: number; minY: number }
 
+// Measures the LIT artwork, not merely the opaque artwork. Each clip carries a black background
+// shape that is much larger than the glyphs it sits behind — in the digits clip the background
+// spans 125x64 while the two digit glyphs occupy only 52x40 of it, 41% of the width. Fitting the
+// cell to that union renders the digits small and pushed to one side, which is what made the
+// clock face look wrong. The backgrounds are black against a black display, so nothing is lost by
+// excluding them, and the placeholder art shipped with the model (m_hours.jpg and friends) shows
+// digits filling their texture.
 function scanBounds(context: CanvasRenderingContext2D, size: number, into: Bounds): void {
   const { data } = context.getImageData(0, 0, size, size);
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      if (data[(y * size + x) * 4 + 3]! > 8) {
+      const offset = (y * size + x) * 4;
+      const lit = Math.max(data[offset]!, data[offset + 1]!, data[offset + 2]!) > 24;
+      if (lit && data[offset + 3]! > 8) {
         if (x < into.minX) into.minX = x;
         if (x > into.maxX) into.maxX = x;
         if (y < into.minY) into.minY = y;
@@ -108,18 +117,19 @@ export function createSwfSheetBuilder(swf: Uint8Array) {
     // sheet and leaves each frame floating in empty space.
     const cellWidth = Math.floor(sheetSize / columns);
     const cellHeight = Math.max(1, Math.round(cellWidth * (contentHeight / contentWidth)));
-    const scale = Math.min(cellWidth / contentWidth, cellHeight / contentHeight) * 0.98;
+    // SpriteSheetHelper scales each frame to fill its cell on both axes independently
+    // (`sclw = destCellW/mcFrameW; sclh = destCellH/mcFrameH`), so the content fills the cell
+    // exactly rather than being letterboxed inside it. The cell is sized to the content's own
+    // aspect first, so this stays close to uniform and just removes the dead margin.
+    const scaleX = cellWidth / contentWidth;
+    const scaleY = cellHeight / contentHeight;
     const sheet = document.createElement('canvas');
     sheet.width = cellWidth * columns;
     sheet.height = cellHeight * rows;
     const sheetContext = sheet.getContext('2d');
     if (!sheetContext) throw new Error('A 2D canvas is required to assemble the sprite sheet');
 
-    setMatrix(
-      placement, scale, 0, 0, scale,
-      (cellWidth - contentWidth * scale) / 2 - contentX * scale,
-      (cellHeight - contentHeight * scale) / 2 - contentY * scale,
-    );
+    setMatrix(placement, scaleX, 0, 0, scaleY, -contentX * scaleX, -contentY * scaleY);
     setCanvasRenderTransform2D(measureState, placement);
     for (let frame = 0; frame < frames; frame++) {
       gotoAndStopMovieClip(clip as never, frame + 1);

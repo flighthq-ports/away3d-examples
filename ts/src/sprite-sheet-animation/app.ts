@@ -2,6 +2,7 @@ import type { Mesh, PerspectiveProjection, Texture } from '@flighthq/sdk';
 import {
   addNodeChild,
   bakeGlEnvironmentIbl,
+  createAmbientLight,
   createCamera3D,
   createEnvironment,
   createFxaaEffect,
@@ -49,11 +50,22 @@ const camera3d = createCamera3D({
 const origin = createVector3();
 const up = createVector3(0, 1, 0);
 
+// Three PointLights, verbatim from the original. The port had invented diffuse strengths (0.9 and
+// 0.5 against the original's 0.3 and 0.1) and invented radii, and carried no ambient at all —
+// each of the original's lights contributes its own ambient colour, which is where the scene's
+// cool blue fill comes from. Away3D PointLight defaults are radius 90000 / fallOff 100000, which
+// is what plight1 uses; the other two set radius 1000 / fallOff 6759 explicitly.
 const lights = createScene3DLights({
+  ambient: createAmbientLight({
+    // Sum of the three lights' ambient contributions:
+    // 0.3 x 0x18235B + 0.09 x 0xC2CDFF + 0.01 x 0xFFFFFF.
+    color: 0x1b1f35,
+    intensity: 1,
+  }),
   point: [
-    createPointLightFromAway({ color: 0x2e71ff, diffuse: 0.9, range: 60000, referenceDistance: 18000 }),
-    createPointLightFromAway({ color: 0xffa825, diffuse: 0.5, range: 60000, referenceDistance: 16000 }),
-    createPointLightFromAway({ color: 0xff0500, diffuse: 1.3, range: 40000, referenceDistance: 12000 }),
+    createPointLightFromAway({ color: 0x2e71ff, diffuse: 0.3, range: 100000, referenceDistance: 90000 }),
+    createPointLightFromAway({ color: 0xffa825, diffuse: 0.1, range: 6759, referenceDistance: 1000 }),
+    createPointLightFromAway({ color: 0xff0500, diffuse: 1.3, range: 6759, referenceDistance: 1000 }),
   ],
 });
 lights.point![0]!.position.x = 5691;
