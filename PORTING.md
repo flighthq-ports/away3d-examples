@@ -727,3 +727,41 @@ Three things about that pipeline cost real time and are worth writing down:
   fragment in the corner. Measuring the union of all frames (rather than each frame separately)
   is also deliberate: it keeps a `1` in the same place an `8` sits, instead of re-centring every
   frame and making the digits jitter as the clock runs.
+
+### Digits rendered small: a black backdrop inflating the fit
+
+Each clip in `digits.swf` carries a black background shape much larger than the artwork in front
+of it. Isolating the children shows the scale of it: in the `digits` clip the backdrop spans
+125x64 while the two digit glyphs occupy only `-41..10` horizontally — 52 wide, 41% of the union.
+Fitting each cell to the opaque union therefore rendered the digits at 41% of the width they
+should have, pushed to one side, with dead black filling the rest.
+
+The sheet builder now measures the **lit** artwork rather than the merely opaque artwork (a pixel
+counts when `max(r, g, b) > 24`). The backdrops are black against a black display, so excluding
+them costs nothing, and it matches the placeholder textures shipped with the model — `m_hours.jpg`
+and its siblings show digits filling their texture.
+
+Frames are also scaled to fill their cell on both axes independently, which is what
+`SpriteSheetHelper` does (`sclw = destCellW/mcFrameW; sclh = destCellH/mcFrameH`) — the previous
+uniform fit with a margin left the content letterboxed a second time. Because the cell is sized to
+the content's aspect first, this stays close to uniform and simply removes the dead margin.
+
+### The scene is lit blue, and that is correct
+
+The port had invented light values: diffuse 0.9 and 0.5 where the original uses 0.3 and 0.1, radii
+of 40000-60000, and no ambient at all. The three `PointLight`s are now verbatim, and the ambient
+each of them carries is summed into one ambient light
+(`0.3 x 0x18235B + 0.09 x 0xC2CDFF + 0.01 x 0xFFFFFF`, i.e. `0x1b1f35`).
+
+That changes the look substantially, and the arithmetic says it should. Away3D attenuates to zero
+past `fallOff`, and only one of the three lights reaches the clock at all:
+
+| light | colour | distance to origin | fallOff | contribution |
+| --- | --- | --- | --- | --- |
+| plight1 | blue `0x2E71FF` | 16656 | 100000 (default) | 0.300 |
+| plight2 | orange `0xFFA825` | 20760 | 6759 | **0.000** |
+| plight3 | red `0xFF0500` | 11194 | 6759 | **0.000** |
+
+The warm red glow the port used to show came entirely from stretching those two short-range
+accent lights to 40000-60000 range. Faithfully, they are local lights that never touch the clock,
+and the scene reads as a cool blue night-time bedside shot lit by one dim blue key.
