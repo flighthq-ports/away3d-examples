@@ -174,9 +174,12 @@ const buildSwfSheet = createSwfSheetBuilder(
 // 10 columns of 2048 gives each digit pair 204 texels across, which held up with no visible
 // stair-stepping at the closest the camera gets. 4096 was tried first and is indistinguishable
 // here, so it is not worth the four-fold memory (a 4090x1890 sheet is ~31MB against ~7.7MB).
-const digitsSheetData = buildSwfSheet('digits', 60, 10, 6, 2048);
-const delimiterSheetData = buildSwfSheet('delimiter', 10, 5, 2, 1024);
-const pulseSheetData = buildSwfSheet('pulse', 12, 4, 3, 1024);
+// The fit is per clip, because it depends on how each was authored — see SwfSheetFit. `digits`
+// hides its glyphs inside a panel three times their width, so it is measured to the lit artwork;
+// the other two rely on their backdrop to place the art inside the cell.
+const digitsSheetData = buildSwfSheet('digits', 60, 10, 6, 2048, 'lit');
+const delimiterSheetData = buildSwfSheet('delimiter', 10, 5, 2, 1024, 'opaque');
+const pulseSheetData = buildSwfSheet('pulse', 12, 4, 3, 1024, 'opaque');
 const digitsSheet = digitsSheetData.resource;
 const delimiterSheet = delimiterSheetData.resource;
 const pulseSheet = pulseSheetData.resource;

@@ -56,25 +56,38 @@ function findClip(root: Node2D, name: string): Node2D | null {
 
 interface Bounds { maxX: number; maxY: number; minX: number; minY: number }
 
-// Measures the full opaque extent of the clip, which is what SpriteSheetHelper does — it fits
-// each frame using `sourceMC.width`/`height`, and in Flash those include every child, backdrop
-// and all.
+// How a clip's extent is measured, which decides what fills each cell.
 //
-// Measuring only the LIT artwork was tried and is wrong, even though it looks like an
-// improvement on the digits. The backdrop is not padding: it is what positions the artwork inside
-// its cell. The `delimiter` clip is a single dot that fades out over six frames, sitting near the
-// middle of a 17x65 black panel, and the colon's two dots come from the mesh showing that cell
-// twice. Fit to the dot alone, the cell became the dot — and only one of the two showed up.
-function scanBounds(context: CanvasRenderingContext2D, size: number, into: Bounds): void {
+// `opaque` is what SpriteSheetHelper does — it fits each frame by `sourceMC.width`/`height`, and
+// in Flash those include every child, backdrop and all. That is right whenever the backdrop is
+// what positions the artwork: the `delimiter` clip is a single dot fading out over six frames
+// near the middle of a 17x65 black panel, and measured to the dot alone the cell becomes the dot
+// and the colon loses one of its two dots.
+//
+// `lit` measures only the bright artwork, for clips whose backdrop is far larger than the art in
+// front of it. The `digits` clip carries a 125x64 panel behind glyphs that occupy 52x40 — 41% of
+// the width — so the opaque fit leaves the digits small and pushed to one side of the display.
+//
+// Which one a clip wants is a property of how that clip was authored, so it is stated per clip
+// rather than guessed. A ratio test would pick `lit` for the delimiter too, where it is wrong.
+export type SwfSheetFit = 'lit' | 'opaque';
+
+function scanBounds(
+  context: CanvasRenderingContext2D, size: number, fit: SwfSheetFit, into: Bounds,
+): void {
   const { data } = context.getImageData(0, 0, size, size);
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      if (data[(y * size + x) * 4 + 3]! > 8) {
-        if (x < into.minX) into.minX = x;
-        if (x > into.maxX) into.maxX = x;
-        if (y < into.minY) into.minY = y;
-        if (y > into.maxY) into.maxY = y;
+      const offset = (y * size + x) * 4;
+      if (data[offset + 3]! <= 8) continue;
+      // The backdrops are vector shapes filled pure black, so this only has to clear zero.
+      if (fit === 'lit' && Math.max(data[offset]!, data[offset + 1]!, data[offset + 2]!) <= 8) {
+        continue;
       }
+      if (x < into.minX) into.minX = x;
+      if (x > into.maxX) into.maxX = x;
+      if (y < into.minY) into.minY = y;
+      if (y > into.maxY) into.maxY = y;
     }
   }
 }
@@ -85,7 +98,10 @@ export function createSwfSheetBuilder(swf: Uint8Array) {
   const document_ = createScene2DFromSwf(swf);
   if (!document_) throw new Error('digits.swf could not be parsed');
 
-  return function buildSheet(name: string, frames: number, columns: number, rows: number, sheetSize: number): SwfSheet {
+  return function buildSheet(
+    name: string, frames: number, columns: number, rows: number, sheetSize: number,
+    fit: SwfSheetFit,
+  ): SwfSheet {
     const clip = findClip(document_.root, name);
     if (!clip) throw new Error(`digits.swf has no clip named ${name}`);
 
@@ -112,7 +128,7 @@ export function createSwfSheetBuilder(swf: Uint8Array) {
       measureContext.clearRect(0, 0, MEASURE_SIZE, MEASURE_SIZE);
       prepareScene2DRender(measureState, clip as never);
       renderCanvasScene2D(measureState, clip);
-      scanBounds(measureContext, MEASURE_SIZE, bounds);
+      scanBounds(measureContext, MEASURE_SIZE, fit, bounds);
     }
     if (bounds.maxX < bounds.minX) throw new Error(`digits.swf clip ${name} rasterised empty`);
     // A clip whose bounds reach the canvas edge was cut off rather than measured, and the sheet
