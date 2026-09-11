@@ -150,6 +150,15 @@ try {
         await page.waitForTimeout(120);
       }
 
+      // Software-rendered capture FPS is not representative of the sample in a browser.
+      await page.evaluate(() => {
+        for (const element of document.querySelectorAll<HTMLElement>('body > div')) {
+          if (/^FPS:\s*\d+/.test(element.textContent ?? '')) {
+            element.style.visibility = 'hidden';
+          }
+        }
+      });
+
       // Some examples create scratch canvases for bitmap work; the first is the stage. A capability
       // report may intentionally have no canvas, in which case capture the page itself.
       const stage = page.locator('canvas').first();
