@@ -3,6 +3,8 @@ import {
   addNodeChild,
   addTextureAtlasRegion,
   createFxaaEffect,
+  createMesh,
+  createMeshGeometry,
   createParticleEmitter3D,
   createParticleEmitterConfig,
   createParticleEmitterState,
@@ -11,11 +13,14 @@ import {
   createTexture,
   createTextureAtlas,
   createToneMapEffect,
+  createUnlitMaterial,
   invalidateNodeLocalTransform,
+  isMesh,
   loadImageResourceFromUrl,
   prewarmParticleEmitter3D,
   setVector3,
   stepParticleEmitter3D,
+  walkNodeDescendants,
 } from '@flighthq/sdk';
 import { bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
 import { createScene3DContext } from './renderer';
@@ -30,14 +35,51 @@ const ctx = createScene3DContext({
 });
 const scene = createScene3D();
 const camera = createCameraFromAway({ far: 5000 });
+// HoverController(camera, null, 45, 20, 1000, 5). The sixth argument is minTiltAngle — the port
+// had it as `steps`, which sets the easing rate and left the tilt unclamped.
 const orbit = createOrbitControllerFromAway(camera, {
   distance: 1000,
   panAngle: 45,
   tiltAngle: 20,
-  steps: 5,
+  minTiltAngle: 5,
 });
 bindOrbitDrag(ctx.canvas, orbit);
 const lights = createScene3DLights();
+
+// WireframeAxesGrid(10, 1500): three grid planes through the origin, drawn by the original as
+// SegmentSets. The port left them out entirely, so the particles had no frame of reference.
+// Defaults from away3d.debug.WireframeAxesGrid: XY blue, ZY red, XZ green, spanning +/-gridSize/2
+// with subDivision steps, and the lines are inclusive of both bounds (11 per direction here).
+// The grid is symmetric about the origin on every axis, so the Z negation does not apply.
+const GRID_SUBDIVISION = 10;
+const GRID_SIZE = 1500;
+function addAxesGridPlane(plane: 'xy' | 'zy' | 'xz', color: number): void {
+  const bound = GRID_SIZE * 0.5;
+  const step = GRID_SIZE / GRID_SUBDIVISION;
+  const points: number[] = [];
+  for (let i = 0; i <= GRID_SUBDIVISION; i++) {
+    const at = -bound + i * step;
+    if (plane === 'xy') {
+      points.push(bound, at, 0, -bound, at, 0);
+      points.push(at, bound, 0, at, -bound, 0);
+    } else if (plane === 'zy') {
+      points.push(0, at, bound, 0, at, -bound);
+      points.push(0, bound, at, 0, -bound, at);
+    } else {
+      points.push(bound, 0, at, -bound, 0, at);
+      points.push(at, 0, bound, at, 0, -bound);
+    }
+  }
+  const geometry = createMeshGeometry({
+    layout: { stride: 12, attributes: [{ semantic: 'position', format: 'float32x3', byteOffset: 0 }] },
+    topology: 'line-list',
+    vertices: new Float32Array(points),
+  });
+  addNodeChild(scene.root, createMesh(geometry, [createUnlitMaterial({ baseColor: color })]));
+}
+addAxesGridPlane('xy', 0x0000ffff);
+addAxesGridPlane('zy', 0xff0000ff);
+addAxesGridPlane('xz', 0x00ff00ff);
 
 const image = await loadImageResourceFromUrl(ctx.host, 'away3d/ParticleTrails/cards_suit.png');
 const atlas = createTextureAtlas({ texture: createTexture({ source: image }) });
@@ -95,6 +137,32 @@ function createTrail(x: number, z: number): Trail {
 const trails = [createTrail(500, 0), createTrail(0, 0)];
 let angle = 0;
 let previousTime = performance.now();
+// Stands in for the original's AwayStats readout, which this sample never repositions, so it
+// sits top left. The particles dominate the count and are emitters rather than Mesh nodes, so
+// their quads are added from emitter capacity — two triangles each, as Away3D's ParticleGeometry
+// builds them. The axes grid is excluded: it is a line list here, where Away3D expands each
+// SegmentSet segment into a quad, so the original reads 132 higher (66 segments x 2) than this.
+let triangleCount = trails.length * PARTICLE_COUNT * 2;
+walkNodeDescendants(scene.root, (node) => {
+  if (isMesh(node) && node.geometry && node.geometry.topology === 'triangle-list') {
+    const geometry = node.geometry;
+    const indexed = geometry.indices !== null
+      ? geometry.indices.length
+      : geometry.vertices.length / (geometry.layout.stride / 4);
+    triangleCount += Math.floor(indexed / 3);
+  }
+  return true;
+});
+const stats = document.createElement('div');
+Object.assign(stats.style, {
+  position: 'fixed', left: '10px', top: '10px', zIndex: '2', color: '#ffffff',
+  font: '12px ui-monospace, monospace', whiteSpace: 'pre', pointerEvents: 'none',
+});
+document.body.appendChild(stats);
+let framesThisSecond = 0;
+let statsWindowStart = performance.now();
+let displayedFps = 0;
+
 function frame(timestamp: number): void {
   const deltaTime = Math.min(0.1, (timestamp - previousTime) / 1000);
   previousTime = timestamp;
@@ -108,6 +176,13 @@ function frame(timestamp: number): void {
   }
 
   orbit.update();
+  framesThisSecond++;
+  if (timestamp - statsWindowStart >= 1000) {
+    displayedFps = Math.round((framesThisSecond * 1000) / (timestamp - statsWindowStart));
+    framesThisSecond = 0;
+    statsWindowStart = timestamp;
+  }
+  stats.textContent = `FPS: ${displayedFps}\nPLY: ${triangleCount}`;
   ctx.render(scene.root, camera, lights);
   requestAnimationFrame(frame);
 }
