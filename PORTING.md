@@ -280,6 +280,21 @@ flipping the normal there makes the panel reflect correctly from either face for
   lying exactly on the receiving surface; the bear's shadow was lost in the ground's own
   self-shadowing. Only the bear casts now, and the shadow volume follows him (the original uses
   `NearDirectionalShadowMapper(0.5)` to keep the map near the subject for the same reason).
+- **The root motion was applied twice.** The walk and run clips animate `ZeroJoint`, the
+  skeleton's root, by about 6.2 units a cycle — that IS the bear's travel. Left in the pose it
+  carries the whole bear forward inside his container and snaps back when the clip loops, so with
+  the mesh also accumulating the same delta the bear slid ahead of himself and reset while the
+  container crept along. Away3D lifts that motion off the pose onto the mesh
+  (`SkeletonAnimator.updatePosition`); the port now does the same by pinning the joint's x and z
+  back to their bind values every frame, after the clip is applied and before the skin is
+  evaluated. Y is left animated so the body still rises and falls with the gait.
+
+  This hid behind a bad probe for two rounds. The probe that "proved" no joint translated built a
+  map keyed by node NAME — and the carrier's name collided with other unnamed nodes under a single
+  `'?'` key, so it was overwritten before the comparison. Keying by index found it immediately.
+  `channel.targetRef` is `{node, path}`, not the node, so identity comparisons against it also
+  fail silently.
+
 - **The walk reset every cycle.** `extractAnimationRootMotion` documents its range as *unwrapped*
   — "times may cross any number of repeat boundaries or run backward" — but it was being handed
   `player.time`, which wraps to zero every cycle. Each loop therefore looked to it like a jump back
