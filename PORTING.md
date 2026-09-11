@@ -525,3 +525,62 @@ Both are correct for what they draw. The particles are 2 emitters x 1000 particl
 quad, and the axes grid has 66 of them (3 planes x 22). This port draws the grid as a GL line
 list, so those segments are not triangles at all. The particle quads are counted from emitter
 capacity rather than from the scene walk, because the emitters are not Mesh nodes.
+
+## Terrain demo
+
+Five gaps against the original, all found by building it and comparing.
+
+- **No skybox.** The assets were in the tree but never loaded; the sky was a flat clear colour and
+  the water had nothing to reflect. Now loaded as the snow cube the original uses for both.
+- **No fog.** `FogMethod(0, 8000, 0xcfd9de)`, linearised, over a depth-space window. A near plane
+  of 1 crushes the depth curve hard — depth(100) is already 0.990 — so the haze window is chosen
+  against that curve rather than by transplanting the original's world-linear range.
+- **Scene constants had drifted**: terrain 5200 wide at 920 tall with a -80 offset over 128
+  segments, against the original's `Elevation(..., 5000, 1300, 5000, 250, 250)` at y = 0; water at
+  y = 205 with UVs 24x against 285 and 50x; camera far 9000 / near 5 against 4000 / 1; and the
+  terrain-follow offset was +70 where the original uses `+ 20`. With the segment count corrected
+  the poly readout is 125002, matching the original exactly.
+- **The instructions were invented** and there was no stats readout. Both now match, with the
+  readout top right — this sample moves it there in `onResize`.
+- **The water never rendered.** Covered below.
+
+### An ARGB literal read as RGBA
+
+Away3D builds the lake from `new BitmapData(512, 512, true, 0xaa404070)`. That is **ARGB**: alpha
+`0xaa` over a dark blue-grey `0x404070`. The port read the same digits as RGBA — a bright cyan
+`0x3d92b0` at half alpha — and additionally set `metallic: 0.72`, which leaves a metal with
+almost no diffuse. Against a pale foggy sky the surface was invisible: not dim, absent.
+
+It took a bisect to see that, because the symptom looked like a missing mesh:
+
+| configuration | result |
+| --- | --- |
+| water at y = 285 | nothing visible |
+| water raised to y = 900, above the camera | still nothing |
+| `alphaMode: 'opaque'` | renders clearly — so geometry, position and culling are fine |
+| `alphaMode: 'blend'` with alpha 255 | barely visible |
+| corrected colour `0x404070aa`, `metallic: 0` | reads as water |
+
+The lesson is the cheap one: when a mesh seems missing, force it opaque before suspecting the
+scene graph. Two of these steps would have been unnecessary had I checked the literal's channel
+order first — Away3D `BitmapData` colours are ARGB and Flight's are RGBA.
+
+### Still different: the opening vista, and no splat map
+
+Two things this port does not reproduce, both stated rather than papered over.
+
+The original's `TerrainDiffuseMethod` blends beach, grass and rock through a splat map at
+per-layer tiling `[1, 50, 150, 100]`; the port uses `terrain_diffuse.jpg` alone, so the ground
+lacks close-up detail. Those four assets are present and unused. Reproducing it needs a custom
+shader, which would step outside the PBR lighting path the rest of the sample uses.
+
+The opening view also differs: both cameras sit at the same spot and settle onto the terrain, but
+ours lands on a ridge looking down at the lake while the original looks out across it. The height
+sampling at the origin is 617 either way — the centre texel is flip-invariant, so that test cannot
+discriminate — and the row-mapping rule in use here is the one verified against ground truth in
+`planar-reflections`, so it was left alone rather than flipped on a hunch.
+
+## Tweening 3D
+
+Matches the original closely. The only change: the port added an instructions line, and the
+original has no overlay at all — neither a TextField nor AwayStats.
