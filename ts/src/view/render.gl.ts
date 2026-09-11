@@ -1,4 +1,4 @@
-import type { Camera3D, GlPipeline, GlRenderEffectPipeline, Node3D } from '@flighthq/sdk';
+import type { Camera3D, GlPipeline, GlRenderEffectPipeline, GlRenderState, Node3D } from '@flighthq/sdk';
 import {
   beginGlRenderEffectPipeline,
   createFxaaEffect,
@@ -16,18 +16,17 @@ import {
   registerGlFxaaEffect,
   registerGlToneMapEffect,
   renderGlBackground,
-  // scene3dGlPipeline, // Batteries-included alternative
+  // scene3DGlPipeline,
   setCamera3DAspect,
   standardGlTextureResolvers,
   UnlitMaterialKind,
   unlitGlMeshMaterialRenderer,
   withRegistryTableEntry,
 } from '@flighthq/sdk';
-import { enableHostWebGlRenderSurface, webHost } from '@flighthq/host-web';
+import { enableHostWebGlRenderSurface } from '@flighthq/host-web';
 
 function createMinimalScene3DGlPipeline(): GlPipeline {
-  // Batteries-included alternative:
-  // return scene3dGlPipeline;
+  // return scene3DGlPipeline; // Batteries-included alternative
 
   const registries = createEmptyGlRegistries();
   return createGlPipeline({
@@ -41,7 +40,7 @@ function createMinimalScene3DGlPipeline(): GlPipeline {
   });
 }
 
-export function setupRendering() {
+export function setupRenderer() {
   const pixelRatio = window.devicePixelRatio || 1;
   enableHostWebGlRenderSurface();
 
@@ -69,7 +68,6 @@ export function setupRendering() {
   let effectPipeline: GlRenderEffectPipeline | null = null;
 
   return {
-    host: webHost,
     render(scene: Readonly<Node3D>, camera: Readonly<Camera3D>): void {
       effectPipeline ??= createGlRenderEffectPipeline(state, { format: 'rgba16f', depth: 'depth-stencil' });
       beginGlRenderEffectPipeline(state, effectPipeline, 'linear');
