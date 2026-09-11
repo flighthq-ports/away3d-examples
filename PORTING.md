@@ -990,3 +990,29 @@ That step scaling is itself required, not a tuning choice: the scheme is CFL-lim
 crosses one cell per step and world wave speed is `spacing / step`. Refining the grid without
 shortening the step would slow every ripple in proportion; the step therefore tracks the spacing,
 holding wave speed at the original's 120 units per second whatever the grid.
+
+### The water took far too long to relax
+
+Solving the scheme for its damping gives a clean result: amplitude decays by
+`exp(-viscosity / 2)` per second, **independent of both the timestep and the grid**. So the
+original's initial `viscosity = 0.3` leaves a disturbance at 10% after 3.3s and still ringing at
+1% after 19s, which is not how water in a pool this size behaves.
+
+Measured against the real timestep for the 320 grid:
+
+| viscosity | to 10% | to 1% |
+| --- | --- | --- |
+| 0.3 (the original's initial value) | 3.3s | 19.1s |
+| 1.0 | 1.8s | 6.3s |
+| **1.7** | **1.3s** | **3.6s** |
+| 2.5 | 1.0s | 3.3s |
+
+1.7 is the top of the range the original's own GUI exposed for this
+(`gui.addSlider("fluid.viscosity", 0.0, 1.7)`), so it is a point on their control rather than an
+invented number, and it settles the way water does. Because the decay is grid- and
+timestep-independent, this holds if the grid is changed again.
+
+One caveat on verifying this from a headless capture: the fixed-step accumulator advances at most
+0.05s of simulation per rendered frame, so at 1-2 FPS twenty seconds of wall clock is about one
+second of water. Relaxation has to be judged from the arithmetic above, not from how a screenshot
+looks after waiting.
