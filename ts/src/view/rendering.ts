@@ -28,10 +28,9 @@ function createRenderState(canvas: HTMLCanvasElement, pixelRatio: number): GlRen
     contextAttributes: { alpha: false, depth: true, preserveDrawingBuffer: false },
   });
 
-  // scene3DGlPipeline is the fully registered alternative to this minimal setup.
   const state = createGlRenderState(
     createGlContextState(gl),
-    createGlPipeline(createEmptyGlRegistries()),
+    createGlPipeline(createEmptyGlRegistries()), // Use scene3DGlPipeline here for the complete registry.
     { backgroundColor: 0x000000ff, pixelRatio },
   );
   registerStandardGlTextureResolvers(state);
@@ -41,7 +40,7 @@ function createRenderState(canvas: HTMLCanvasElement, pixelRatio: number): GlRen
   return state;
 }
 
-export function createRenderer() {
+export function setupRendering() {
   const pixelRatio = window.devicePixelRatio || 1;
   enableHostWebGlRenderSurface();
 

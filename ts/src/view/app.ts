@@ -13,13 +13,13 @@ import {
 } from '@flighthq/sdk';
 
 import { createCameraFromAway } from '../../shared/camera';
-import { createRenderer } from './renderer';
+import { setupRendering } from './rendering';
 
-const renderer = createRenderer();
+const rendering = setupRendering();
 const scene = createScene3D();
 const camera = createCameraFromAway({ y: 500, z: -600, fov: 60 });
 
-const image = await loadImageResourceFromUrl(renderer.host, 'floor_diffuse.jpg');
+const image = await loadImageResourceFromUrl(rendering.host, 'floor_diffuse.jpg');
 const texture = createTexture({ source: image });
 const material = createUnlitMaterial({ baseColor: 0xffffffff, baseColorMap: texture });
 const plane = createMesh(createPlaneMeshGeometry(700, 700), [material]);
@@ -33,10 +33,10 @@ function frame(): void {
   setQuaternionFromAxisAngle(plane.rotation, yAxis, angle);
   invalidateNodeLocalTransform(plane);
 
-  renderer.render(scene.root, camera);
+  rendering.render(scene.root, camera);
   requestAnimationFrame(frame);
 }
 
-renderer.resize(camera);
-window.addEventListener('resize', () => renderer.resize(camera));
+rendering.resize(camera);
+window.addEventListener('resize', () => rendering.resize(camera));
 requestAnimationFrame(frame);
