@@ -411,3 +411,51 @@ limit requires, so the count is no longer bounded by it.
 
 *Worth raising upstream:* a wrapped, multi-row palette would lift this entirely, and the failure
 should not be silent.
+
+## Head
+
+The upstream OpenFL demo does not run: Away3D's AGAL compiler throws `Error: Register overflow!`
+from `RegisterPool.requestFreeVectorReg` while compiling the head material, and the sample renders
+an empty stage with `POLY: 0`. As with the fractal tree, the port is built from the source rather
+than from a running original.
+
+What the source asks for: one `PointLight` at x 15000, z 15000, colour 0xffddbb, `ambient = 1`,
+with `ambientColor 0x303040` and `ambient 1` on the material; `SubsurfaceScatteringDiffuseMethod`
+with `scattering = 0.05`, and `FresnelSpecularMethod`; `HoverController(45, 10, 800)`; no
+instructions overlay at all, just `AwayStats`, which `onResize` never moves — so top left.
+
+Fixed in the port:
+
+- The light **orbited the head** on a timer. The original's is static. It was also unpositioned in
+  world terms until that timer ran.
+- Ambient was 0.08 and untinted against the original's `0x303040` at full strength. Combined with
+  the point light that left the diffuse term so weak the specular carried the image.
+- Subsurface strength was 0.72 where the original scatters at 0.05 — the head came out lurid
+  orange rather than warm.
+- The invented instructions line is gone and the AwayStats stand-in (FPS/PLY) added, top left.
+
+### Binding a texture to SpecularPbrExtension darkens the surface
+
+The "beard" was this. The head's specular map paints the stubble and eyebrows black — correct
+content, marking skin that is not shiny — but binding it produced hard black patches there instead.
+
+Narrowed down by bisection:
+
+| configuration | result |
+| --- | --- |
+| `specularMap` (sampled `.a`) bound | black stubble and eyebrows |
+| `specularColorMap` (sampled `.rgb`) bound | identical black |
+| no map, uniform `specularColor: 0x000000` (f0 = 0 everywhere) | **shades correctly** |
+| map bound with `specular: 0`, extension contributing nothing | **still black** |
+| specular extension alone, no wrapped-diffuse extension | still black |
+| no map bound | correct — soft stubble from the diffuse map |
+
+So it is not an f0 effect and not an interaction between extensions: merely binding a texture to
+the extension darkens the base surface wherever that texture is dark, even when the extension is
+told to contribute nothing. That reads like a texture-unit collision between the extension's
+sampler and a core PBR sampler. *Worth raising upstream* — with this repro. Meanwhile the sample
+leaves the map unbound; the stubble still reads, because it is painted into the diffuse map too.
+
+Also worth noting for other ports: Away3D specular maps are grayscale RGB, while
+`SpecularPbrExtension.specularMap` follows glTF and samples **alpha**, which a JPEG does not have.
+`specularColorMap` is the RGB-reading slot.
