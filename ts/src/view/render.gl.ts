@@ -52,7 +52,8 @@ export function setupRenderer() {
   const gl = createGlContextFromCanvasElement(canvas, {
     contextAttributes: { alpha: false, depth: true, preserveDrawingBuffer: false },
   });
-  const pipeline = createMinimalScene3DGlPipeline(); // Or use scene3DGlPipeline.
+  // const pipeline = scene3DGlPipeline; // import all
+  const pipeline = createMinimalScene3DGlPipeline();
   const state = createGlRenderState(
     createGlContextState(gl),
     pipeline,
