@@ -1,4 +1,4 @@
-import { webGraphicsHost } from '@flighthq/host-web';
+import { webHostImage } from '@flighthq/host-web';
 import {
   addNodeChild,
   createMesh,
@@ -20,7 +20,7 @@ const renderer = setupRenderer();
 const scene = createScene3D();
 const camera = createCameraFromAway({ y: 500, z: -600, fov: 60 });
 
-const image = await loadImageResourceFromUrl(webGraphicsHost, 'floor_diffuse.jpg');
+const image = await loadImageResourceFromUrl(webHostImage, 'floor_diffuse.jpg');
 const texture = createTexture({ source: image });
 const material = createUnlitMaterial({ baseColor: 0xffffffff, baseColorMap: texture });
 const plane = createMesh(createPlaneMeshGeometry(700, 700), [material]);

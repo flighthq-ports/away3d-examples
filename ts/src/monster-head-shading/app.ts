@@ -1,18 +1,12 @@
-import type { GlRenderEffectPipeline, PerspectiveProjection, Node3D } from '@flighthq/sdk';
+import type { GlEffectState, PerspectiveProjection, Node3D } from '@flighthq/sdk';
 import {
   addNodeChild,
-  beginGlRenderEffectPipeline,
+  beginGlEffectState,
   configureDirectionalShadowCamera3D,
   createAabb,
   createCamera3D,
   createFxaaEffect,
-  createGlCanvasElement,
-  createGlContextFromCanvasElement,
-  createGlContextState,
-  createEmptyGlRegistries,
-  createGlPipeline,
-  createGlRenderEffectPipeline,
-  createGlRenderState,
+  createGlEffectState,
   createOrthographicProjection,
   createScene3D,
   createScene3DFromAwd2,
@@ -22,9 +16,9 @@ import {
   createToneMapEffect,
   defaultGlFxaaEffectRunner,
   defaultGlToneMapEffectRunner,
-  drawGlScene3D,
+  renderGlScene3D,
   drawGlScene3DShadowMap,
-  endGlRenderEffectPipeline,
+  endGlEffectState,
   getNodeChildren,
   invalidateNodeLocalTransform,
   isMesh,
@@ -32,10 +26,11 @@ import {
   registerGlRenderEffect,
   registerGlShadedMaterial,
   registerStandardGlTextureResolvers,
-  renderGlBackground,
   setVector3,
 } from '@flighthq/sdk';
-import { enableHostWebGlRenderSurface, webHost } from '@flighthq/host-web';
+import { webHostImage } from '@flighthq/host-web';
+
+import { createExampleGlSurface } from '../../shared/glSurface';
 
 import { bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
 import { createDirectionalLightFromAway, createPointLightFromAway } from '../../shared/lighting';
@@ -43,8 +38,9 @@ import { createDirectionalLightFromAway, createPointLightFromAway } from '../../
 const pixelRatio = window.devicePixelRatio || 1;
 
 const mount = document.getElementById('app');
-enableHostWebGlRenderSurface();
-const canvas = createGlCanvasElement(window.innerWidth, window.innerHeight, pixelRatio);
+const { canvas, clear, state } = createExampleGlSurface(
+  window.innerWidth, window.innerHeight, pixelRatio, 0x000000ff,
+);
 if (mount) {
   mount.replaceWith(canvas);
 } else {
@@ -52,14 +48,6 @@ if (mount) {
 }
 document.body.style.margin = '0';
 
-const gl = createGlContextFromCanvasElement(canvas, {
-  contextAttributes: { alpha: false, depth: true, preserveDrawingBuffer: false },
-});
-const state = createGlRenderState(
-  createGlContextState(gl),
-  createGlPipeline(createEmptyGlRegistries()),
-  { backgroundColor: 0x000000ff, pixelRatio },
-);
 
 // Textured materials resolve their maps through the backing-kind registry; without this every
 // texture resolves to null and the scene renders untextured.
@@ -67,7 +55,7 @@ registerStandardGlTextureResolvers(state);
 registerGlShadedMaterial(state);
 registerGlRenderEffect(state, 'FxaaEffect', defaultGlFxaaEffectRunner);
 registerGlRenderEffect(state, 'ToneMapEffect', defaultGlToneMapEffectRunner);
-let pipeline: GlRenderEffectPipeline | null = null;
+let effectState: GlEffectState | null = null;
 
 const scene = createScene3D();
 
@@ -145,7 +133,7 @@ const headMaterial = createShadedMaterial({
 
 async function tryLoadImage(url: string): Promise<Awaited<ReturnType<typeof loadImageResourceFromUrl>> | null> {
   try {
-    return await loadImageResourceFromUrl(webHost, url);
+    return await loadImageResourceFromUrl(webHostImage, url);
   } catch {
     return null;
   }
@@ -201,22 +189,18 @@ bindOrbitDrag(canvas, orbit);
 
 function frame(): void {
   orbit.update();
-  if (pipeline === null) {
-    pipeline = createGlRenderEffectPipeline(state, { format: 'rgba16f', depth: 'depth-stencil' });
+  if (effectState === null) {
+    effectState = createGlEffectState(state, { format: 'rgba16f', depth: 'depth-stencil' });
   }
 
   configureDirectionalShadowCamera3D(shadowCamera, lightDir, shadowBounds);
   drawGlScene3DShadowMap(state, scene.root, shadowCamera, directional);
 
-  beginGlRenderEffectPipeline(state, pipeline);
-  renderGlBackground(state);
-  state.gl.depthMask(true);
-  state.gl.clearDepth(1);
-  state.gl.clear(state.gl.DEPTH_BUFFER_BIT);
-  drawGlScene3D(state, scene.root, camera, lights);
+  const pass = beginGlEffectState(state, effectState, clear);
+  renderGlScene3D(pass, scene.root, camera, lights);
   // A modest lift keeps the textured mid-tones readable without flattening the black backdrop or
   // the source's deep Fresnel/shadow contrast.
-  endGlRenderEffectPipeline(state, pipeline, [createToneMapEffect({ exposure: 1.55 }), createFxaaEffect()]);
+  endGlEffectState(pass, effectState, [createToneMapEffect({ exposure: 1.55 }), createFxaaEffect()]);
   requestAnimationFrame(frame);
 }
 

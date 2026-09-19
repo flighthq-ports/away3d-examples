@@ -1,8 +1,8 @@
-import type { AnimationClip, HasGraphicsImage, ImageResource, Mesh, Node3D, Scene3D, Texture2D } from '@flighthq/sdk';
+import { createWebImageResourceFromCanvas } from '@flighthq/host-web';
+import type { AnimationClip, HostImageCapability, ImageResource, Mesh, Node3D, Scene3D, Texture2D } from '@flighthq/sdk';
 import {
   addNodeChild,
   createExtendedPbrMaterial,
-  createImageResourceFromCanvas,
   createScene3D,
   createScene3DFromMd5Mesh,
   createSpecularPbrExtension,
@@ -95,7 +95,7 @@ function buildRoughnessMapFromSpecular(specular: ImageResource): ImageResource |
     data[i + 3] = 255;
   }
   ctx.putImageData(image, 0, 0);
-  return createImageResourceFromCanvas(canvas);
+  return createWebImageResourceFromCanvas(canvas);
 }
 
 export const ANIM_NAMES = [
@@ -132,7 +132,7 @@ async function fetchText(url: string): Promise<string> {
   return response.text();
 }
 
-export async function loadCharacter(host: Readonly<HasGraphicsImage>): Promise<CharacterData> {
+export async function loadCharacter(host: Readonly<HostImageCapability>): Promise<CharacterData> {
   const [bodyDiffuse, bodyNormal, bodySpecular, gobImage] = await Promise.all([
     loadImageResourceFromUrl(host, 'hellknight/hellknight_diffuse.jpg'),
     loadImageResourceFromUrl(host, 'hellknight/hellknight_normals.png'),

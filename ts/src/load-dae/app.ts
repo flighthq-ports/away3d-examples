@@ -1,3 +1,4 @@
+import { webHostImage } from '@flighthq/host-web';
 import type { Mesh, Node3D, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -71,16 +72,16 @@ const lights = createScene3DLights({ ambient, directional });
 
 const [source, carpetImage, wallpaperImage] = await Promise.all([
   fetch(`${assetRoot}hobbelpaard.dae`).then((response) => response.text()),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}carpet.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}wallpaper.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}carpet.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}wallpaper.jpg`),
 ]);
 const imported = parseCollada(source, { baseUrl: assetRoot });
 const model = createScene3DFromDocument(imported.document);
-const resolver = createBuiltInScene3DResourceResolver(ctx.host, {
+const resolver = createBuiltInScene3DResourceResolver(webHostImage, {
   // The source document refers to ../images/*.jpg; the sample archive stores those files beside the DAE.
   fetch: (reference, signal) => {
     const filename = reference.uri.split('/').pop();
-    return filename ? loadImageResourceFromUrl(ctx.host, `${assetRoot}${filename}`, 'anonymous', signal) : Promise.resolve(null);
+    return filename ? loadImageResourceFromUrl(webHostImage, `${assetRoot}${filename}`, 'anonymous', signal) : Promise.resolve(null);
   },
 });
 await loadScene3DResources(model, resolver);

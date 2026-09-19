@@ -1,3 +1,4 @@
+import { webHostImage } from '@flighthq/host-web';
 import type { Mesh, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -42,8 +43,8 @@ const orbit = createOrbitControllerFromAway(camera, { distance: 800, panAngle: 4
 bindOrbitDrag(ctx.canvas, orbit, { minDistance: 300, maxDistance: 1400 });
 
 const [obj, diffuse, normal] = await Promise.all([
-  fetch('head.obj').then((r) => r.text()), loadImageResourceFromUrl(ctx.host, 'head_diffuse.jpg'),
-  loadImageResourceFromUrl(ctx.host, 'head_normals.jpg'),
+  fetch('head.obj').then((r) => r.text()), loadImageResourceFromUrl(webHostImage, 'head_diffuse.jpg'),
+  loadImageResourceFromUrl(webHostImage, 'head_normals.jpg'),
 ]);
 const imported = createScene3DFromObj(obj);
 const head = findNode(imported.root, isMesh) as Mesh | null;

@@ -1,3 +1,4 @@
+import { webHostImage } from '@flighthq/host-web';
 import type {
   PerspectiveProjection,
 } from '@flighthq/sdk';
@@ -55,9 +56,9 @@ plane.position.y = -20;
 invalidateNodeLocalTransform(plane);
 addNodeChild(scene.root, plane);
 
-loadFloorTextures(ctx.host, planeMaterial);
+loadFloorTextures(webHostImage, planeMaterial);
 
-const { fires, config } = await createFireEmitters(ctx.host, scene);
+const { fires, config } = await createFireEmitters(webHostImage, scene);
 startFiresSequentially(fires, FIRE_START_INTERVAL);
 
 // Light the first two sequential emitters. Each light remains dark until its own fire starts, then

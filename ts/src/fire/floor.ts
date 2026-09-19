@@ -1,4 +1,4 @@
-import type { BlinnPhongMaterial, HasGraphicsImage, ImageResource, Texture } from '@flighthq/sdk';
+import type { BlinnPhongMaterial, HostImageCapability, ImageResource, Texture } from '@flighthq/sdk';
 import {
   createBlinnPhongMaterial,
   createSampler,
@@ -40,7 +40,7 @@ function createFloorTexture(image: ImageResource, colorSpace: 'linear' | 'srgb' 
 }
 
 export async function loadFloorTextures(
-  host: Readonly<HasGraphicsImage>,
+  host: Readonly<HostImageCapability>,
   material: BlinnPhongMaterial,
 ): Promise<void> {
   const [diffuseImg, normalImg, specularImg] = await Promise.all([

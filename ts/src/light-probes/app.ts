@@ -1,3 +1,4 @@
+import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
 import type { ImageResource, LightProbe, Mesh, PerspectiveProjection } from '@flighthq/sdk';
 import {
   LIGHT_PROBE_SH_FLOATS,
@@ -68,7 +69,7 @@ function srgbToLinear(value: number): number {
 }
 
 function averageLinearRgb(image: ImageResource): [number, number, number] {
-  const bitmap = captureBitmapFromImageResource(ctx.host, image);
+  const bitmap = captureBitmapFromImageResource(webHostBitmapReadback, image);
   if (!bitmap) throw new Error('The web host cannot read a light-probe cube face.');
   const data = bitmap.data;
   let red = 0;
@@ -88,7 +89,7 @@ function averageLinearRgb(image: ImageResource): [number, number, number] {
 
 async function loadProbe(folder: string, x: number, z: number): Promise<LightProbe> {
   const images = await Promise.all(
-    faceNames.map((face) => loadImageResourceFromUrl(ctx.host, `${assetRoot}cornellEnvMap/${folder}/${face}.jpg`)),
+    faceNames.map((face) => loadImageResourceFromUrl(webHostImage, `${assetRoot}cornellEnvMap/${folder}/${face}.jpg`)),
   );
   const colors = new Float32Array(18);
   for (let face = 0; face < images.length; face++) {
@@ -133,11 +134,11 @@ const lights = createScene3DLights({
 const [roomObj, headObj, roomImage, roomNormal, diffuse, normal, ao] = await Promise.all([
   fetch(`${assetRoot}cornell.obj`).then((response) => response.text()),
   fetch(`${assetRoot}head.obj`).then((response) => response.text()),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}cornell_baked.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}cornellWallNormals.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}head_diffuse.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}head_normals.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}head_AO.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}cornell_baked.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}cornellWallNormals.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}head_diffuse.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}head_normals.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}head_AO.jpg`),
 ]);
 const roomScene = createScene3DFromObj(roomObj);
 const room = findNode(roomScene.root, isMesh) as Mesh | null;

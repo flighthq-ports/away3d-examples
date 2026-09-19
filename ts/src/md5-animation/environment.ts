@@ -1,7 +1,7 @@
-import type { Environment, HasGraphicsBitmapReadback, HasGraphicsImage, ImageResource, Mesh, ScreenSpaceFogEffect } from '@flighthq/sdk';
+import { createWebImageResourceFromCanvas } from '@flighthq/host-web';
+import type { Environment, HostBitmapReadbackCapability, HostImageCapability, ImageResource, Mesh, ScreenSpaceFogEffect } from '@flighthq/sdk';
 import {
   createEnvironment,
-  createImageResourceFromCanvas,
   createMesh,
   createPlaneMeshGeometry,
   createScreenSpaceFogEffect,
@@ -52,7 +52,7 @@ function coolGroundDiffuse(rock: ImageResource): ImageResource | null {
     }
   }
   ctx.putImageData(image, 0, 0);
-  return createImageResourceFromCanvas(canvas);
+  return createWebImageResourceFromCanvas(canvas);
 }
 
 export interface EnvironmentData {
@@ -62,20 +62,21 @@ export interface EnvironmentData {
 }
 
 export async function loadEnvironment(
-  host: Readonly<HasGraphicsBitmapReadback & HasGraphicsImage>,
+  hostImage: Readonly<HostImageCapability>,
+  hostBitmapReadback: Readonly<HostBitmapReadbackCapability>,
 ): Promise<EnvironmentData> {
   const skyFaceNames = ['posX', 'negX', 'posY', 'negY', 'posZ', 'negZ'];
   const skyImages = await Promise.all(
-    skyFaceNames.map((face) => loadImageResourceFromUrl(host, `skybox/grimnight_${face}.png`)),
+    skyFaceNames.map((face) => loadImageResourceFromUrl(hostImage, `skybox/grimnight_${face}.png`)),
   );
-  const skyTexture = createCubeTextureFromAwayFaces(host, skyImages);
+  const skyTexture = createCubeTextureFromAwayFaces(hostBitmapReadback, skyImages);
   // Keep the sky as the backdrop while restraining its IBL contribution: a strong environment fill
   // washes out both the directional contact shadow and the ground normal-map response.
   const environment = createEnvironment({ environment: skyTexture, intensity: 0.45 });
 
   const [rockDiffuse, rockNormal] = await Promise.all([
-    loadImageResourceFromUrl(host, 'rockbase_diffuse.jpg'),
-    loadImageResourceFromUrl(host, 'rockbase_normals.png'),
+    loadImageResourceFromUrl(hostImage, 'rockbase_diffuse.jpg'),
+    loadImageResourceFromUrl(hostImage, 'rockbase_normals.png'),
   ]);
 
   const groundSampler = createTilingSampler();

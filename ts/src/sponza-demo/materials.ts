@@ -1,4 +1,4 @@
-import type { ExtendedPbrMaterial, HasGraphicsImage, ImageResource, Material, Mesh, Node3D, Texture2D } from '@flighthq/sdk';
+import type { ExtendedPbrMaterial, HostImageCapability, ImageResource, Material, Mesh, Node3D, Texture2D } from '@flighthq/sdk';
 import {
   createExtendedPbrMaterial,
   createStandardPbrMaterialProperties,
@@ -75,7 +75,7 @@ export const materialNameToSpecularFile: Record<string, string> = {
 export const alphaCutoutMaterials = new Set(['chain', 'leaf', 'Material__57']);
 
 export async function loadSponzaTextures(
-  host: Readonly<HasGraphicsImage>,
+  host: Readonly<HostImageCapability>,
   files: readonly string[],
 ): Promise<ImageResource[]> {
   return Promise.all(files.map((file) => loadImageResourceFromUrl(host, `sponza/${file}`)));

@@ -1,4 +1,4 @@
-import type { Bitmap, HasGraphicsBitmapReadback, ImageResource } from '@flighthq/sdk';
+import type { Bitmap, HostBitmapReadbackCapability, ImageResource } from '@flighthq/sdk';
 import { captureBitmapFromImageResource } from '@flighthq/sdk';
 
 export interface PbrChannels {
@@ -21,7 +21,7 @@ export interface PbrChannels {
  *                 roughness and metallic values.
  */
 export function createMetallicRoughnessImage(
-  host: Readonly<HasGraphicsBitmapReadback>,
+  host: Readonly<HostBitmapReadbackCapability>,
   source: ImageResource,
   mapPixel: (r: number, g: number, b: number, a: number) => PbrChannels,
 ): Bitmap {

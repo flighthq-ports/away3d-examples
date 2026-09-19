@@ -1,3 +1,5 @@
+import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
+import { createWebImageResourceFromCanvas } from '@flighthq/host-web';
 import type { MeshGeometry, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -6,7 +8,6 @@ import {
   createBoxMeshGeometry,
   createEnvironment,
   createFxaaEffect,
-  createImageResourceFromCanvas,
   createMesh,
   createPlaneMeshGeometry,
   createScene3D,
@@ -93,11 +94,11 @@ const lights = createScene3DLights({
 
 const skyFaces = await Promise.all(
   ['positive_x', 'negative_x', 'positive_y', 'negative_y', 'positive_z', 'negative_z'].map((face) =>
-    loadImageResourceFromUrl(ctx.host, `skybox/snow_${face}.jpg`),
+    loadImageResourceFromUrl(webHostImage, `skybox/snow_${face}.jpg`),
   ),
 );
 const environment = createEnvironment({
-  environment: createCubeTextureFromAwayFaces(ctx.host, skyFaces),
+  environment: createCubeTextureFromAwayFaces(webHostBitmapReadback, skyFaces),
   intensity: 1,
 });
 bakeGlEnvironmentIbl(ctx.state, environment);
@@ -155,7 +156,7 @@ noiseContext.putImageData(noise, 0, 0);
 // headlight washed the rim bright blue and it read as a painted kerb around the water.
 const poolMaterial = createUnlitMaterial({
   baseColor: 0xffffffff,
-  baseColorMap: createTexture({ source: createImageResourceFromCanvas(noiseCanvas) }),
+  baseColorMap: createTexture({ source: createWebImageResourceFromCanvas(noiseCanvas) }),
 });
 
 for (const [width, depth, x, z] of [

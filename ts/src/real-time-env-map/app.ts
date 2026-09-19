@@ -1,3 +1,4 @@
+import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
 import type { Mesh, MeshGeometry, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -121,18 +122,18 @@ const root = 'away3d/RealTimeEnvMap/';
 const [faceImages, heightImage, aridImage, r2Image, headObj, r2Obj] = await Promise.all([
   Promise.all(
     ['posX', 'negX', 'posY', 'negY', 'posZ', 'negZ'].map((face) =>
-      loadImageResourceFromUrl(ctx.host, `${root}skybox/sky_${face}.jpg`),
+      loadImageResourceFromUrl(webHostImage, `${root}skybox/sky_${face}.jpg`),
     ),
   ),
-  loadImageResourceFromUrl(ctx.host, `${root}desertHeightMap.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${root}arid.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${root}r2d2_diffuse.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${root}desertHeightMap.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${root}arid.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${root}r2d2_diffuse.jpg`),
   fetch(`${root}head.obj`).then((response) => response.text()),
   fetch(`${root}R2D2.obj`).then((response) => response.text()),
 ]);
 
 const skyEnvironment = createEnvironment({
-  environment: createCubeTextureFromAwayFaces(ctx.host, faceImages),
+  environment: createCubeTextureFromAwayFaces(webHostBitmapReadback, faceImages),
   intensity: 1.2,
 });
 bakeGlEnvironmentIbl(ctx.state, skyEnvironment);

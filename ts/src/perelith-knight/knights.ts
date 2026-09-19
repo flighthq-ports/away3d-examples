@@ -1,4 +1,5 @@
-import type { AnimationPlayer, AnimationTrack, Environment, HasGraphicsImage, ImageResource, Mesh, Scene3D, StandardPbrMaterial } from '@flighthq/sdk';
+import { createWebImageResourceFromCanvas } from '@flighthq/host-web';
+import type { AnimationPlayer, AnimationTrack, Environment, HostImageCapability, ImageResource, Mesh, Scene3D, StandardPbrMaterial } from '@flighthq/sdk';
 
 import {
   addNodeChild,
@@ -6,7 +7,6 @@ import {
   createAnimationPlayer,
   createCubeTexture,
   createEnvironment,
-  createImageResourceFromCanvas,
   createMesh,
   createScene3DFromMd2,
   createStandardPbrMaterial,
@@ -71,7 +71,7 @@ function buildGradientEnvironment(): Environment {
       ctx.fillStyle = gradient;
     }
     ctx.fillRect(0, 0, SIZE, SIZE);
-    faces.push(createImageResourceFromCanvas(canvas));
+    faces.push(createWebImageResourceFromCanvas(canvas));
   }
   const cube = createCubeTexture();
   for (let face = 0; face < faces.length; face++) setCubeTextureFace(cube, face, faces[face]!);
@@ -142,10 +142,10 @@ function buildMetalnessMap(skin: ImageResource): ImageResource | null {
     data[i + 3] = 255;
   }
   ctx.putImageData(frame, 0, 0);
-  return createImageResourceFromCanvas(canvas);
+  return createWebImageResourceFromCanvas(canvas);
 }
 
-export async function loadKnights(host: Readonly<HasGraphicsImage>, scene: Readonly<Scene3D>): Promise<KnightsResult> {
+export async function loadKnights(host: Readonly<HostImageCapability>, scene: Readonly<Scene3D>): Promise<KnightsResult> {
   const environment = buildGradientEnvironment();
   const knightMaterials: StandardPbrMaterial[] = [];
   for (let i = 0; i < 4; i++) {

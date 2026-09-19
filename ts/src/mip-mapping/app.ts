@@ -1,3 +1,4 @@
+import { webHostImage } from '@flighthq/host-web';
 import type { PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -32,7 +33,7 @@ const sampler = createTilingSampler();
 sampler.mipmaps = false;
 sampler.minFilter = 'linear';
 sampler.anisotropy = 1;
-const texture = createTexture({ source: await loadImageResourceFromUrl(ctx.host, 'floor_diffuse.jpg'), sampler });
+const texture = createTexture({ source: await loadImageResourceFromUrl(webHostImage, 'floor_diffuse.jpg'), sampler });
 const material = createUnlitMaterial({ baseColor: 0xffffffff, baseColorMap: texture });
 const geometry = createPlaneMeshGeometry(20000, 20000);
 scaleMeshGeometryUvs(geometry, 150, 150);

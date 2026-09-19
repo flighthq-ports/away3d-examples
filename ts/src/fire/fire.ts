@@ -1,4 +1,4 @@
-import type { HasGraphicsImage, ImageResource, ParticleEmitter3D, ParticleEmitterConfig, ParticleEmitterState, Scene3D, TextureAtlas } from '@flighthq/sdk';
+import type { HostImageCapability, ImageResource, ParticleEmitter3D, ParticleEmitterConfig, ParticleEmitterState, Scene3D, TextureAtlas } from '@flighthq/sdk';
 import {
   addTextureAtlasRegion,
   addNodeChild,
@@ -52,7 +52,7 @@ function createFireSpriteMask(source: Readonly<ImageResource>): ImageResource {
 }
 
 export async function createFireEmitters(
-  host: Readonly<HasGraphicsImage>,
+  host: Readonly<HostImageCapability>,
   scene: Readonly<Scene3D>,
 ): Promise<FireEmittersResult> {
   const fireImage = await loadImageResourceFromUrl(host, 'blue.png');

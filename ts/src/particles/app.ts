@@ -1,3 +1,4 @@
+import { webHostImage } from '@flighthq/host-web';
 import type { PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -32,7 +33,7 @@ const orbit = createOrbitControllerFromAway(camera, { distance: 1000, panAngle: 
 bindOrbitDrag(ctx.canvas, orbit);
 const lights = createScene3DLights();
 
-const image = await loadImageResourceFromUrl(ctx.host, 'blue.png');
+const image = await loadImageResourceFromUrl(webHostImage, 'blue.png');
 const atlas = createTextureAtlas({ texture: createTexture({ source: image }) });
 addTextureAtlasRegion(atlas, 0, 0, image.width, image.height);
 

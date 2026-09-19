@@ -12,12 +12,6 @@ import {
   createEmissiveMaterial,
   createEnvironment,
   createFxaaEffect,
-  createGlCanvasElement,
-  createGlContextFromCanvasElement,
-  createGlContextState,
-  createEmptyGlRegistries,
-  createGlPipeline,
-  createGlRenderState,
   createMesh,
   createQuaternion,
   createScene3D,
@@ -40,10 +34,11 @@ import {
   setQuaternionFromAxisAngle,
   setVector3,
 } from '@flighthq/sdk';
-import { enableHostWebGlRenderSurface, webHost } from '@flighthq/host-web';
+import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
 
 import { awayDirection, createCameraFromAway, setAwayPosition } from '../../shared/camera';
 import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
+import { createExampleGlSurface } from '../../shared/glSurface';
 import type { SkyboxRenderState } from './skybox';
 import { renderSkyboxScene } from './skybox';
 const width = window.innerWidth;
@@ -51,8 +46,7 @@ const height = window.innerHeight;
 const pixelRatio = window.devicePixelRatio || 1;
 
 const mount = document.getElementById('app');
-enableHostWebGlRenderSurface();
-const canvas = createGlCanvasElement(width, height, pixelRatio);
+const { canvas, clear, state } = createExampleGlSurface(width, height, pixelRatio, 0xffff00ff);
 
 if (mount) {
   mount.replaceWith(canvas);
@@ -61,15 +55,6 @@ if (mount) {
 }
 
 document.body.style.margin = '0';
-
-const gl = createGlContextFromCanvasElement(canvas, {
-  contextAttributes: { alpha: false, depth: true, preserveDrawingBuffer: false },
-});
-const state = createGlRenderState(
-  createGlContextState(gl),
-  createGlPipeline(createEmptyGlRegistries()),
-  { backgroundColor: 0xffff00ff, pixelRatio },
-);
 
 // Textured materials resolve their maps through the backing-kind registry; without this every
 // texture resolves to null and the scene renders untextured.
@@ -143,13 +128,13 @@ const faceUrls = [
   'skybox/snow_negative_z.jpg',
 ];
 
-const faceImages = await Promise.all(faceUrls.map((url) => loadImageResourceFromUrl(webHost, url)));
-const cubeTexture = createCubeTextureFromAwayFaces(webHost, faceImages);
+const faceImages = await Promise.all(faceUrls.map((url) => loadImageResourceFromUrl(webHostImage, url)));
+const cubeTexture = createCubeTextureFromAwayFaces(webHostBitmapReadback, faceImages);
 
 const environment = createEnvironment({ environment: cubeTexture, intensity: 1 });
 bakeGlEnvironmentIbl(state, environment);
 
-const skyboxRef: SkyboxRenderState = { pipeline: null };
+const skyboxRef: SkyboxRenderState = { effectState: null };
 
 let mouseX = width / 2;
 let cameraRotationY = 0;
@@ -187,7 +172,7 @@ function frame(): void {
 
   setCamera3DViewMatrix4FromLookAt(camera, eye, target, up);
 
-  renderSkyboxScene(state, canvas, skyboxRef, environment, scene.root, camera, lights, [
+  renderSkyboxScene(state, canvas, skyboxRef, clear, environment, scene.root, camera, lights, [
     createToneMapEffect(),
     createFxaaEffect(),
   ]);

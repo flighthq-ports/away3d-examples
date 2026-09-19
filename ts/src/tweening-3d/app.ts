@@ -1,3 +1,4 @@
+import { webHostImage } from '@flighthq/host-web';
 import type { PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -23,7 +24,7 @@ const scene = createScene3D();
 const camera = createCameraFromAway({ y: 500, z: -600, far: 3000 });
 const lights = createScene3DLights();
 const [floorImage, cubeImage] = await Promise.all([
-  loadImageResourceFromUrl(ctx.host, 'floor_diffuse.jpg'), loadImageResourceFromUrl(ctx.host, 'trinket_diffuse.jpg'),
+  loadImageResourceFromUrl(webHostImage, 'floor_diffuse.jpg'), loadImageResourceFromUrl(webHostImage, 'trinket_diffuse.jpg'),
 ]);
 const floor = createMesh(createPlaneMeshGeometry(700, 700), [
   createUnlitMaterial({ baseColor: 0xffffffff, baseColorMap: createTexture({ source: floorImage }) }),

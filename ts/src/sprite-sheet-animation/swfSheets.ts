@@ -1,12 +1,15 @@
-import type { ImageResource, Node2D } from '@flighthq/sdk';
+import type { CanvasRenderState, CanvasRenderTarget, ImageResource, Node2D } from '@flighthq/sdk';
 import { createImageResource, createMatrix, setMatrix, walkNodeDescendants } from '@flighthq/sdk';
 import { gotoAndStopMovieClip } from '@flighthq/movieclip';
 import {
+  beginCanvasRenderPass,
+  createCanvasScreenRenderTarget,
   createCanvasRenderState,
   createCanvasRenderSurface,
   createCanvasTextureResolvers,
+  defaultScene2DCanvasRenderRegistries,
+  endCanvasRenderPass,
   renderCanvasScene2D,
-  scene2DCanvasPipeline,
   setCanvasRenderTransform2D,
 } from '@flighthq/scene2d-canvas';
 import { createWebCanvasRenderSurfaceCreator } from '@flighthq/host-web';
@@ -37,12 +40,26 @@ const placement = createMatrix();
 const CONTENT_FILL = 0.84;
 
 const surfaceCreator = createWebCanvasRenderSurfaceCreator();
-function canvasStateFor(canvas: HTMLCanvasElement) {
-  return createCanvasRenderState(
-    createCanvasRenderSurface(surfaceCreator, canvas),
-    scene2DCanvasPipeline,
+interface CanvasContext {
+  state: CanvasRenderState;
+  target: CanvasRenderTarget;
+}
+
+function canvasStateFor(canvas: HTMLCanvasElement): CanvasContext {
+  const state = createCanvasRenderState(
+    defaultScene2DCanvasRenderRegistries,
     createCanvasTextureResolvers(surfaceCreator),
   );
+  const surface = createCanvasRenderSurface(surfaceCreator, canvas);
+  return { state, target: createCanvasScreenRenderTarget(surface) };
+}
+
+function renderClip(context: CanvasContext, clip: Node2D): void {
+  const pass = beginCanvasRenderPass(context.state, context.target, { color: [0, 0, 0, 0] });
+  setCanvasRenderTransform2D(pass, placement);
+  prepareScene2DRender(context.state, clip);
+  renderCanvasScene2D(pass, clip);
+  endCanvasRenderPass(pass);
 }
 
 function findClip(root: Node2D, name: string): Node2D | null {
@@ -122,12 +139,9 @@ export function createSwfSheetBuilder(swf: Uint8Array) {
     // contents can sit anywhere in its coordinate space, including left of or above it, and
     // anything outside the canvas is simply not rasterised, so it measures as absent.
     setMatrix(placement, MEASURE_SCALE, 0, 0, MEASURE_SCALE, MEASURE_ORIGIN, MEASURE_ORIGIN);
-    setCanvasRenderTransform2D(measureState, placement);
     for (let frame = 0; frame < frames; frame++) {
       gotoAndStopMovieClip(clip as never, frame + 1);
-      measureContext.clearRect(0, 0, MEASURE_SIZE, MEASURE_SIZE);
-      prepareScene2DRender(measureState, clip as never);
-      renderCanvasScene2D(measureState, clip);
+      renderClip(measureState, clip);
       scanBounds(measureContext, MEASURE_SIZE, fit, bounds);
     }
     if (bounds.maxX < bounds.minX) throw new Error(`digits.swf clip ${name} rasterised empty`);
@@ -165,13 +179,9 @@ export function createSwfSheetBuilder(swf: Uint8Array) {
       (cellWidth - contentWidth * scaleX) / 2 - contentX * scaleX,
       (cellHeight - contentHeight * scaleY) / 2 - contentY * scaleY,
     );
-    setCanvasRenderTransform2D(measureState, placement);
     for (let frame = 0; frame < frames; frame++) {
       gotoAndStopMovieClip(clip as never, frame + 1);
-      measureContext.setTransform(1, 0, 0, 1, 0, 0);
-      measureContext.clearRect(0, 0, MEASURE_SIZE, MEASURE_SIZE);
-      prepareScene2DRender(measureState, clip as never);
-      renderCanvasScene2D(measureState, clip);
+      renderClip(measureState, clip);
       sheetContext.drawImage(
         measure, 0, 0, cellWidth, cellHeight,
         (frame % columns) * cellWidth, Math.floor(frame / columns) * cellHeight, cellWidth, cellHeight,

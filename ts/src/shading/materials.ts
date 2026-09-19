@@ -1,4 +1,4 @@
-import type { HasGraphicsBitmapReadback, HasGraphicsImage, Sampler, StandardPbrMaterial, Texture } from '@flighthq/sdk';
+import type { HostBitmapReadbackCapability, HostImageCapability, Sampler, StandardPbrMaterial, Texture } from '@flighthq/sdk';
 import {
   createSampler,
   createStandardPbrMaterial,
@@ -61,7 +61,7 @@ export function createSceneMaterials(): SceneMaterials {
 }
 
 export function applyTextures(
-  host: Readonly<HasGraphicsImage>,
+  host: Readonly<HostImageCapability>,
   material: StandardPbrMaterial,
   maps: { diffuse?: string; normal?: string; specular?: string },
   tilingSampler: Sampler,
@@ -101,11 +101,12 @@ export function applyTextures(
 }
 
 export async function createMetalRoughnessFromSpecular(
-  host: Readonly<HasGraphicsBitmapReadback & HasGraphicsImage>,
+  hostImage: Readonly<HostImageCapability>,
+  hostBitmapReadback: Readonly<HostBitmapReadbackCapability>,
   url: string,
 ): Promise<Texture> {
-  const image = await loadImageResourceFromUrl(host, url);
-  const mrImage = createMetallicRoughnessImage(host, image, (r) => ({
+  const image = await loadImageResourceFromUrl(hostImage, url);
+  const mrImage = createMetallicRoughnessImage(hostBitmapReadback, image, (r) => ({
     roughness: Math.max(0.12, 1 - r * 1.7),
     metallic: r,
   }));
@@ -113,7 +114,8 @@ export async function createMetalRoughnessFromSpecular(
 }
 
 export async function loadSceneTextures(
-  host: Readonly<HasGraphicsBitmapReadback & HasGraphicsImage>,
+  hostImage: Readonly<HostImageCapability>,
+  hostBitmapReadback: Readonly<HostBitmapReadbackCapability>,
   materials: SceneMaterials,
   tilingSampler: Sampler,
 ): Promise<void> {
@@ -123,7 +125,7 @@ export async function loadSceneTextures(
   // keeps the round top cap smooth instead of introducing nearest-neighbor stair steps.
   const sphereSampler = createSampler({ magFilter: 'linear', minFilter: 'linear', mipmaps: false });
 
-  const torusWeaveNormalImage = await loadImageResourceFromUrl(host, 'weave_normal.jpg');
+  const torusWeaveNormalImage = await loadImageResourceFromUrl(hostImage, 'weave_normal.jpg');
   const torusNormalTex = createTexture({
     source: torusWeaveNormalImage,
     colorSpace: 'linear',
@@ -134,7 +136,7 @@ export async function loadSceneTextures(
   // AwayJS assigns weave_normal.jpg to both the normal and specular maps. Preserve that variation as
   // a medium-rough metallic response: brighter weave catches a tighter highlight, while darker fibers
   // stay more diffuse. High, slightly sub-unity metalness keeps the result in pewter/silver territory.
-  const torusMrImage = createMetallicRoughnessImage(host, torusWeaveNormalImage, (r) => ({
+  const torusMrImage = createMetallicRoughnessImage(hostBitmapReadback, torusWeaveNormalImage, (r) => ({
     roughness: 0.34 + (1 - r) * 0.24,
     metallic: 0.9,
   }));
@@ -146,7 +148,7 @@ export async function loadSceneTextures(
 
   await Promise.all([
     applyTextures(
-      host,
+      hostImage,
       planeMaterial,
       {
         diffuse: 'floor_diffuse.jpg',
@@ -155,23 +157,23 @@ export async function loadSceneTextures(
       tilingSampler,
       { x: 2, y: 2 },
     ),
-    createMetalRoughnessFromSpecular(host, 'floor_specular.jpg').then((tex) => {
+    createMetalRoughnessFromSpecular(hostImage, hostBitmapReadback, 'floor_specular.jpg').then((tex) => {
       tex.sampler = tilingSampler;
       setTextureUvScale(tex, 2, 2);
       planeMaterial.metallicRoughnessMap = tex;
     }),
-    loadImageResourceFromUrl(host, 'beachball_diffuse.jpg').then((image) => {
+    loadImageResourceFromUrl(hostImage, 'beachball_diffuse.jpg').then((image) => {
       const tex = createTexture({ source: image, sampler: sphereSampler });
       sphereMaterial.baseColorMap = tex;
       // A restrained albedo-matched lift keeps the red panels red beneath the strong cyan fill without
       // making the vinyl look self-lit or erasing the moving directional shading.
       sphereMaterial.emissiveMap = tex;
     }),
-    loadImageResourceFromUrl(host, 'beachball_specular.jpg').then((image) => {
+    loadImageResourceFromUrl(hostImage, 'beachball_specular.jpg').then((image) => {
       // AwayJS's modest gloss creates a broad vinyl highlight. The generic conversion combined with
       // the old 0.3 material factor collapsed the bright parts of this map to near-mirror roughness,
       // producing a tiny aliased-looking dot instead of the original soft cyan lobe.
-      const mrImage = createMetallicRoughnessImage(host, image, (r) => ({
+      const mrImage = createMetallicRoughnessImage(hostBitmapReadback, image, (r) => ({
         roughness: 0.22 + (1 - r) * 0.5,
         metallic: 0,
       }));
@@ -182,7 +184,7 @@ export async function loadSceneTextures(
       });
     }),
     applyTextures(
-      host,
+      hostImage,
       cubeMaterial,
       {
         diffuse: 'trinket_diffuse.jpg',
@@ -190,16 +192,16 @@ export async function loadSceneTextures(
       },
       tilingSampler,
     ),
-    loadImageResourceFromUrl(host, 'trinket_specular.jpg').then((image) => {
+    loadImageResourceFromUrl(hostImage, 'trinket_specular.jpg').then((image) => {
       // Preserve the map's metal/wood separation, but broaden the frame highlight. The generic
       // conversion's 0.12 roughness floor produced razor-white edges on the new Flight renderer.
-      const mrImage = createMetallicRoughnessImage(host, image, (r) => ({
+      const mrImage = createMetallicRoughnessImage(hostBitmapReadback, image, (r) => ({
         roughness: 0.42 + (1 - r) * 0.45,
         metallic: r,
       }));
       cubeMaterial.metallicRoughnessMap = createTexture({ source: mrImage, colorSpace: 'linear' });
     }),
-    loadImageResourceFromUrl(host, 'weave_diffuse.jpg').then((image) => {
+    loadImageResourceFromUrl(hostImage, 'weave_diffuse.jpg').then((image) => {
       const tex = createTexture({ source: image, sampler: tilingSampler });
       torusMaterial.baseColorMap = tex;
     }),

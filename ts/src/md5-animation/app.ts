@@ -9,13 +9,7 @@ import {
   createAnimationPlayer,
   createCamera3D,
   createSmaaEffect,
-  createGlCanvasElement,
-  createGlContextFromCanvasElement,
-  createGlContextState,
-  createEmptyGlRegistries,
-  createGlPipeline,
-  createGlRenderEffectPipeline,
-  createGlRenderState,
+  createGlEffectState,
   createOrthographicProjection,
   createQuaternion,
   createScene3D,
@@ -39,9 +33,10 @@ import {
   setVector3,
   updateMeshSkin,
 } from '@flighthq/sdk';
-import { enableHostWebGlRenderSurface, webHost } from '@flighthq/host-web';
+import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
 
 import { awayPosition, createCameraFromAway } from '../../shared/camera';
+import { createExampleGlSurface } from '../../shared/glSurface';
 import { ANIM_NAMES, IDLE_NAME, WALK_NAME, loadCharacter } from './character';
 import { bindCharacterControls } from './controls';
 import { loadEnvironment } from './environment';
@@ -60,8 +55,7 @@ const height = window.innerHeight;
 const pixelRatio = window.devicePixelRatio || 1;
 
 const mount = document.getElementById('app');
-enableHostWebGlRenderSurface();
-const canvas = createGlCanvasElement(width, height, pixelRatio);
+const { canvas, clear, state: glState } = createExampleGlSurface(width, height, pixelRatio, 0x000000ff);
 if (mount) {
   mount.replaceWith(canvas);
 } else {
@@ -69,14 +63,6 @@ if (mount) {
 }
 document.body.style.margin = '0';
 
-const gl = createGlContextFromCanvasElement(canvas, {
-  contextAttributes: { alpha: false, depth: true, preserveDrawingBuffer: false },
-});
-const glState = createGlRenderState(
-  createGlContextState(gl),
-  createGlPipeline(createEmptyGlRegistries()),
-  { backgroundColor: 0x000000ff, pixelRatio },
-);
 // Textured materials resolve their maps through the backing-kind registry; without this every
 // texture resolves to null and the scene renders untextured.
 registerStandardGlTextureResolvers(glState);
@@ -111,8 +97,8 @@ function updateCamera(): void {
 }
 
 const [{ environment, groundMesh, fogEffect }, character] = await Promise.all([
-  loadEnvironment(webHost),
-  loadCharacter(webHost),
+  loadEnvironment(webHostImage, webHostBitmapReadback),
+  loadCharacter(webHostImage),
 ]);
 addNodeChild(scene.root, groundMesh);
 // The tone map runs on its default operator, which is ACES — measured byte-identical to passing 'aces'
@@ -196,7 +182,7 @@ let rotationInc = 0;
 let characterX = 0;
 let characterZ = 0;
 const skyboxRef: SkyboxRenderState = {
-  pipeline: createGlRenderEffectPipeline(glState, { format: 'rgba16f', depth: 'depth-stencil-sampled' }),
+  effectState: createGlEffectState(glState, { format: 'rgba16f', depth: 'depth-stencil-sampled' }),
 };
 
 function play(name: string): void {
@@ -318,7 +304,7 @@ function frame(ts: number): void {
   // concentrated on the character and its contact shadow rather than the decorative ground plane.
   drawGlScene3DShadowMap(glState, scene.root, shadowCamera, whiteLight);
 
-  renderSkyboxScene(glState, canvas, skyboxRef, environment, scene.root, camera, lights, effects);
+  renderSkyboxScene(glState, canvas, skyboxRef, clear, environment, scene.root, camera, lights, effects);
   requestAnimationFrame(frame);
 }
 

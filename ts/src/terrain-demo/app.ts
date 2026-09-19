@@ -1,3 +1,5 @@
+import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
+import { createWebImageResourceFromCanvas } from '@flighthq/host-web';
 import type { MeshGeometry, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -6,7 +8,6 @@ import {
   computeMeshGeometryTangents,
   createEnvironment,
   createFxaaEffect,
-  createImageResourceFromCanvas,
   createMesh,
   createPlaneMeshGeometry,
   createScene3D,
@@ -106,11 +107,11 @@ const lights = createScene3DLights({ ambient: light.ambient, directional: light.
 const assetRoot = 'away3d/TerrainDemo/';
 const SKY_FACES = ['positive_x', 'negative_x', 'positive_y', 'negative_y', 'positive_z', 'negative_z'];
 const [heightImage, terrainImage, normalImage, waterNormalImage, ...skyFaces] = await Promise.all([
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/terrain_heights.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/terrain_diffuse.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/terrain_normals.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}water_normals.jpg`),
-  ...SKY_FACES.map((face) => loadImageResourceFromUrl(ctx.host, `${assetRoot}skybox/snow_${face}.jpg`)),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}terrain/terrain_heights.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}terrain/terrain_diffuse.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}terrain/terrain_normals.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}water_normals.jpg`),
+  ...SKY_FACES.map((face) => loadImageResourceFromUrl(webHostImage, `${assetRoot}skybox/snow_${face}.jpg`)),
 ]);
 
 if (!heightImage.source) throw new Error('The terrain heightmap has no drawable image source');
@@ -124,7 +125,7 @@ const heightPixels = heightContext.getImageData(0, 0, heightCanvas.width, height
 // SkyBox(cubeTexture) over the same snow cube the water reflects. The port loaded none of these
 // faces, so the sky was a flat clear colour and the water had nothing to mirror.
 const environment = createEnvironment({
-  environment: createCubeTextureFromAwayFaces(ctx.host, skyFaces),
+  environment: createCubeTextureFromAwayFaces(webHostBitmapReadback, skyFaces),
   intensity: 1,
 });
 bakeGlEnvironmentIbl(ctx.state, environment);
@@ -172,7 +173,7 @@ if (!scrollContext) throw new Error('A 2D canvas is required for the water scrol
 scrollContext.fillStyle = '#ffffff';
 scrollContext.fillRect(0, 0, 1, 1);
 const waterScrollCarrier = createTexture({
-  source: createImageResourceFromCanvas(scrollCanvas),
+  source: createWebImageResourceFromCanvas(scrollCanvas),
   sampler: createTilingSampler(),
 });
 

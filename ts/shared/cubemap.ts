@@ -1,4 +1,4 @@
-import type { CubeTexture, HasGraphicsBitmapReadback, ImageResource } from '@flighthq/sdk';
+import type { CubeTexture, HostBitmapReadbackCapability, ImageResource } from '@flighthq/sdk';
 import {
   createCubeTexture,
   captureBitmapFromImageResource,
@@ -21,7 +21,7 @@ import {
  *              [posX, negX, posY, negY, posZ, negZ]
  */
 export function createCubeTextureFromAwayFaces(
-  host: Readonly<HasGraphicsBitmapReadback>,
+  host: Readonly<HostBitmapReadbackCapability>,
   faces: readonly ImageResource[],
 ): CubeTexture {
   const cube = createCubeTexture();

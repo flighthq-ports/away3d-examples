@@ -1,3 +1,5 @@
+import { webHostBitmapReadback, webHostImage, webHostNet } from '@flighthq/host-web';
+import { registerWebImageDecoders } from '@flighthq/host-web';
 import type { Mesh, PerspectiveProjection, Texture } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -22,7 +24,6 @@ import {
   loadImageResourceFromUrl,
   loadScene3DDocumentFromAwd2Url,
   registerDeflateDecompressor,
-  registerWebImageDecoders,
   setCamera3DViewMatrix4FromLookAt,
   setTextureUvOffset,
   setTextureUvScale,
@@ -131,17 +132,17 @@ const staticTextureFiles = {
   wire: 'm_wire.jpg',
 } as const;
 const [sceneDocument, environmentFaces, staticTextureEntries, furnitureNormal] = await Promise.all([
-  loadScene3DDocumentFromAwd2Url(ctx.host, `${assetRoot}tictac/tictac.awd`),
+  loadScene3DDocumentFromAwd2Url(webHostNet, `${assetRoot}tictac/tictac.awd`),
   Promise.all(
     [0, 1, 2, 3, 4, 5].map((face) =>
-      loadImageResourceFromUrl(ctx.host, `${assetRoot}spritesheets/textures/back_CB${face}.jpg`),
+      loadImageResourceFromUrl(webHostImage, `${assetRoot}spritesheets/textures/back_CB${face}.jpg`),
     ),
   ),
   Promise.all(Object.entries(staticTextureFiles).map(async ([name, file]) => [
     name,
-    await loadImageResourceFromUrl(ctx.host, `${assetRoot}tictac/textures/${file}`),
+    await loadImageResourceFromUrl(webHostImage, `${assetRoot}tictac/textures/${file}`),
   ] as const)),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}tictac/textures/furniture_NM.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}tictac/textures/furniture_NM.jpg`),
 ]);
 if (!sceneDocument) throw new Error('Could not load compressed tictac AWD');
 const clock = createScene3DFromDocument(sceneDocument);
@@ -151,7 +152,7 @@ addNodeChild(scene.root, clock.root);
 // room regardless of the lamps, which is what kept the wallpaper bright in a supposedly dark
 // bedroom. Held low enough to still catch the chrome bezel without illuminating the room.
 bakeGlEnvironmentIbl(ctx.state, createEnvironment({
-  environment: createCubeTextureFromAwayFaces(ctx.host, environmentFaces),
+  environment: createCubeTextureFromAwayFaces(webHostBitmapReadback, environmentFaces),
   intensity: 0.05,
 }));
 const staticTextures = new Map(staticTextureEntries);

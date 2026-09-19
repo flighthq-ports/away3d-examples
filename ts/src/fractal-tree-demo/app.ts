@@ -1,3 +1,4 @@
+import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
 import type { ImageResource, InstancedMesh, Material, Matrix4, MeshGeometry, PerspectiveProjection, Vector3Like } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -127,24 +128,24 @@ const assetRoot = 'away3d/FractalTreeDemo/';
 const [
   bark, barkNormal, barkSpecular, leaf, grass, rock, heightImage, terrainNormal, splatImage, skyFaces,
 ] = await Promise.all([
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}tree/bark0.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}tree/barkNRM.png`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}tree/barkSPEC.png`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}tree/leaf4.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/grass.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/rock.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/terrain_heights.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/terrain_normals.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}terrain/terrain_splats.png`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}tree/bark0.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}tree/barkNRM.png`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}tree/barkSPEC.png`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}tree/leaf4.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}terrain/grass.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}terrain/rock.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}terrain/terrain_heights.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}terrain/terrain_normals.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}terrain/terrain_splats.png`),
   Promise.all(
     ['posX', 'negX', 'posY', 'negY', 'posZ', 'negZ'].map((face) =>
-      loadImageResourceFromUrl(ctx.host, `${assetRoot}skybox/grimnight_${face}.png`),
+      loadImageResourceFromUrl(webHostImage, `${assetRoot}skybox/grimnight_${face}.png`),
     ),
   ),
 ]);
 
 const environment = createEnvironment({
-  environment: createCubeTextureFromAwayFaces(ctx.host, skyFaces),
+  environment: createCubeTextureFromAwayFaces(webHostBitmapReadback, skyFaces),
   // Note this single number does two jobs: it scales the IBL contribution AND multiplies the
   // drawn skybox (`drawGlEnvironmentSkybox` uniform `u_intensity`). Lowering it to tame the
   // terrain also crushed the visible night sky from (23,22,39) to (1,1,2) against the original's

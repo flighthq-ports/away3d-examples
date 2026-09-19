@@ -1,3 +1,4 @@
+import { webHostImage } from '@flighthq/host-web';
 import type { BitmapFont, MeshGeometry, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -31,7 +32,7 @@ const camera = createCameraFromAway({ y: 200, z: -600, near: 20, far: 3000 });
 const lights = createScene3DLights();
 
 const assetRoot = 'away3d/BitmapFont/fonts/';
-const image = await loadImageResourceFromUrl(ctx.host, `${assetRoot}BerberRevKC_260.png`);
+const image = await loadImageResourceFromUrl(webHostImage, `${assetRoot}BerberRevKC_260.png`);
 const atlas = createTextureAtlasFromImageResource(image);
 const fnt = await fetch(`${assetRoot}BerberRevKC_260.fnt`).then((response) => response.text());
 const font = parseBitmapFontXml(fnt, { resolvePage: () => atlas });

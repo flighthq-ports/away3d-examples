@@ -1,3 +1,4 @@
+import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
 import type { ExtendedPbrMaterial, Node3D, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -109,9 +110,9 @@ const skyboxFaceFiles = [
 
 const [awdBuffer, sponzaTextureImages, skyboxFaceImages, fireImage] = await Promise.all([
   fetch('sponza/sponza.awd').then((r) => r.arrayBuffer()),
-  loadSponzaTextures(ctx.host, sponzaTextureFiles),
-  Promise.all(skyboxFaceFiles.map((file) => loadImageResourceFromUrl(ctx.host, `skybox/${file}`))),
-  loadImageResourceFromUrl(ctx.host, 'fire.png'),
+  loadSponzaTextures(webHostImage, sponzaTextureFiles),
+  Promise.all(skyboxFaceFiles.map((file) => loadImageResourceFromUrl(webHostImage, `skybox/${file}`))),
+  loadImageResourceFromUrl(webHostImage, 'fire.png'),
 ]);
 
 const textureMap = createTextureMap(sponzaTextureFiles, sponzaTextureImages);
@@ -156,7 +157,7 @@ drawGlScene3DShadowMap(ctx.state, shadowScene.root, shadowCamera, directional);
 const torches = createSponzaTorches(scene.root, fireImage);
 const lights = createScene3DLights({ ambient, directional, point: torches.lights });
 
-const cubeTexture = createCubeTextureFromAwayFaces(ctx.host, skyboxFaceImages);
+const cubeTexture = createCubeTextureFromAwayFaces(webHostBitmapReadback, skyboxFaceImages);
 const environment = createEnvironment({
   environment: cubeTexture,
   // The original skybox was only a backdrop. This is the scene's entire fill: baking an IBL supersedes
@@ -168,7 +169,7 @@ const environment = createEnvironment({
   intensity: 0.85,
 });
 bakeGlEnvironmentIbl(ctx.state, environment);
-const skyboxRef: SkyboxRenderState = { pipeline: null };
+const skyboxRef: SkyboxRenderState = { effectState: null };
 const fps = createFirstPersonControllerFromAway(camera, {
   y: 150,
   yaw: 90,
@@ -182,7 +183,7 @@ function frame(timeMs: number): void {
   step();
   torches.update(timeMs);
   orientScene3DBillboardsToCamera(scene.root, camera);
-  renderSkyboxScene(ctx.state, ctx.canvas, skyboxRef, environment, scene.root, camera, lights, effects);
+  renderSkyboxScene(ctx.state, ctx.canvas, skyboxRef, ctx.clear, environment, scene.root, camera, lights, effects);
   requestAnimationFrame(frame);
 }
 

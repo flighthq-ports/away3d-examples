@@ -1,19 +1,13 @@
-import type { GlRenderEffectPipeline, PerspectiveProjection } from '@flighthq/sdk';
+import type { GlEffectState, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
   advanceAnimationPlayer,
-  beginGlRenderEffectPipeline,
+  beginGlEffectState,
   configureDirectionalShadowCamera3DTightFit,
   createStandardPbrMaterial,
   createCamera3D,
   createFxaaEffect,
-  createGlCanvasElement,
-  createGlContextFromCanvasElement,
-  createGlContextState,
-  createEmptyGlRegistries,
-  createGlPipeline,
-  createGlRenderEffectPipeline,
-  createGlRenderState,
+  createGlEffectState,
   createMesh,
   createOrthographicProjection,
   createPlaneMeshGeometry,
@@ -24,20 +18,21 @@ import {
   createToneMapEffect,
   defaultGlFxaaEffectRunner,
   defaultGlToneMapEffectRunner,
-  drawGlScene3D,
+  renderGlScene3D,
   drawGlScene3DShadowMap,
-  endGlRenderEffectPipeline,
+  endGlEffectState,
   loadImageResourceFromUrl,
   bakeGlEnvironmentIbl,
   registerGlStandardPbrMaterial,
   registerGlRenderEffect,
   registerStandardGlTextureResolvers,
-  renderGlBackground,
   sampleAnimationTrack,
   setTextureUvScale,
   updateMeshMorph,
 } from '@flighthq/sdk';
-import { enableHostWebGlRenderSurface, webHost } from '@flighthq/host-web';
+import { webHostImage } from '@flighthq/host-web';
+
+import { createExampleGlSurface } from '../../shared/glSurface';
 
 import {
   awayDirection,
@@ -51,8 +46,9 @@ import { loadKnights } from './knights';
 const pixelRatio = window.devicePixelRatio || 1;
 
 const mount = document.getElementById('app');
-enableHostWebGlRenderSurface();
-const canvas = createGlCanvasElement(window.innerWidth, window.innerHeight, pixelRatio);
+const { canvas, clear, state } = createExampleGlSurface(
+  window.innerWidth, window.innerHeight, pixelRatio, 0x000000ff,
+);
 if (mount) {
   mount.replaceWith(canvas);
 } else {
@@ -60,14 +56,6 @@ if (mount) {
 }
 document.body.style.margin = '0';
 
-const gl = createGlContextFromCanvasElement(canvas, {
-  contextAttributes: { alpha: false, depth: true, preserveDrawingBuffer: false },
-});
-const state = createGlRenderState(
-  createGlContextState(gl),
-  createGlPipeline(createEmptyGlRegistries()),
-  { backgroundColor: 0x000000ff, pixelRatio },
-);
 
 // Textured materials resolve their maps through the backing-kind registry; without this every
 // texture resolves to null and the scene renders untextured.
@@ -75,7 +63,7 @@ registerStandardGlTextureResolvers(state);
 registerGlStandardPbrMaterial(state);
 registerGlRenderEffect(state, 'FxaaEffect', defaultGlFxaaEffectRunner);
 registerGlRenderEffect(state, 'ToneMapEffect', defaultGlToneMapEffectRunner);
-let pipeline: GlRenderEffectPipeline | null = null;
+let effectState: GlEffectState | null = null;
 
 const scene = createScene3D();
 
@@ -123,7 +111,7 @@ const floorMaterial = createStandardPbrMaterial({
 });
 floorMaterial.doubleSided = true;
 
-const floorImage = await loadImageResourceFromUrl(webHost, 'floor_diffuse.jpg');
+const floorImage = await loadImageResourceFromUrl(webHostImage, 'floor_diffuse.jpg');
 const floorTex = createTexture({ source: floorImage, sampler: createTilingSampler() });
 setTextureUvScale(floorTex, 5, 5);
 floorMaterial.baseColorMap = floorTex;
@@ -132,7 +120,7 @@ const floorGeometry = createPlaneMeshGeometry(5000, 5000, 1, 1);
 const floor = createMesh(floorGeometry, [floorMaterial]);
 addNodeChild(scene.root, floor);
 
-const { animationBuckets, environment } = await loadKnights(webHost, scene);
+const { animationBuckets, environment } = await loadKnights(webHostImage, scene);
 bakeGlEnvironmentIbl(state, environment);
 
 const orbit = createOrbitControllerFromAway(camera, {
@@ -236,20 +224,16 @@ function frame(now: number): void {
 
   orbit.update();
   drawGlScene3DShadowMap(state, scene.root, shadowCamera, directional);
-  if (pipeline === null) {
-    pipeline = createGlRenderEffectPipeline(state, { format: 'rgba16f', depth: 'depth-stencil' });
+  if (effectState === null) {
+    effectState = createGlEffectState(state, { format: 'rgba16f', depth: 'depth-stencil' });
   }
-  beginGlRenderEffectPipeline(state, pipeline);
-  renderGlBackground(state);
-  state.gl.depthMask(true);
-  state.gl.clearDepth(1);
-  state.gl.clear(state.gl.DEPTH_BUFFER_BIT);
-  drawGlScene3D(state, scene.root, camera, lights);
+  const pass = beginGlEffectState(state, effectState, clear);
+  renderGlScene3D(pass, scene.root, camera, lights);
   // AwayJS applies no tone mapping at all, so the default ACES curve was the single largest source of
   // mismatch: its shoulder compressed the mid-tones, crushed the darks and desaturated the armour.
   // Reinhard with a high white point is near-linear across this scene's range — closest to AwayJS's
   // straight gamma-space output while still clamping the few specular pixels above 1.
-  endGlRenderEffectPipeline(state, pipeline, [
+  endGlEffectState(pass, effectState, [
     createToneMapEffect({ operator: 'reinhard', white: 8, exposure: 1.0 }),
     createFxaaEffect(),
   ]);

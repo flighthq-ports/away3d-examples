@@ -1,3 +1,4 @@
+import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
 import type {
   PerspectiveProjection,
 } from '@flighthq/sdk';
@@ -158,7 +159,7 @@ copyQuaternion(torus.rotation, torusRotation);
 invalidateNodeLocalTransform(torus);
 addNodeChild(scene.root, torus);
 
-await loadSceneTextures(ctx.host, { planeMaterial, sphereMaterial, cubeMaterial, torusMaterial }, tilingSampler);
+await loadSceneTextures(webHostImage, webHostBitmapReadback, { planeMaterial, sphereMaterial, cubeMaterial, torusMaterial }, tilingSampler);
 
 const orbit = createOrbitControllerFromAway(camera, {
   distance: 1000,

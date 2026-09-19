@@ -1,3 +1,5 @@
+import { webHostBitmapReadback, webHostImage, webHostNet } from '@flighthq/host-web';
+import { registerWebImageDecoders } from '@flighthq/host-web';
 import type { ImageResource, Mesh, Node3D, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -29,7 +31,6 @@ import {
   loadScene3DResources,
   prepareMeshSkinning,
   registerDeflateDecompressor,
-  registerWebImageDecoders,
   scaleMeshGeometryUvs,
   setQuaternionFromEuler,
   setVector3,
@@ -173,7 +174,7 @@ function skyFace(face: number): ImageResource {
 }
 
 const environment = createEnvironment({
-  environment: createCubeTextureFromAwayFaces(ctx.host, [0, 1, 2, 3, 4, 5].map(skyFace)),
+  environment: createCubeTextureFromAwayFaces(webHostBitmapReadback, [0, 1, 2, 3, 4, 5].map(skyFace)),
   intensity: 2.4,
 });
 bakeGlEnvironmentIbl(ctx.state, environment);
@@ -204,25 +205,25 @@ const lights = createScene3DLights({
   point: [skyLight],
 });
 
-const document3d = await loadScene3DDocumentFromAwd2Url(ctx.host, `${assetRoot}onkba.awd`);
+const document3d = await loadScene3DDocumentFromAwd2Url(webHostNet, `${assetRoot}onkba.awd`);
 if (!document3d) throw new Error('Could not load compressed Onkba AWD');
 const model = createScene3DFromDocument(document3d);
-await loadScene3DResources(model, createBuiltInScene3DResourceResolver(ctx.host));
+await loadScene3DResources(model, createBuiltInScene3DResourceResolver(webHostImage));
 
 const [
   heroImage, heroNormal, heroLightmap,
   gunImage, gunNormal, gunLightmap,
   floorImage, floorNormal, floorSpecular,
 ] = await Promise.all([
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}onkba_diffuse.png`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}onkba_normals.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}onkba_lightmap.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}gun_diffuse.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}gun_normals.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}gun_lightmap.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}floor_diffuse.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}floor_normals.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}floor_specular.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}onkba_diffuse.png`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}onkba_normals.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}onkba_lightmap.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}gun_diffuse.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}gun_normals.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}gun_lightmap.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}floor_diffuse.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}floor_normals.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}floor_specular.jpg`),
 ]);
 
 const heroMaterial = createStandardPbrMaterial({

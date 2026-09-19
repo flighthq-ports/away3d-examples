@@ -1,3 +1,4 @@
+import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
 import type { MeshGeometry, Node3D, PerspectiveProjection } from '@flighthq/sdk';
 import {
   acquireGlRenderTexture,
@@ -11,7 +12,7 @@ import {
   matrix4TransformPoint,
   setPlaneFromNormalAndPoint,
   drawGlEnvironmentSkybox,
-  drawGlScene3D,
+  renderGlScene3D,
   registerGlRenderTextureResolver,
   reflectCamera3DByPlane,
   renderIntoGlRenderTexture,
@@ -141,14 +142,14 @@ const lights = createScene3DLights({ ambient, directional });
 const skyFaceNames = ['sky_posX', 'sky_negX', 'sky_posY', 'sky_negY', 'sky_posZ', 'sky_negZ'];
 const [obj, r2d2Image, sandImage, heightImage, ...skyFaces] = await Promise.all([
   fetch(`${assetRoot}R2D2.obj`).then((response) => response.text()),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}r2d2_diffuse.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}desertsand.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}desertHeightMap.jpg`),
-  ...skyFaceNames.map((face) => loadImageResourceFromUrl(ctx.host, `${assetRoot}skybox/${face}.jpg`)),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}r2d2_diffuse.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}desertsand.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}desertHeightMap.jpg`),
+  ...skyFaceNames.map((face) => loadImageResourceFromUrl(webHostImage, `${assetRoot}skybox/${face}.jpg`)),
 ]);
 
 const environment = createEnvironment({
-  environment: createCubeTextureFromAwayFaces(ctx.host, skyFaces),
+  environment: createCubeTextureFromAwayFaces(webHostBitmapReadback, skyFaces),
   intensity: 1,
 });
 bakeGlEnvironmentIbl(ctx.state, environment);
@@ -376,8 +377,8 @@ function frame(timestamp: number): void {
   // mirror is hidden for the pass so it cannot reflect itself. See the note above the mirror plane
   // for why the scene is mirrored rather than the camera.
   mirror.visible = false;
-  renderIntoGlRenderTexture(ctx.state, reflectionTexture, (reflectionState) => {
-    const gl = reflectionState.gl;
+  renderIntoGlRenderTexture(ctx.state, reflectionTexture, (reflectionPass) => {
+    const reflectionState = reflectionPass.state;
 
     // Clip at the mirror plane so scenery on the far side of the glass, which mirrors into the
     // space between the camera and the mirror, cannot draw over the reflection.
@@ -407,11 +408,6 @@ function frame(timestamp: number): void {
     setPlaneFromNormalAndPoint(reflectionClipPlane, clipNormalView, clipPointView);
     camera.nearClipPlane = reflectionClipPlane;
 
-    gl.clearColor(0, 0, 0, 1);
-    gl.clearDepth(1);
-    gl.depthMask(true);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
     // The environment is infinitely distant, so it cannot be mirrored by a node transform; it is
     // drawn with the reflected camera instead. That agrees with the mirrored scene exactly — the
     // reflected camera's view of the real world and the real camera's view of the mirrored world
@@ -428,14 +424,14 @@ function frame(timestamp: number): void {
     setVector3(scene.root.position, 0, 0, 2 * MIRROR_Z);
     invalidateNodeLocalTransform(scene.root);
     directional.direction.z = -directional.direction.z;
-    drawGlScene3D(reflectionState, scene.root, camera, lights);
+    renderGlScene3D(reflectionPass, scene.root, camera, lights);
     directional.direction.z = -directional.direction.z;
     setVector3(scene.root.scale, 1, 1, 1);
     setVector3(scene.root.position, 0, 0, 0);
     invalidateNodeLocalTransform(scene.root);
 
     camera.nearClipPlane = null;
-  });
+  }, { color: [0, 0, 0, 1], depth: 1 });
 
   mirror.visible = true;
 

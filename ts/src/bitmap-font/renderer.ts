@@ -1,26 +1,20 @@
 import type {
   Adjustment,
   Camera3D,
-  GlRenderEffectPipeline,
+  GlEffectState,
   GlRenderState,
   Node3D,
   RenderEffect,
   Scene3DLights,
 } from '@flighthq/sdk';
 import {
-  beginGlRenderEffectPipeline,
-  createGlCanvasElement,
-  createGlContextFromCanvasElement,
-  createGlContextState,
-  createEmptyGlRegistries,
-  createGlPipeline,
-  createGlRenderEffectPipeline,
-  createGlRenderState,
+  beginGlEffectState,
+  createGlEffectState,
   createToneMapEffect,
   defaultGlFxaaEffectRunner,
   defaultGlToneMapEffectRunner,
-  drawGlScene3D,
-  endGlRenderEffectPipeline,
+  renderGlScene3D,
+  endGlEffectState,
   registerBuiltInGlModifierSnippets,
   registerGlBlinnPhongMaterial,
   registerGlExtendedPbrMaterial,
@@ -30,14 +24,12 @@ import {
   registerGlStandardPbrMaterial,
   registerGlUnlitMaterial,
   registerStandardGlTextureResolvers,
-  renderGlBackground,
 } from '@flighthq/sdk';
-import { enableHostWebGlRenderSurface, webHost } from '@flighthq/host-web';
+import { createExampleGlSurface } from '../../shared/glSurface';
 
 export interface Scene3DContext {
   canvas: HTMLCanvasElement;
   height: number;
-  host: typeof webHost;
   render: (scene: Readonly<Node3D>, camera: Readonly<Camera3D>, lights: Readonly<Scene3DLights>) => void;
   state: GlRenderState;
   width: number;
@@ -54,21 +46,14 @@ export function createScene3DContext(options: Readonly<Scene3DOptions> = {}): Sc
   const width = options.width ?? 800;
   const height = options.height ?? 600;
   const pixelRatio = window.devicePixelRatio || 1;
-  enableHostWebGlRenderSurface();
-  const canvas = createGlCanvasElement(width, height, pixelRatio);
+  const { canvas, clear, state } = createExampleGlSurface(
+    width, height, pixelRatio, options.backgroundColor ?? 0x000000ff,
+  );
   const mount = document.getElementById('app');
   if (mount) mount.replaceWith(canvas);
   else document.body.appendChild(canvas);
   document.body.style.margin = '0';
 
-  const gl = createGlContextFromCanvasElement(canvas, {
-    contextAttributes: { alpha: false, depth: true, preserveDrawingBuffer: false },
-  });
-  const state = createGlRenderState(
-    createGlContextState(gl),
-    createGlPipeline(createEmptyGlRegistries()),
-    { backgroundColor: options.backgroundColor ?? 0x000000ff, pixelRatio },
-  );
   registerStandardGlTextureResolvers(state);
   registerGlUnlitMaterial(state);
   registerGlBlinnPhongMaterial(state);
@@ -80,21 +65,16 @@ export function createScene3DContext(options: Readonly<Scene3DOptions> = {}): Sc
   registerGlRenderEffect(state, 'FxaaEffect', defaultGlFxaaEffectRunner);
   registerGlRenderEffect(state, 'ToneMapEffect', defaultGlToneMapEffectRunner);
   const effects = options.effects ?? [createToneMapEffect()];
-  let pipeline: GlRenderEffectPipeline | null = null;
+  let effectState: GlEffectState | null = null;
 
   return {
     canvas,
     height,
-    host: webHost,
     render(scene, camera, lights) {
-      pipeline ??= createGlRenderEffectPipeline(state, { format: 'rgba16f', depth: 'depth-stencil' });
-      beginGlRenderEffectPipeline(state, pipeline);
-      renderGlBackground(state);
-      gl.depthMask(true);
-      gl.clearDepth(1);
-      gl.clear(gl.DEPTH_BUFFER_BIT);
-      drawGlScene3D(state, scene, camera, lights);
-      endGlRenderEffectPipeline(state, pipeline, effects);
+      effectState ??= createGlEffectState(state, { format: 'rgba16f', depth: 'depth-stencil' });
+      const pass = beginGlEffectState(state, effectState, clear);
+      renderGlScene3D(pass, scene, camera, lights);
+      endGlEffectState(pass, effectState, effects);
     },
     state,
     width,

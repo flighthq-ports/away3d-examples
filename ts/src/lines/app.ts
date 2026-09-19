@@ -1,3 +1,4 @@
+import { webHostImage } from '@flighthq/host-web';
 import type { MeshGeometry, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -160,7 +161,7 @@ setVector3(spheres[1]!.position, WIDTH * 0.2, 0, HEIGHT * 0.25);
 setVector3(spheres[2]!.position, 0, 0, HEIGHT * 0.25);
 for (const sphere of spheres) addNodeChild(scene.root, sphere);
 
-const particleImage = await loadImageResourceFromUrl(ctx.host, 'blue.png');
+const particleImage = await loadImageResourceFromUrl(webHostImage, 'blue.png');
 const particleAtlas = createTextureAtlas({ texture: createTexture({ source: particleImage }) });
 addTextureAtlasRegion(particleAtlas, 0, 0, particleImage.width, particleImage.height);
 const sparks = createParticleEmitter3D();

@@ -1,3 +1,4 @@
+import { webHostImage } from '@flighthq/host-web';
 import type { ImageResource, PerspectiveProjection, Texture } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -24,8 +25,8 @@ const ctx = createScene3DContext({ width: innerWidth, height: innerHeight, effec
 const scene = createScene3D(); const camera = createCameraFromAway({ y: 200, z: -1500, far: 4000 });
 const lights = createScene3DLights();
 const sheets: ImageResource[] = await Promise.all([
-  loadImageResourceFromUrl(ctx.host, 'away3d/BasicSpriteSheet/testSheet1.jpg'),
-  loadImageResourceFromUrl(ctx.host, 'away3d/BasicSpriteSheet/testSheet2.jpg'),
+  loadImageResourceFromUrl(webHostImage, 'away3d/BasicSpriteSheet/testSheet1.jpg'),
+  loadImageResourceFromUrl(webHostImage, 'away3d/BasicSpriteSheet/testSheet2.jpg'),
 ]);
 const textures: Texture[] = [createTexture({ source: sheets[0]! }), createTexture({ source: sheets[0]! })];
 for (let i = 0; i < 2; i++) {

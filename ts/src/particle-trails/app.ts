@@ -1,3 +1,4 @@
+import { webHostImage } from '@flighthq/host-web';
 import type { ParticleEmitter3D, ParticleEmitterState, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -81,7 +82,7 @@ addAxesGridPlane('xy', 0x0000ffff);
 addAxesGridPlane('zy', 0xff0000ff);
 addAxesGridPlane('xz', 0x00ff00ff);
 
-const image = await loadImageResourceFromUrl(ctx.host, 'away3d/ParticleTrails/cards_suit.png');
+const image = await loadImageResourceFromUrl(webHostImage, 'away3d/ParticleTrails/cards_suit.png');
 const atlas = createTextureAtlas({ texture: createTexture({ source: image }) });
 const cellWidth = image.width / 2;
 const cellHeight = image.height / 2;

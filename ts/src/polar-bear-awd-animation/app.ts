@@ -1,3 +1,5 @@
+import { webHostBitmapReadback, webHostImage, webHostNet } from '@flighthq/host-web';
+import { registerWebImageDecoders } from '@flighthq/host-web';
 import type { Mesh, Node3D, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -37,7 +39,6 @@ import {
   prepareMeshSkinning,
   prewarmParticleEmitter3D,
   registerDeflateDecompressor,
-  registerWebImageDecoders,
   scaleMeshGeometryUvs,
   setQuaternionFromEuler,
   setVector3,
@@ -134,29 +135,29 @@ const lights = createScene3DLights({ ambient: awaySun.ambient, directional: away
 
 const assetRoot = 'away3d/PolarBearAWDAnimation/';
 const [bearDiffuse, bearNormal, bearSpecular, snowDiffuse, snowNormal, snowSpecular, skyFaces, sceneDocument] = await Promise.all([
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}polarbear_diffuse.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}polarbear_normals.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}polarbear_specular.jpg`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}snow_diffuse.png`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}snow_normals.png`),
-  loadImageResourceFromUrl(ctx.host, `${assetRoot}snow_specular.png`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}polarbear_diffuse.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}polarbear_normals.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}polarbear_specular.jpg`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}snow_diffuse.png`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}snow_normals.png`),
+  loadImageResourceFromUrl(webHostImage, `${assetRoot}snow_specular.png`),
   Promise.all(
     ['posX', 'negX', 'posY', 'negY', 'posZ', 'negZ'].map((face) =>
-      loadImageResourceFromUrl(ctx.host, `${assetRoot}skybox/sky_${face}.jpg`),
+      loadImageResourceFromUrl(webHostImage, `${assetRoot}skybox/sky_${face}.jpg`),
     ),
   ),
-  loadScene3DDocumentFromAwd2Url(ctx.host, `${assetRoot}PolarBear.awd`),
+  loadScene3DDocumentFromAwd2Url(webHostNet, `${assetRoot}PolarBear.awd`),
 ]);
 if (!sceneDocument) throw new Error('Could not load PolarBear.awd');
 
 const environment = createEnvironment({
-  environment: createCubeTextureFromAwayFaces(ctx.host, skyFaces),
+  environment: createCubeTextureFromAwayFaces(webHostBitmapReadback, skyFaces),
   intensity: 0.7,
 });
 bakeGlEnvironmentIbl(ctx.state, environment);
 
 const model = createScene3DFromDocument(sceneDocument);
-await loadScene3DResources(model, createBuiltInScene3DResourceResolver(ctx.host));
+await loadScene3DResources(model, createBuiltInScene3DResourceResolver(webHostImage));
 const bearMaterial = createStandardPbrMaterial({
   baseColor: 0xffffffff,
   baseColorMap: createTexture({ source: bearDiffuse }),
