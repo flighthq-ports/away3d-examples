@@ -1,15 +1,10 @@
 import { webHostImage } from '@flighthq/host-web';
-import type {
-  PerspectiveProjection,
-} from '@flighthq/sdk';
 import {
   addNodeChild,
-  createFxaaEffect,
   createMesh,
   createPlaneMeshGeometry,
   createScene3D,
   createScene3DLights,
-  createToneMapEffect,
   invalidateNodeLocalTransform,
   setVector3,
   stepParticleEmitter3D,
@@ -24,17 +19,13 @@ import {
 import { createDirectionalLightFromAway, createPointLightFromAway } from '../../shared/lighting';
 import { createFireEmitters, startFiresSequentially } from './fire';
 import { createFloorMaterial, loadFloorTextures } from './floor';
-import { createScene3DContext } from './renderer';
+import { setupRenderer } from './render.gl';
 
 const FIRE_START_INTERVAL = 1000;
 const FIRE_LIGHT_COUNT = 2;
 const FIRE_LIGHT_REFERENCE_DISTANCE = 360;
 
-const ctx = createScene3DContext({
-  width: window.innerWidth,
-  height: window.innerHeight,
-  effects: [createToneMapEffect(), createFxaaEffect()],
-});
+const renderer = setupRenderer();
 
 const scene = createScene3D();
 
@@ -88,7 +79,7 @@ const orbit = createOrbitControllerFromAway(camera, {
   maxTiltAngle: 90,
 });
 
-bindOrbitDrag(ctx.canvas, orbit);
+bindOrbitDrag(renderer.canvas, orbit);
 
 let lastTs = 0;
 
@@ -111,21 +102,12 @@ function frame(ts: number): void {
 
   orbit.update();
 
-  ctx.render(scene.root, camera, lights);
+  renderer.render(scene.root, camera, lights);
 
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  const pr = window.devicePixelRatio || 1;
-  ctx.canvas.width = w * pr;
-  ctx.canvas.height = h * pr;
-  ctx.canvas.style.width = `${w}px`;
-  ctx.canvas.style.height = `${h}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = w / h;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 
 requestAnimationFrame(frame);

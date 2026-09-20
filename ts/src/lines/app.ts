@@ -1,9 +1,8 @@
 import { webHostImage } from '@flighthq/host-web';
-import type { MeshGeometry, PerspectiveProjection } from '@flighthq/sdk';
+import type { MeshGeometry } from '@flighthq/sdk';
 import {
   addNodeChild,
   addTextureAtlasRegion,
-  createFxaaEffect,
   createMesh,
   createMeshGeometry,
   createParticleEmitter3D,
@@ -13,7 +12,6 @@ import {
   createScene3DLights,
   createTexture,
   createTextureAtlas,
-  createToneMapEffect,
   createUnlitMaterial,
   createVector3,
   invalidateMeshGeometry,
@@ -27,7 +25,7 @@ import {
   stepParticleEmitter3D,
 } from '@flighthq/sdk';
 import { createCameraFromAway } from '../../shared/camera';
-import { createScene3DContext } from './renderer';
+import { setupRenderer } from './render.gl';
 
 const WIDTH = 6000;
 const HEIGHT = 8000;
@@ -36,12 +34,7 @@ const STEPS_Y = 64;
 const HEIGHT_SCALE = 10;
 const NOISE_SCALE = 128;
 
-const ctx = createScene3DContext({
-  width: innerWidth,
-  height: innerHeight,
-  backgroundColor: 0x02040aff,
-  effects: [createToneMapEffect(), createFxaaEffect()],
-});
+const renderer = setupRenderer();
 const scene = createScene3D();
 const camera = createCameraFromAway({ far: 50000 });
 const lights = createScene3DLights();
@@ -209,7 +202,7 @@ function geometryPolygonCount(geometry: Readonly<MeshGeometry>): number {
 
 function scenePolygonCount(): number {
   const renderList = prepareScene3DRender(
-    ctx.state, scene.root, camera, lights, ctx.canvas.width / ctx.canvas.height,
+    renderer.state, scene.root, camera, lights, renderer.canvas.width / renderer.canvas.height,
   );
   let polygons = 0;
   for (let i = 0; i < renderList.meshCount; i++) {
@@ -287,21 +280,12 @@ function frame(timestamp: number): void {
   setCamera3DViewMatrix4FromLookAt(camera, eye, target, up);
 
   stepParticleEmitter3D(sparks, sparkState, sparkConfig, deltaTime);
-  ctx.render(scene.root, camera, lights);
+  renderer.render(scene.root, camera);
   updateStats(timestamp);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const width = innerWidth;
-  const height = innerHeight;
-  const pixelRatio = devicePixelRatio || 1;
-  ctx.canvas.width = width * pixelRatio;
-  ctx.canvas.height = height * pixelRatio;
-  ctx.canvas.style.width = `${width}px`;
-  ctx.canvas.style.height = `${height}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = width / height;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 
 requestAnimationFrame(frame);

@@ -1,5 +1,4 @@
 import type {
-  PerspectiveProjection,
   Scene3DLights,
 } from '@flighthq/sdk';
 import {
@@ -12,12 +11,9 @@ import {
 
 import { bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
 import { loadParticleClouds, updateParticleCloud } from './particles';
-import { createScene3DContext } from './renderer';
+import { setupRenderer } from './render.gl';
 
-const ctx = createScene3DContext({
-  width: window.innerWidth,
-  height: window.innerHeight,
-});
+const renderer = setupRenderer();
 
 const scene = createScene3D();
 
@@ -36,7 +32,7 @@ const orbit = createOrbitControllerFromAway(camera, {
   maxTiltAngle: 89,
 });
 
-bindOrbitDrag(ctx.canvas, orbit);
+bindOrbitDrag(renderer.canvas, orbit);
 
 const { clouds, paths } = await loadParticleClouds(scene.root);
 
@@ -65,20 +61,11 @@ function frame(ts: number): void {
     updateParticleCloud(cloud, paths, time);
   }
 
-  ctx.render(scene.root, camera, lights);
+  renderer.render(scene.root, camera, lights);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  const pr = window.devicePixelRatio || 1;
-  ctx.canvas.width = w * pr;
-  ctx.canvas.height = h * pr;
-  ctx.canvas.style.width = `${w}px`;
-  ctx.canvas.style.height = `${h}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = w / h;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 
 requestAnimationFrame(frame);

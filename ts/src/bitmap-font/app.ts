@@ -1,16 +1,13 @@
 import { webHostImage } from '@flighthq/host-web';
-import type { BitmapFont, MeshGeometry, PerspectiveProjection } from '@flighthq/sdk';
+import type { BitmapFont, MeshGeometry } from '@flighthq/sdk';
 import {
   addNodeChild,
-  createFxaaEffect,
   createMesh,
   createMeshGeometry,
   createNode3D,
   createScene3D,
-  createScene3DLights,
   createTexture,
   createTextureAtlasFromImageResource,
-  createToneMapEffect,
   createUnlitMaterial,
   invalidateNodeLocalTransform,
   loadImageResourceFromUrl,
@@ -19,17 +16,11 @@ import {
   setVector3,
 } from '@flighthq/sdk';
 import { createCameraFromAway } from '../../shared/camera';
-import { createScene3DContext } from './renderer';
+import { setupRenderer } from './render.gl';
 
-const ctx = createScene3DContext({
-  width: innerWidth,
-  height: innerHeight,
-  backgroundColor: 0x000000ff,
-  effects: [createToneMapEffect(), createFxaaEffect()],
-});
+const renderer = setupRenderer();
 const scene = createScene3D();
 const camera = createCameraFromAway({ y: 200, z: -600, near: 20, far: 3000 });
-const lights = createScene3DLights();
 
 const assetRoot = 'away3d/BitmapFont/fonts/';
 const image = await loadImageResourceFromUrl(webHostImage, `${assetRoot}BerberRevKC_260.png`);
@@ -175,20 +166,11 @@ function frame(timestamp: number): void {
     setQuaternionFromEuler(scene.root.rotation, 0, rotation, 0);
     invalidateNodeLocalTransform(scene.root);
   }
-  ctx.render(scene.root, camera, lights);
+  renderer.render(scene.root, camera);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const width = innerWidth;
-  const height = innerHeight;
-  const pixelRatio = devicePixelRatio || 1;
-  ctx.canvas.width = width * pixelRatio;
-  ctx.canvas.height = height * pixelRatio;
-  ctx.canvas.style.width = `${width}px`;
-  ctx.canvas.style.height = `${height}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = width / height;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 
 requestAnimationFrame(frame);

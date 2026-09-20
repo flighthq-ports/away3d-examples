@@ -1,17 +1,13 @@
 import { webHostImage } from '@flighthq/host-web';
-import type { PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
   copyQuaternion,
-  createFxaaEffect,
   createMesh,
   createPlaneMeshGeometry,
   createQuaternion,
   createScene3D,
-  createScene3DLights,
   createTexture,
   createTilingSampler,
-  createToneMapEffect,
   createUnlitMaterial,
   createVector3,
   invalidateNodeLocalTransform,
@@ -20,13 +16,9 @@ import {
   setQuaternionFromAxisAngle,
 } from '@flighthq/sdk';
 import { createCameraFromAway } from '../../shared/camera';
-import { createScene3DContext } from './renderer';
+import { setupRenderer } from './render.gl';
 
-const ctx = createScene3DContext({
-  width: window.innerWidth,
-  height: window.innerHeight,
-  effects: [createToneMapEffect(), createFxaaEffect()],
-});
+const renderer = setupRenderer();
 const scene = createScene3D();
 const camera = createCameraFromAway({ y: 25, targetY: -500, targetZ: 2000, far: 30000 });
 const sampler = createTilingSampler();
@@ -39,7 +31,6 @@ const geometry = createPlaneMeshGeometry(20000, 20000);
 scaleMeshGeometryUvs(geometry, 150, 150);
 const plane = createMesh(geometry, [material]);
 addNodeChild(scene.root, plane);
-const lights = createScene3DLights();
 
 // Labels are the original's verbatim strings, not restyled paraphrases.
 const modes = [
@@ -94,7 +85,7 @@ function applyMode(): void {
   label.textContent = next.label;
 }
 applyMode();
-ctx.canvas.addEventListener('click', () => { mode = (mode + 1) % modes.length; applyMode(); });
+renderer.canvas.addEventListener('click', () => { mode = (mode + 1) % modes.length; applyMode(); });
 
 const rotation = createQuaternion();
 const yAxis = createVector3(0, 1, 0);
@@ -110,14 +101,9 @@ function frame(ts: number): void {
   setQuaternionFromAxisAngle(rotation, yAxis, ts / 2500);
   copyQuaternion(plane.rotation, rotation);
   invalidateNodeLocalTransform(plane);
-  ctx.render(scene.root, camera, lights);
+  renderer.render(scene.root, camera);
   requestAnimationFrame(frame);
 }
-window.addEventListener('resize', () => {
-  const w = window.innerWidth; const h = window.innerHeight; const pr = window.devicePixelRatio || 1;
-  ctx.canvas.width = w * pr; ctx.canvas.height = h * pr;
-  ctx.canvas.style.width = `${w}px`; ctx.canvas.style.height = `${h}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = w / h;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 requestAnimationFrame(frame);

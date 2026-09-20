@@ -1,28 +1,23 @@
 import { webHostImage } from '@flighthq/host-web';
-import type { PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
   createBoxMeshGeometry,
-  createFxaaEffect,
   createMesh,
   createPlaneMeshGeometry,
   createScene3D,
   createScene3DHit,
-  createScene3DLights,
   createTexture,
-  createToneMapEffect,
   createUnlitMaterial,
   invalidateNodeLocalTransform,
   loadImageResourceFromUrl,
   pickScene3D,
 } from '@flighthq/sdk';
 import { createCameraFromAway } from '../../shared/camera';
-import { createScene3DContext } from './renderer';
+import { setupRenderer } from './render.gl';
 
-const ctx = createScene3DContext({ width: innerWidth, height: innerHeight, effects: [createToneMapEffect(), createFxaaEffect()] });
+const renderer = setupRenderer();
 const scene = createScene3D();
 const camera = createCameraFromAway({ y: 500, z: -600, far: 3000 });
-const lights = createScene3DLights();
 const [floorImage, cubeImage] = await Promise.all([
   loadImageResourceFromUrl(webHostImage, 'floor_diffuse.jpg'), loadImageResourceFromUrl(webHostImage, 'trinket_diffuse.jpg'),
 ]);
@@ -38,8 +33,8 @@ addNodeChild(scene.root, floor); addNodeChild(scene.root, cube);
 
 let startX = 0; let startZ = 0; let targetX = 0; let targetZ = 0; let started = -1;
 const hit = createScene3DHit();
-ctx.canvas.addEventListener('pointerup', (event) => {
-  const rect = ctx.canvas.getBoundingClientRect();
+renderer.canvas.addEventListener('pointerup', (event) => {
+  const rect = renderer.canvas.getBoundingClientRect();
   const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   const y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
   const picked = pickScene3D(scene.root, camera, x, y, hit);
@@ -60,11 +55,8 @@ function frame(ts: number): void {
     invalidateNodeLocalTransform(cube);
     if (t === 1) started = -1;
   }
-  ctx.render(scene.root, camera, lights); requestAnimationFrame(frame);
+  renderer.render(scene.root, camera); requestAnimationFrame(frame);
 }
-window.addEventListener('resize', () => {
-  const w = innerWidth; const h = innerHeight; const pr = devicePixelRatio || 1;
-  ctx.canvas.width = w * pr; ctx.canvas.height = h * pr; ctx.canvas.style.width = `${w}px`; ctx.canvas.style.height = `${h}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height); (camera.projection as PerspectiveProjection).aspect = w / h;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 requestAnimationFrame(frame);

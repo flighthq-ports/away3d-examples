@@ -1,15 +1,12 @@
 import { webHostImage } from '@flighthq/host-web';
-import type { PerspectiveProjection, Texture } from '@flighthq/sdk';
+import type { Texture } from '@flighthq/sdk';
 import {
   addNodeChild,
-  createFxaaEffect,
   createMesh,
   createPlaneMeshGeometry,
   createScene3D,
-  createScene3DLights,
   createTexture,
   createTilingSampler,
-  createToneMapEffect,
   createUnlitMaterial,
   invalidateNodeLocalTransform,
   loadImageResourceFromUrl,
@@ -20,12 +17,11 @@ import {
   setVector3,
 } from '@flighthq/sdk';
 import { createCameraFromAway } from '../../shared/camera';
-import { createScene3DContext } from './renderer';
+import { setupRenderer } from './render.gl';
 
-const ctx = createScene3DContext({ width: innerWidth, height: innerHeight, effects: [createToneMapEffect(), createFxaaEffect()] });
+const renderer = setupRenderer();
 const scene = createScene3D();
 const camera = createCameraFromAway({ x: 500, y: 500, z: -1500, far: 5000 });
-const lights = createScene3DLights();
 const [wheelImage, roadImage] = await Promise.all([
   loadImageResourceFromUrl(webHostImage, 'away3d/UVAnimation/wheel.png'),
   loadImageResourceFromUrl(webHostImage, 'away3d/UVAnimation/road.jpg'),
@@ -82,11 +78,8 @@ function frame(ts: number): void {
 
   applyKeyframes(textures[2]!, firstKeyframes);
   applyKeyframes(textures[3]!, secondKeyframes);
-  ctx.render(scene.root, camera, lights); requestAnimationFrame(frame);
+  renderer.render(scene.root, camera); requestAnimationFrame(frame);
 }
-window.addEventListener('resize', () => {
-  const w = innerWidth; const h = innerHeight; const pr = devicePixelRatio || 1;
-  ctx.canvas.width = w * pr; ctx.canvas.height = h * pr; ctx.canvas.style.width = `${w}px`; ctx.canvas.style.height = `${h}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height); (camera.projection as PerspectiveProjection).aspect = w / h;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 requestAnimationFrame(frame);

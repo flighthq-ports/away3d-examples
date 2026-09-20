@@ -1,19 +1,16 @@
 import { webHostImage } from '@flighthq/host-web';
-import type { ParticleEmitter3D, ParticleEmitterState, PerspectiveProjection } from '@flighthq/sdk';
+import type { ParticleEmitter3D, ParticleEmitterState } from '@flighthq/sdk';
 import {
   addNodeChild,
   addTextureAtlasRegion,
-  createFxaaEffect,
   createMesh,
   createMeshGeometry,
   createParticleEmitter3D,
   createParticleEmitterConfig,
   createParticleEmitterState,
   createScene3D,
-  createScene3DLights,
   createTexture,
   createTextureAtlas,
-  createToneMapEffect,
   createUnlitMaterial,
   invalidateNodeLocalTransform,
   isMesh,
@@ -24,16 +21,12 @@ import {
   walkNodeDescendants,
 } from '@flighthq/sdk';
 import { bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
-import { createScene3DContext } from './renderer';
+import { setupRenderer } from './render.gl';
 
 const PARTICLE_COUNT = 1000;
 const LIFETIME = 4;
 
-const ctx = createScene3DContext({
-  width: innerWidth,
-  height: innerHeight,
-  effects: [createToneMapEffect(), createFxaaEffect()],
-});
+const renderer = setupRenderer();
 const scene = createScene3D();
 const camera = createCameraFromAway({ far: 5000 });
 // HoverController(camera, null, 45, 20, 1000, 5). The sixth argument is minTiltAngle — the port
@@ -44,8 +37,7 @@ const orbit = createOrbitControllerFromAway(camera, {
   tiltAngle: 20,
   minTiltAngle: 5,
 });
-bindOrbitDrag(ctx.canvas, orbit);
-const lights = createScene3DLights();
+bindOrbitDrag(renderer.canvas, orbit);
 
 // WireframeAxesGrid(10, 1500): three grid planes through the origin, drawn by the original as
 // SegmentSets. The port left them out entirely, so the particles had no frame of reference.
@@ -184,20 +176,11 @@ function frame(timestamp: number): void {
     statsWindowStart = timestamp;
   }
   stats.textContent = `FPS: ${displayedFps}\nPLY: ${triangleCount}`;
-  ctx.render(scene.root, camera, lights);
+  renderer.render(scene.root, camera);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const width = innerWidth;
-  const height = innerHeight;
-  const pixelRatio = devicePixelRatio || 1;
-  ctx.canvas.width = width * pixelRatio;
-  ctx.canvas.height = height * pixelRatio;
-  ctx.canvas.style.width = `${width}px`;
-  ctx.canvas.style.height = `${height}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = width / height;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 
 requestAnimationFrame(frame);

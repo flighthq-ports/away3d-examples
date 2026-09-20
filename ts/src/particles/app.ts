@@ -1,37 +1,28 @@
 import { webHostImage } from '@flighthq/host-web';
-import type { PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
   addTextureAtlasRegion,
-  createFxaaEffect,
   createParticleEmitter3D,
   createParticleEmitterConfig,
   createParticleEmitterState,
   createScene3D,
-  createScene3DLights,
   createTexture,
   createTextureAtlas,
-  createToneMapEffect,
   loadImageResourceFromUrl,
   prewarmParticleEmitter3D,
   stepParticleEmitter3D,
 } from '@flighthq/sdk';
 import { bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
-import { createScene3DContext } from './renderer';
+import { setupRenderer } from './render.gl';
 
 const PARTICLE_COUNT = 20_000;
 const LIFETIME = 5;
 
-const ctx = createScene3DContext({
-  width: innerWidth,
-  height: innerHeight,
-  effects: [createToneMapEffect(), createFxaaEffect()],
-});
+const renderer = setupRenderer();
 const scene = createScene3D();
 const camera = createCameraFromAway({ far: 4000 });
 const orbit = createOrbitControllerFromAway(camera, { distance: 1000, panAngle: 45, tiltAngle: 20 });
-bindOrbitDrag(ctx.canvas, orbit);
-const lights = createScene3DLights();
+bindOrbitDrag(renderer.canvas, orbit);
 
 const image = await loadImageResourceFromUrl(webHostImage, 'blue.png');
 const atlas = createTextureAtlas({ texture: createTexture({ source: image }) });
@@ -71,20 +62,11 @@ function frame(timestamp: number): void {
   previousTime = timestamp;
   stepParticleEmitter3D(emitter, state, config, deltaTime);
   orbit.update();
-  ctx.render(scene.root, camera, lights);
+  renderer.render(scene.root, camera);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const width = innerWidth;
-  const height = innerHeight;
-  const pixelRatio = devicePixelRatio || 1;
-  ctx.canvas.width = width * pixelRatio;
-  ctx.canvas.height = height * pixelRatio;
-  ctx.canvas.style.width = `${width}px`;
-  ctx.canvas.style.height = `${height}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = width / height;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 
 requestAnimationFrame(frame);
