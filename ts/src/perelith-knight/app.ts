@@ -16,15 +16,15 @@ import {
   createTexture,
   createTilingSampler,
   createToneMapEffect,
-  defaultGlFxaaEffectRunner,
-  defaultGlToneMapEffectRunner,
+  glFxaaEffectRunner,
+  glToneMapEffectRunner,
   renderGlScene3D,
   renderGlScene3DShadowMap,
   endGlEffectPass,
   loadImageResourceFromUrl,
   bakeGlEnvironmentIbl,
   registerGlStandardPbrMaterial,
-  registerGlRenderEffect,
+  registerGlEffect,
   registerStandardGlTextureResolvers,
   sampleAnimationTrack,
   setTextureUvScale,
@@ -61,8 +61,8 @@ document.body.style.margin = '0';
 // texture resolves to null and the scene renders untextured.
 registerStandardGlTextureResolvers(state);
 registerGlStandardPbrMaterial(state);
-registerGlRenderEffect(state, 'FxaaEffect', defaultGlFxaaEffectRunner);
-registerGlRenderEffect(state, 'ToneMapEffect', defaultGlToneMapEffectRunner);
+registerGlEffect(state, 'FxaaEffect', glFxaaEffectRunner);
+registerGlEffect(state, 'ToneMapEffect', glToneMapEffectRunner);
 let effectState: GlEffectState | null = null;
 
 const scene = createScene3D();

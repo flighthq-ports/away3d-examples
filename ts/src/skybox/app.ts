@@ -20,14 +20,14 @@ import {
   createToneMapEffect,
   createTorusMeshGeometry,
   createVector3,
-  defaultGlFxaaEffectRunner,
-  defaultGlToneMapEffectRunner,
+  glFxaaEffectRunner,
+  glToneMapEffectRunner,
   DEG_TO_RAD,
   invalidateNodeLocalTransform,
   loadImageResourceFromUrl,
   multiplyQuaternion,
   registerGlEmissiveMaterial,
-  registerGlRenderEffect,
+  registerGlEffect,
   registerStandardGlTextureResolvers,
   registerGlStandardPbrMaterial,
   setCamera3DViewMatrix4FromLookAt,
@@ -61,8 +61,8 @@ document.body.style.margin = '0';
 registerStandardGlTextureResolvers(state);
 registerGlStandardPbrMaterial(state);
 registerGlEmissiveMaterial(state);
-registerGlRenderEffect(state, 'FxaaEffect', defaultGlFxaaEffectRunner);
-registerGlRenderEffect(state, 'ToneMapEffect', defaultGlToneMapEffectRunner);
+registerGlEffect(state, 'FxaaEffect', glFxaaEffectRunner);
+registerGlEffect(state, 'ToneMapEffect', glToneMapEffectRunner);
 const scene = createScene3D();
 
 const torusMaterial = createStandardPbrMaterial({

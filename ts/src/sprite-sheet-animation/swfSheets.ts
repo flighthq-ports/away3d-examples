@@ -1,5 +1,5 @@
 import type { CanvasRenderState, CanvasRenderTarget, ImageResource, Node2D } from '@flighthq/sdk';
-import { createMatrix, setMatrix, walkNodeDescendants } from '@flighthq/sdk';
+import { copyMatrix, createMatrix, setMatrix, walkNodeDescendants } from '@flighthq/sdk';
 import { gotoAndStopMovieClip } from '@flighthq/movieclip';
 import {
   beginCanvasRenderPass,
@@ -7,10 +7,9 @@ import {
   createCanvasRenderState,
   createCanvasRenderSurface,
   createCanvasTextureResolvers,
-  defaultScene2DCanvasRenderRegistries,
+  canvasScene2DRenderRegistries,
   endCanvasRenderPass,
   renderCanvasScene2D,
-  setCanvasRenderTransform2D,
 } from '@flighthq/scene2d-canvas';
 import { createWebCanvasRenderSurfaceCreator, createWebImageResourceFromCanvas } from '@flighthq/host-web';
 import { prepareScene2DRender } from '@flighthq/render';
@@ -35,6 +34,7 @@ const MEASURE_ORIGIN = MEASURE_SIZE / 2;
 // such help — the interior of a filled shape is fully opaque at any scale.
 const MEASURE_SCALE = 1;
 const placement = createMatrix();
+const passTransform = createMatrix();
 // How much of its cell the artwork fills. The display quad maps the whole cell, so filling it
 // edge to edge puts the digits hard against the bezel and reads as oversized.
 const CONTENT_FILL = 0.84;
@@ -47,7 +47,7 @@ interface CanvasContext {
 
 function canvasStateFor(canvas: HTMLCanvasElement): CanvasContext {
   const state = createCanvasRenderState(
-    defaultScene2DCanvasRenderRegistries,
+    canvasScene2DRenderRegistries,
     createCanvasTextureResolvers(surfaceCreator),
   );
   const surface = createCanvasRenderSurface(surfaceCreator, canvas);
@@ -56,7 +56,12 @@ function canvasStateFor(canvas: HTMLCanvasElement): CanvasContext {
 
 function renderClip(context: CanvasContext, clip: Node2D): void {
   const pass = beginCanvasRenderPass(context.state, context.target, { color: [0, 0, 0, 0] });
-  setCanvasRenderTransform2D(pass, placement);
+  // The root device transform prepareScene2DRender reads to place a node with no scene parent.
+  // setCanvasRenderTransform2D is no longer exported; it only ever copied into this field, and
+  // renderTransform2D is public on RenderState, so set it directly. Copy rather than alias --
+  // `placement` is rewritten for each sheet cell.
+  copyMatrix(passTransform, placement);
+  pass.state.renderTransform2D = passTransform;
   prepareScene2DRender(context.state, clip);
   renderCanvasScene2D(pass, clip);
   endCanvasRenderPass(pass);

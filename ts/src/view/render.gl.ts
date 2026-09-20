@@ -6,15 +6,15 @@ import {
   createGlEffectState,
   createScene3DLights,
   createToneMapEffect,
-  // defaultScene3DGlRenderRegistries,
   endGlEffectPass,
+  // glScene3DRenderRegistries,
+  glUnlitMeshMaterialRenderer,
   registerGlFxaaEffect,
   registerGlToneMapEffect,
   renderGlScene3D,
   setCamera3DAspect,
   standardGlTextureResolvers,
   UnlitMaterialKind,
-  unlitGlMeshMaterialRenderer,
   withRegistryTableEntry,
 } from '@flighthq/sdk';
 import { createExampleGlSurface } from '../../shared/glSurface';
@@ -26,7 +26,7 @@ function createMinimalScene3DGlRegistries(): GlRenderRegistries {
     meshMaterialRenderers: withRegistryTableEntry(
       registries.meshMaterialRenderers,
       UnlitMaterialKind,
-      unlitGlMeshMaterialRenderer,
+      glUnlitMeshMaterialRenderer,
     ),
     textureResolvers: standardGlTextureResolvers,
   };
@@ -34,7 +34,7 @@ function createMinimalScene3DGlRegistries(): GlRenderRegistries {
 
 export function setupRenderer() {
   const pixelRatio = window.devicePixelRatio || 1;
-  // const registries = defaultScene3DGlRenderRegistries; // import all
+  // const registries = glScene3DRenderRegistries; // import all
   const registries = createMinimalScene3DGlRegistries();
   const { canvas, clear, state } = createExampleGlSurface(
     window.innerWidth, window.innerHeight, pixelRatio, 0x000000ff, registries,

@@ -16,14 +16,14 @@ import {
   createToneMapEffect,
   createVector3,
   createVignetteEffect,
-  defaultGlSmaaEffectRunner,
-  defaultGlToneMapEffectRunner,
-  defaultGlVignetteEffectRunner,
+  glSmaaEffectRunner,
+  glToneMapEffectRunner,
+  glVignetteEffectRunner,
   DEG_TO_RAD,
   renderGlScene3DShadowMap,
   invalidateNodeLocalTransform,
   registerGlExtendedPbrMaterial,
-  registerGlRenderEffect,
+  registerGlEffect,
   registerStandardGlTextureResolvers,
   registerGlSpecularPbrExtension,
   registerGlStandardPbrMaterial,
@@ -69,10 +69,10 @@ registerStandardGlTextureResolvers(glState);
 registerGlStandardPbrMaterial(glState);
 registerGlExtendedPbrMaterial(glState);
 registerGlSpecularPbrExtension(glState);
-registerGlRenderEffect(glState, 'SmaaEffect', defaultGlSmaaEffectRunner);
-registerGlRenderEffect(glState, 'ScreenSpaceFogEffect', backgroundAwareFogEffectRunner);
-registerGlRenderEffect(glState, 'ToneMapEffect', defaultGlToneMapEffectRunner);
-registerGlRenderEffect(glState, 'VignetteEffect', defaultGlVignetteEffectRunner);
+registerGlEffect(glState, 'SmaaEffect', glSmaaEffectRunner);
+registerGlEffect(glState, 'ScreenSpaceFogEffect', backgroundAwareFogEffectRunner);
+registerGlEffect(glState, 'ToneMapEffect', glToneMapEffectRunner);
+registerGlEffect(glState, 'VignetteEffect', glVignetteEffectRunner);
 const scene = createScene3D();
 
 const camera = createCameraFromAway({ fov: 60, far: 5000 });

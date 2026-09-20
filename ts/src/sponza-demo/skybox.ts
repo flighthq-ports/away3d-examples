@@ -5,7 +5,7 @@ import type {
   GlEffectState,
   GlRenderState,
   Node3D,
-  RenderEffect,
+  Effect,
   RenderTargetClear,
   Scene3DLights,
 } from '@flighthq/sdk';
@@ -33,7 +33,7 @@ export function renderSkyboxScene(
   scene: Readonly<Node3D>,
   camera: Readonly<Camera3D>,
   lights: Readonly<Scene3DLights>,
-  effects: ReadonlyArray<RenderEffect | Adjustment> = [createToneMapEffect()],
+  effects: ReadonlyArray<Effect | Adjustment> = [createToneMapEffect()],
 ): void {
   if (ref.effectState === null) {
     ref.effectState = createGlEffectState(state, { format: 'rgba16f', depth: 'depth-stencil-sampled' });

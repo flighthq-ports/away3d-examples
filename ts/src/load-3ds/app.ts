@@ -19,15 +19,15 @@ import {
   createSpecularPbrExtension,
   createTexture,
   createToneMapEffect,
-  defaultGlFxaaEffectRunner,
-  defaultGlToneMapEffectRunner,
+  glFxaaEffectRunner,
+  glToneMapEffectRunner,
   renderGlScene3D,
   renderGlScene3DShadowMap,
   endGlEffectPass,
   getNodeChildren,
   loadImageResourceFromUrl,
   registerGlExtendedPbrMaterial,
-  registerGlRenderEffect,
+  registerGlEffect,
   registerGlSpecularPbrExtension,
   registerStandardGlTextureResolvers,
   registerGlStandardPbrMaterial,
@@ -68,8 +68,8 @@ registerStandardGlTextureResolvers(state);
 registerGlStandardPbrMaterial(state);
 registerGlExtendedPbrMaterial(state);
 registerGlSpecularPbrExtension(state);
-registerGlRenderEffect(state, 'FxaaEffect', defaultGlFxaaEffectRunner);
-registerGlRenderEffect(state, 'ToneMapEffect', defaultGlToneMapEffectRunner);
+registerGlEffect(state, 'FxaaEffect', glFxaaEffectRunner);
+registerGlEffect(state, 'ToneMapEffect', glToneMapEffectRunner);
 // The ground is HDR-lit and clips to flat white when it fills the view; ACES tone mapping
 // compresses the highlights back into range, matching the LDR AwayJS original.
 const effects = [createToneMapEffect({ operator: 'aces' }), createFxaaEffect()];

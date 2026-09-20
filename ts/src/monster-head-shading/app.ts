@@ -14,8 +14,8 @@ import {
   createShadedMaterial,
   createTexture,
   createToneMapEffect,
-  defaultGlFxaaEffectRunner,
-  defaultGlToneMapEffectRunner,
+  glFxaaEffectRunner,
+  glToneMapEffectRunner,
   renderGlScene3D,
   renderGlScene3DShadowMap,
   endGlEffectPass,
@@ -23,7 +23,7 @@ import {
   invalidateNodeLocalTransform,
   isMesh,
   loadImageResourceFromUrl,
-  registerGlRenderEffect,
+  registerGlEffect,
   registerGlShadedMaterial,
   registerStandardGlTextureResolvers,
   setVector3,
@@ -53,8 +53,8 @@ document.body.style.margin = '0';
 // texture resolves to null and the scene renders untextured.
 registerStandardGlTextureResolvers(state);
 registerGlShadedMaterial(state);
-registerGlRenderEffect(state, 'FxaaEffect', defaultGlFxaaEffectRunner);
-registerGlRenderEffect(state, 'ToneMapEffect', defaultGlToneMapEffectRunner);
+registerGlEffect(state, 'FxaaEffect', glFxaaEffectRunner);
+registerGlEffect(state, 'ToneMapEffect', glToneMapEffectRunner);
 let effectState: GlEffectState | null = null;
 
 const scene = createScene3D();

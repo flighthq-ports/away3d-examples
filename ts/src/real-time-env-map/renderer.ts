@@ -5,23 +5,23 @@ import type {
   GlEffectState,
   GlRenderState,
   Node3D,
-  RenderEffect,
+  Effect,
   Scene3DLights,
 } from '@flighthq/sdk';
 import {
   beginGlEffectPass,
   createGlEffectState,
   createToneMapEffect,
-  defaultGlFxaaEffectRunner,
-  defaultGlScreenSpaceFogEffectRunner,
-  defaultGlToneMapEffectRunner,
+  glFxaaEffectRunner,
+  glScreenSpaceFogEffectRunner,
+  glToneMapEffectRunner,
   renderGlEnvironmentSkybox,
   renderGlScene3D,
   endGlEffectPass,
   registerGlBlinnPhongMaterial,
   registerBuiltInGlModifierSnippets,
   registerGlExtendedPbrMaterial,
-  registerGlRenderEffect,
+  registerGlEffect,
   registerGlShadedMaterial,
   registerGlSpecularPbrExtension,
   registerStandardGlTextureResolvers,
@@ -51,7 +51,7 @@ export interface Scene3DOptions {
   backgroundColor?: number;
   height?: number;
   width?: number;
-  effects?: ReadonlyArray<RenderEffect | Adjustment>;
+  effects?: ReadonlyArray<Effect | Adjustment>;
 }
 
 export function createScene3DContext(options: Readonly<Scene3DOptions> = {}): Scene3DContext {
@@ -83,9 +83,9 @@ export function createScene3DContext(options: Readonly<Scene3DOptions> = {}): Sc
   registerGlShadedMaterial(state);
   registerBuiltInGlModifierSnippets(state);
   const effects = options.effects ?? [createToneMapEffect()];
-  registerGlRenderEffect(state, 'FxaaEffect', defaultGlFxaaEffectRunner);
-  registerGlRenderEffect(state, 'ScreenSpaceFogEffect', defaultGlScreenSpaceFogEffectRunner);
-  registerGlRenderEffect(state, 'ToneMapEffect', defaultGlToneMapEffectRunner);
+  registerGlEffect(state, 'FxaaEffect', glFxaaEffectRunner);
+  registerGlEffect(state, 'ScreenSpaceFogEffect', glScreenSpaceFogEffectRunner);
+  registerGlEffect(state, 'ToneMapEffect', glToneMapEffectRunner);
 
   let effectState: GlEffectState | null = null;
 

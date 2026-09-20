@@ -35,8 +35,8 @@ import {
   createToneMapEffect,
   createUnlitMaterial,
   createVector3,
-  defaultGlFxaaEffectRunner,
-  defaultGlToneMapEffectRunner,
+  glFxaaEffectRunner,
+  glToneMapEffectRunner,
   DEG_TO_RAD,
   flipBitmapHorizontal,
   flipBitmapVertical,
@@ -50,7 +50,7 @@ import {
   orientScene3DBillboardsToCamera,
   packOpaqueColor,
   registerBuiltInGlModifierSnippets,
-  registerGlRenderEffect,
+  registerGlEffect,
   registerGlShadedMaterial,
   registerStandardGlTextureResolvers,
   registerGlUnlitMaterial,
@@ -93,8 +93,8 @@ registerStandardGlTextureResolvers(state);
 registerGlShadedMaterial(state);
 registerBuiltInGlModifierSnippets(state);
 registerGlUnlitMaterial(state);
-registerGlRenderEffect(state, 'FxaaEffect', defaultGlFxaaEffectRunner);
-registerGlRenderEffect(state, 'ToneMapEffect', defaultGlToneMapEffectRunner);
+registerGlEffect(state, 'FxaaEffect', glFxaaEffectRunner);
+registerGlEffect(state, 'ToneMapEffect', glToneMapEffectRunner);
 registerEarthShader(state);
 const skyboxRef: SkyboxRenderState = { effectState: null };
 

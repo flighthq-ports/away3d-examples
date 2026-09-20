@@ -4,21 +4,21 @@ import type {
   GlEffectState,
   GlRenderState,
   Node3D,
-  RenderEffect,
+  Effect,
   Scene3DLights,
 } from '@flighthq/sdk';
 import {
   beginGlEffectPass,
   createGlEffectState,
   createToneMapEffect,
-  defaultGlFxaaEffectRunner,
-  defaultGlToneMapEffectRunner,
+  glFxaaEffectRunner,
+  glToneMapEffectRunner,
   renderGlScene3D,
   endGlEffectPass,
   registerBuiltInGlModifierSnippets,
   registerGlBlinnPhongMaterial,
   registerGlExtendedPbrMaterial,
-  registerGlRenderEffect,
+  registerGlEffect,
   registerGlShadedMaterial,
   registerGlSpecularPbrExtension,
   registerGlStandardPbrMaterial,
@@ -37,7 +37,7 @@ export interface Scene3DContext {
 
 export interface Scene3DOptions {
   backgroundColor?: number;
-  effects?: ReadonlyArray<RenderEffect | Adjustment>;
+  effects?: ReadonlyArray<Effect | Adjustment>;
   height?: number;
   width?: number;
 }
@@ -65,8 +65,8 @@ export function createScene3DContext(options: Readonly<Scene3DOptions> = {}): Sc
   registerGlShadedMaterial(state);
   registerBuiltInGlModifierSnippets(state);
   const effects = options.effects ?? [createToneMapEffect()];
-  registerGlRenderEffect(state, 'FxaaEffect', defaultGlFxaaEffectRunner);
-  registerGlRenderEffect(state, 'ToneMapEffect', defaultGlToneMapEffectRunner);
+  registerGlEffect(state, 'FxaaEffect', glFxaaEffectRunner);
+  registerGlEffect(state, 'ToneMapEffect', glToneMapEffectRunner);
 
   let effectState: GlEffectState | null = null;
   return {

@@ -4,7 +4,7 @@ import {
   beginGlEffectPass,
   createGlEffectState,
   createToneMapEffect,
-  // defaultScene3DGlRenderRegistries,
+  // glScene3DRenderRegistries,
   endGlEffectPass,
   registerGlToneMapEffect,
   renderGlScene3D,
@@ -25,7 +25,7 @@ function createMinimalScene3DGlRegistries(): GlRenderRegistries {
 
 export function setupRenderer() {
   const pixelRatio = window.devicePixelRatio || 1;
-  // const registries = defaultScene3DGlRenderRegistries; // import all
+  // const registries = glScene3DRenderRegistries; // import all
   const registries = createMinimalScene3DGlRegistries();
   const { canvas, clear, state } = createExampleGlSurface(
     window.innerWidth, window.innerHeight, pixelRatio, 0x000000ff, registries,
