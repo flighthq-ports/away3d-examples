@@ -20,7 +20,7 @@ import {
   defaultGlToneMapEffectRunner,
   defaultGlVignetteEffectRunner,
   DEG_TO_RAD,
-  drawGlScene3DShadowMap,
+  renderGlScene3DShadowMap,
   invalidateNodeLocalTransform,
   registerGlExtendedPbrMaterial,
   registerGlRenderEffect,
@@ -302,7 +302,7 @@ function frame(ts: number): void {
   configureDirectionalShadowCamera3D(shadowCamera, whiteLight.direction, shadowBounds);
   // Use the SDK's scene-root traversal for shadow casters. The tight moving bounds keep the map
   // concentrated on the character and its contact shadow rather than the decorative ground plane.
-  drawGlScene3DShadowMap(glState, scene.root, shadowCamera, whiteLight);
+  renderGlScene3DShadowMap(glState, scene.root, shadowCamera, whiteLight);
 
   renderSkyboxScene(glState, canvas, skyboxRef, clear, environment, scene.root, camera, lights, effects);
   requestAnimationFrame(frame);

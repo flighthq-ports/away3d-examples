@@ -1,13 +1,13 @@
 import type { Camera3D, GlEffectState, GlRenderRegistries, Node3D } from '@flighthq/sdk';
 import {
   allocateEmptyGlRenderRegistries,
-  beginGlEffectState,
+  beginGlEffectPass,
   createFxaaEffect,
   createGlEffectState,
   createScene3DLights,
   createToneMapEffect,
   // defaultScene3DGlRenderRegistries,
-  endGlEffectState,
+  endGlEffectPass,
   registerGlFxaaEffect,
   registerGlToneMapEffect,
   renderGlScene3D,
@@ -56,9 +56,9 @@ export function setupRenderer() {
   return {
     render(scene: Readonly<Node3D>, camera: Readonly<Camera3D>): void {
       effectState ??= createGlEffectState(state, { format: 'rgba16f', depth: 'depth-stencil' });
-      const pass = beginGlEffectState(state, effectState, clear, 'linear');
+      const pass = beginGlEffectPass(state, effectState, clear, 'linear');
       renderGlScene3D(pass, scene, camera, lights);
-      endGlEffectState(pass, effectState, effects);
+      endGlEffectPass(pass, effectState, effects);
     },
     resize(camera: Camera3D): void {
       const width = window.innerWidth;

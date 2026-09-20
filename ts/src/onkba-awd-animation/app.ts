@@ -22,7 +22,7 @@ import {
   createStandardPbrMaterial,
   createTexture,
   createTilingSampler,
-  drawGlScene3DShadowMap,
+  renderGlScene3DShadowMap,
   getAnimationClipDuration,
   invalidateNodeLocalTransform,
   isMesh,
@@ -467,7 +467,7 @@ function frame(ts: number): void {
   setVector3(skyLight.position, camera.view.m[12]!, camera.view.m[13]!, camera.view.m[14]!);
 
   configureDirectionalShadowCamera3D(shadowCamera, awaySun.directional.direction, shadowBounds);
-  drawGlScene3DShadowMap(ctx.state, model.root, shadowCamera, awaySun.directional);
+  renderGlScene3DShadowMap(ctx.state, model.root, shadowCamera, awaySun.directional);
   ctx.render(scene.root, camera, lights, environment);
   requestAnimationFrame(frame);
 }

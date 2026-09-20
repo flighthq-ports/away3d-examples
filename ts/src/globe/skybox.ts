@@ -10,12 +10,12 @@ import type {
   Scene3DLights,
 } from '@flighthq/sdk';
 import {
-  beginGlEffectState,
+  beginGlEffectPass,
   createGlEffectState,
   createToneMapEffect,
-  drawGlEnvironmentSkybox,
+  renderGlEnvironmentSkybox,
   renderGlScene3D,
-  endGlEffectState,
+  endGlEffectPass,
 } from '@flighthq/sdk';
 
 // Standalone skybox pass for this example: draws the environment cube behind the scene inside the
@@ -38,8 +38,8 @@ export function renderSkyboxScene(
   if (ref.effectState === null) {
     ref.effectState = createGlEffectState(state, { format: 'rgba16f', depth: 'depth-stencil' });
   }
-  const pass = beginGlEffectState(state, ref.effectState, clear);
-  drawGlEnvironmentSkybox(state, environment, camera, canvas.width / canvas.height);
+  const pass = beginGlEffectPass(state, ref.effectState, clear);
+  renderGlEnvironmentSkybox(state, environment, camera, canvas.width / canvas.height);
   renderGlScene3D(pass, scene, camera, lights);
-  endGlEffectState(pass, ref.effectState, effects);
+  endGlEffectPass(pass, ref.effectState, effects);
 }

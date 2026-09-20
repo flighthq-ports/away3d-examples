@@ -11,7 +11,7 @@ import {
   createPlane,
   matrix4TransformPoint,
   setPlaneFromNormalAndPoint,
-  drawGlEnvironmentSkybox,
+  renderGlEnvironmentSkybox,
   renderGlScene3D,
   registerGlRenderTextureResolver,
   reflectCamera3DByPlane,
@@ -416,7 +416,7 @@ function frame(timestamp: number): void {
     (reflectedCamera.projection as PerspectiveProjection).aspect =
       (camera.projection as PerspectiveProjection).aspect;
     reflectedCamera.nearClipPlane = null;
-    drawGlEnvironmentSkybox(
+    renderGlEnvironmentSkybox(
       reflectionState, environment, reflectedCamera, ctx.canvas.width / ctx.canvas.height,
     );
 

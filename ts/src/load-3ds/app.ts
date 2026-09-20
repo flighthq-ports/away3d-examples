@@ -1,7 +1,7 @@
 import type { GlEffectState, Mesh, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
-  beginGlEffectState,
+  beginGlEffectPass,
   computeMeshGeometryNormals,
   configureDirectionalShadowCamera3D,
   createAabb,
@@ -22,8 +22,8 @@ import {
   defaultGlFxaaEffectRunner,
   defaultGlToneMapEffectRunner,
   renderGlScene3D,
-  drawGlScene3DShadowMap,
-  endGlEffectState,
+  renderGlScene3DShadowMap,
+  endGlEffectPass,
   getNodeChildren,
   loadImageResourceFromUrl,
   registerGlExtendedPbrMaterial,
@@ -179,16 +179,16 @@ function frame(ts: number): void {
 
   // Shadow depth pass from the light's view, before the lit scene draw samples it.
   configureDirectionalShadowCamera3D(shadowCamera, dir, shadowBounds);
-  drawGlScene3DShadowMap(state, scene.root, shadowCamera, directional);
+  renderGlScene3DShadowMap(state, scene.root, shadowCamera, directional);
 
   // Effect-pipeline present: draw the scene into the pipeline's HDR target (clearing background and
   // depth as a direct present would), then run the post-process stack (ACES tone map) to the canvas.
   if (effectState === null) {
     effectState = createGlEffectState(state, { format: 'rgba16f', depth: 'depth-stencil' });
   }
-  const pass = beginGlEffectState(state, effectState, clear);
+  const pass = beginGlEffectPass(state, effectState, clear);
   renderGlScene3D(pass, scene.root, camera, lights);
-  endGlEffectState(pass, effectState, effects);
+  endGlEffectPass(pass, effectState, effects);
   requestAnimationFrame(frame);
 }
 

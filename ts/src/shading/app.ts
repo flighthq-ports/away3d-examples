@@ -26,7 +26,7 @@ import {
   createToneMapEffect,
   createTorusMeshGeometry,
   createVector3,
-  drawGlScene3DShadowMap,
+  renderGlScene3DShadowMap,
   invalidateNodeLocalTransform,
   scaleMeshGeometryUvs,
   setCubeTextureFace,
@@ -183,7 +183,7 @@ function frame(ts: number): void {
 
   orbit.update();
   configureDirectionalShadowCamera3D(shadowCamera, directional.direction, shadowBounds);
-  drawGlScene3DShadowMap(ctx.state, scene.root, shadowCamera, directional);
+  renderGlScene3DShadowMap(ctx.state, scene.root, shadowCamera, directional);
   ctx.render(scene.root, camera, lights);
   requestAnimationFrame(frame);
 }

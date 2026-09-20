@@ -147,7 +147,7 @@ const [
 const environment = createEnvironment({
   environment: createCubeTextureFromAwayFaces(webHostBitmapReadback, skyFaces),
   // Note this single number does two jobs: it scales the IBL contribution AND multiplies the
-  // drawn skybox (`drawGlEnvironmentSkybox` uniform `u_intensity`). Lowering it to tame the
+  // drawn skybox (`renderGlEnvironmentSkybox` uniform `u_intensity`). Lowering it to tame the
   // terrain also crushed the visible night sky from (23,22,39) to (1,1,2) against the original's
   // (23,22,39), so brightness is dialled with the key light and exposure instead.
   intensity: 1,

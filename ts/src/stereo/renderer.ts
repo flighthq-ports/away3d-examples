@@ -8,14 +8,14 @@ import type {
   Scene3DLights,
 } from '@flighthq/sdk';
 import {
-  beginGlEffectState,
+  beginGlEffectPass,
   clearGlRenderTarget,
   createGlEffectState,
   createToneMapEffect,
   defaultGlFxaaEffectRunner,
   defaultGlToneMapEffectRunner,
   renderGlScene3D,
-  endGlEffectState,
+  endGlEffectPass,
   registerGlBlinnPhongMaterial,
   registerBuiltInGlModifierSnippets,
   registerGlExtendedPbrMaterial,
@@ -100,7 +100,7 @@ export function createScene3DContext(options: Readonly<Scene3DOptions> = {}): Sc
       }
       const gl = state.gl;
       gl.colorMask(true, true, true, true);
-      const pass = beginGlEffectState(state, effectState, clear);
+      const pass = beginGlEffectPass(state, effectState, clear);
 
       // The effect pass already cleared color and depth with every channel writable.
       gl.colorMask(true, false, false, true);
@@ -112,7 +112,7 @@ export function createScene3DContext(options: Readonly<Scene3DOptions> = {}): Sc
       renderGlScene3D(pass, scene, rightCamera, lights);
 
       gl.colorMask(true, true, true, true);
-      endGlEffectState(pass, effectState, effects);
+      endGlEffectPass(pass, effectState, effects);
     },
     state,
     width,

@@ -8,13 +8,13 @@ import type {
   Scene3DLights,
 } from '@flighthq/sdk';
 import {
-  beginGlEffectState,
+  beginGlEffectPass,
   createGlEffectState,
   createToneMapEffect,
   defaultGlFxaaEffectRunner,
   defaultGlToneMapEffectRunner,
   renderGlScene3D,
-  endGlEffectState,
+  endGlEffectPass,
   registerGlBlinnPhongMaterial,
   registerBuiltInGlModifierSnippets,
   registerGlExtendedPbrMaterial,
@@ -88,9 +88,9 @@ export function createScene3DContext(options: Readonly<Scene3DOptions> = {}): Sc
       if (effectState === null) {
         effectState = createGlEffectState(state, { format: 'rgba16f', depth: 'depth-stencil' });
       }
-      const pass = beginGlEffectState(state, effectState, clear);
+      const pass = beginGlEffectPass(state, effectState, clear);
       renderGlScene3D(pass, scene, camera, lights);
-      endGlEffectState(pass, effectState, effects);
+      endGlEffectPass(pass, effectState, effects);
     },
     state,
     width,

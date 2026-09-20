@@ -1,7 +1,7 @@
 import type { GlEffectState, PerspectiveProjection, Node3D } from '@flighthq/sdk';
 import {
   addNodeChild,
-  beginGlEffectState,
+  beginGlEffectPass,
   configureDirectionalShadowCamera3D,
   createAabb,
   createCamera3D,
@@ -17,8 +17,8 @@ import {
   defaultGlFxaaEffectRunner,
   defaultGlToneMapEffectRunner,
   renderGlScene3D,
-  drawGlScene3DShadowMap,
-  endGlEffectState,
+  renderGlScene3DShadowMap,
+  endGlEffectPass,
   getNodeChildren,
   invalidateNodeLocalTransform,
   isMesh,
@@ -194,13 +194,13 @@ function frame(): void {
   }
 
   configureDirectionalShadowCamera3D(shadowCamera, lightDir, shadowBounds);
-  drawGlScene3DShadowMap(state, scene.root, shadowCamera, directional);
+  renderGlScene3DShadowMap(state, scene.root, shadowCamera, directional);
 
-  const pass = beginGlEffectState(state, effectState, clear);
+  const pass = beginGlEffectPass(state, effectState, clear);
   renderGlScene3D(pass, scene.root, camera, lights);
   // A modest lift keeps the textured mid-tones readable without flattening the black backdrop or
   // the source's deep Fresnel/shadow contrast.
-  endGlEffectState(pass, effectState, [createToneMapEffect({ exposure: 1.55 }), createFxaaEffect()]);
+  endGlEffectPass(pass, effectState, [createToneMapEffect({ exposure: 1.55 }), createFxaaEffect()]);
   requestAnimationFrame(frame);
 }
 

@@ -2,7 +2,7 @@ import type { GlEffectState, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
   advanceAnimationPlayer,
-  beginGlEffectState,
+  beginGlEffectPass,
   configureDirectionalShadowCamera3DTightFit,
   createStandardPbrMaterial,
   createCamera3D,
@@ -19,8 +19,8 @@ import {
   defaultGlFxaaEffectRunner,
   defaultGlToneMapEffectRunner,
   renderGlScene3D,
-  drawGlScene3DShadowMap,
-  endGlEffectState,
+  renderGlScene3DShadowMap,
+  endGlEffectPass,
   loadImageResourceFromUrl,
   bakeGlEnvironmentIbl,
   registerGlStandardPbrMaterial,
@@ -223,17 +223,17 @@ function frame(now: number): void {
   }
 
   orbit.update();
-  drawGlScene3DShadowMap(state, scene.root, shadowCamera, directional);
+  renderGlScene3DShadowMap(state, scene.root, shadowCamera, directional);
   if (effectState === null) {
     effectState = createGlEffectState(state, { format: 'rgba16f', depth: 'depth-stencil' });
   }
-  const pass = beginGlEffectState(state, effectState, clear);
+  const pass = beginGlEffectPass(state, effectState, clear);
   renderGlScene3D(pass, scene.root, camera, lights);
   // AwayJS applies no tone mapping at all, so the default ACES curve was the single largest source of
   // mismatch: its shoulder compressed the mid-tones, crushed the darks and desaturated the armour.
   // Reinhard with a high white point is near-linear across this scene's range — closest to AwayJS's
   // straight gamma-space output while still clamping the few specular pixels above 1.
-  endGlEffectState(pass, effectState, [
+  endGlEffectPass(pass, effectState, [
     createToneMapEffect({ operator: 'reinhard', white: 8, exposure: 1.0 }),
     createFxaaEffect(),
   ]);

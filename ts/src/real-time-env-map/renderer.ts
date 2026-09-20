@@ -9,15 +9,15 @@ import type {
   Scene3DLights,
 } from '@flighthq/sdk';
 import {
-  beginGlEffectState,
+  beginGlEffectPass,
   createGlEffectState,
   createToneMapEffect,
   defaultGlFxaaEffectRunner,
   defaultGlScreenSpaceFogEffectRunner,
   defaultGlToneMapEffectRunner,
-  drawGlEnvironmentSkybox,
+  renderGlEnvironmentSkybox,
   renderGlScene3D,
-  endGlEffectState,
+  endGlEffectPass,
   registerGlBlinnPhongMaterial,
   registerBuiltInGlModifierSnippets,
   registerGlExtendedPbrMaterial,
@@ -96,18 +96,18 @@ export function createScene3DContext(options: Readonly<Scene3DOptions> = {}): Sc
       if (effectState === null) {
         effectState = createGlEffectState(state, { format: 'rgba16f', depth: 'depth-stencil-sampled' });
       }
-      const pass = beginGlEffectState(state, effectState, clear);
-      if (environment) drawGlEnvironmentSkybox(state, environment, camera, canvas.width / canvas.height);
+      const pass = beginGlEffectPass(state, effectState, clear);
+      if (environment) renderGlEnvironmentSkybox(state, environment, camera, canvas.width / canvas.height);
       // The live capture is baked HERE, between the skybox and the lit draws, and this hook exists
       // only for that. The PBR path takes a baked IBL only while its stamped revision still matches
       // the runtime's (glLitProgram: `runtime.ibl?.environmentSourceRevision ===
-      // runtime.environmentSourceRevision ? runtime.ibl : null`), and drawGlEnvironmentSkybox above
+      // runtime.environmentSourceRevision ? runtime.ibl : null`), and renderGlEnvironmentSkybox above
       // can advance that revision. Baking after it keeps the two equal for the meshes that follow;
       // bake before it and every PBR surface silently loses its ambient term, which renders the
       // reflective head pure black.
       onBeforeScene?.();
       renderGlScene3D(pass, scene, camera, lights);
-      endGlEffectState(pass, effectState, effects);
+      endGlEffectPass(pass, effectState, effects);
     },
     state,
     width,

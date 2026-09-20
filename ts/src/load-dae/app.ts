@@ -18,7 +18,7 @@ import {
   createTilingSampler,
   createToneMapEffect,
   createVector3,
-  drawGlScene3DShadowMap,
+  renderGlScene3DShadowMap,
   findNode,
   invalidateMeshGeometry,
   invalidateNodeLocalTransform,
@@ -214,7 +214,7 @@ function frame(time: number): void {
   stats.textContent = `FPS: ${displayedFps}\nPLY: ${triangleCount}`;
 
   configureDirectionalShadowCamera3D(shadowCamera, directional.direction, shadowBounds);
-  drawGlScene3DShadowMap(ctx.state, model.root, shadowCamera, directional);
+  renderGlScene3DShadowMap(ctx.state, model.root, shadowCamera, directional);
   ctx.render(scene.root, camera, lights);
   requestAnimationFrame(frame);
 }

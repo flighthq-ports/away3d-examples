@@ -22,7 +22,7 @@ import {
   loadImageResourceFromUrl,
   orientScene3DBillboardsToCamera,
   packOpaqueColor,
-  drawGlScene3DShadowMap,
+  renderGlScene3DShadowMap,
   setNodeLocalMatrix4,
 } from '@flighthq/sdk';
 
@@ -152,7 +152,7 @@ const shadowCamera = createCamera3D({
   projection: createOrthographicProjection({ halfWidth: 1000, halfHeight: 1000 }),
 });
 configureDirectionalShadowCamera3DTightFit(shadowCamera, directional.direction, shadowBounds, 1.02);
-drawGlScene3DShadowMap(ctx.state, shadowScene.root, shadowCamera, directional);
+renderGlScene3DShadowMap(ctx.state, shadowScene.root, shadowCamera, directional);
 
 const torches = createSponzaTorches(scene.root, fireImage);
 const lights = createScene3DLights({ ambient, directional, point: torches.lights });
