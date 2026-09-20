@@ -2,16 +2,13 @@ import type {
   BlinnPhongMaterial,
   Mesh,
   MeshGeometry,
-  PerspectiveProjection,
 } from '@flighthq/sdk';
 import {
   addNodeChild,
-  createFxaaEffect,
   createMatrix4,
   createScene3D,
   createScene3DFromAwd2,
   createScene3DLights,
-  createToneMapEffect,
   createVector3,
   DEG_TO_RAD,
   findNode,
@@ -28,14 +25,9 @@ import {
 
 import { awayDirection, createCameraFromAway } from '../../shared/camera';
 import { applyAwayGloss, createDirectionalLightFromAway } from '../../shared/lighting';
-import { createScene3DContext } from './renderer';
+import { setupRenderer } from './render.gl';
 
-const ctx = createScene3DContext({
-  width: window.innerWidth,
-  height: window.innerHeight,
-  backgroundColor: 0x030404ff,
-  effects: [createToneMapEffect(), createFxaaEffect()],
-});
+const renderer = setupRenderer();
 
 const scene = createScene3D();
 
@@ -82,7 +74,7 @@ function geometryPolygonCount(geometry: Readonly<MeshGeometry>): number {
 
 function scenePolygonCount(): number {
   const renderList = prepareScene3DRender(
-    ctx.state, scene.root, camera, lights, ctx.canvas.width / ctx.canvas.height,
+    renderer.state, scene.root, camera, lights, renderer.canvas.width / renderer.canvas.height,
   );
   let polygons = 0;
   for (let i = 0; i < renderList.meshCount; i++) {
@@ -124,21 +116,12 @@ function frame(timestamp: number): void {
   prependMatrix4(scratchMatrix, scratchMatrix, orient);
   setNodeLocalMatrix4(templateMesh!, scratchMatrix);
 
-  ctx.render(scene.root, camera, lights);
+  renderer.render(scene.root, camera, lights);
   updateStats(timestamp);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  const pr = window.devicePixelRatio || 1;
-  ctx.canvas.width = w * pr;
-  ctx.canvas.height = h * pr;
-  ctx.canvas.style.width = `${w}px`;
-  ctx.canvas.style.height = `${h}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = w / h;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 
 requestAnimationFrame(frame);

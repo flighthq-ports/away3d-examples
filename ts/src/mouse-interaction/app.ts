@@ -1,13 +1,10 @@
 import type {
   Mesh,
-  PerspectiveProjection,
 } from '@flighthq/sdk';
 import {
   createAmbientLight,
-  createFxaaEffect,
   createScene3D,
   createScene3DLights,
-  createToneMapEffect,
 } from '@flighthq/sdk';
 
 import { createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
@@ -16,13 +13,9 @@ import { bindHoverPicking, bindOrbitControls } from './controls';
 import type { ObjectInfo } from './objects';
 import { createRandomObject, loadHeadModel } from './objects';
 import { createTracers, updateNormalTracerStroke } from './tracers';
-import { createScene3DContext } from './renderer';
+import { setupRenderer } from './render.gl';
 
-const ctx = createScene3DContext({
-  width: window.innerWidth,
-  height: window.innerHeight,
-  effects: [createToneMapEffect({ exposure: 1.5 }), createFxaaEffect()],
-});
+const renderer = setupRenderer();
 
 const scene = createScene3D();
 
@@ -57,33 +50,24 @@ const orbit = createOrbitControllerFromAway(camera, {
   maxTiltAngle: 90,
 });
 
-const updateCamera = bindOrbitControls(ctx.canvas, orbit, pointLight);
-bindHoverPicking(ctx.canvas, scene, camera, tracers, meshToInfo, headMesh);
+const updateCamera = bindOrbitControls(renderer.canvas, orbit, pointLight);
+bindHoverPicking(renderer.canvas, scene, camera, tracers, meshToInfo, headMesh);
 
 updateCamera();
 
 function frame(): void {
   updateCamera();
-  updateNormalTracerStroke(tracers.pickingNormalTracer, camera, ctx.canvas.clientHeight, 3);
-  updateNormalTracerStroke(tracers.sceneNormalTracer, camera, ctx.canvas.clientHeight, 3);
+  updateNormalTracerStroke(tracers.pickingNormalTracer, camera, renderer.canvas.clientHeight, 3);
+  updateNormalTracerStroke(tracers.sceneNormalTracer, camera, renderer.canvas.clientHeight, 3);
 
   tracers.sceneTracer.visible = false;
   tracers.sceneNormalTracer.visible = false;
 
-  ctx.render(scene.root, camera, lights);
+  renderer.render(scene.root, camera, lights);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  const pr = window.devicePixelRatio || 1;
-  ctx.canvas.width = w * pr;
-  ctx.canvas.height = h * pr;
-  ctx.canvas.style.width = `${w}px`;
-  ctx.canvas.style.height = `${h}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = w / h;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 
 requestAnimationFrame(frame);

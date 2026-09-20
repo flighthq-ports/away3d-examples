@@ -1,12 +1,11 @@
 import { createWebImageResourceFromCanvas, webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
-import type { ImageResource, LightProbe, Mesh, PerspectiveProjection } from '@flighthq/sdk';
+import type { ImageResource, LightProbe, Mesh } from '@flighthq/sdk';
 import {
   LIGHT_PROBE_SH_FLOATS,
   addNodeChild,
   captureBitmapFromImageResource,
   createAabb,
   createAmbientLight,
-  createFxaaEffect,
   createHemisphereLight,
   createLightProbe,
   createLightProbeGrid,
@@ -15,7 +14,6 @@ import {
   createScene3DLights,
   createStandardPbrMaterial,
   createTexture,
-  createToneMapEffect,
   createVector3,
   evaluateLightProbeSh,
   findNode,
@@ -33,7 +31,7 @@ import {
 
 import { createCameraFromAway } from '../../shared/camera';
 import { createPointLightFromAway } from '../../shared/lighting';
-import { createScene3DContext } from './renderer';
+import { setupRenderer } from './render.gl';
 
 const assetRoot = 'away3d/LightProbes/';
 const faceNames = ['posX', 'negX', 'posY', 'negY', 'posZ', 'negZ'] as const;
@@ -48,12 +46,7 @@ const faceDirections = new Float32Array([
   0, 0, 1,
 ]);
 
-const ctx = createScene3DContext({
-  width: window.innerWidth,
-  height: window.innerHeight,
-  backgroundColor: 0x151515ff,
-  effects: [createToneMapEffect({ exposure: 1.15 }), createFxaaEffect()],
-});
+const renderer = setupRenderer();
 const scene = createScene3D();
 const camera = createCameraFromAway({ near: 20, far: 2000 });
 
@@ -269,7 +262,7 @@ window.addEventListener('mousemove', (event) => {
     referencePointerX = pointerX;
   }
 });
-ctx.canvas.addEventListener('mousedown', (event) => {
+renderer.canvas.addEventListener('mousedown', (event) => {
   dragging = true;
   referencePointerX = event.clientX;
 });
@@ -306,20 +299,11 @@ function frame(time: number): void {
   setVector3(cameraEye, cameraX, cameraY, 300 * SCENE_SCALE);
   setCamera3DViewMatrix4FromLookAt(camera, cameraEye, head.position, cameraUp);
 
-  ctx.render(scene.root, camera, lights);
+  renderer.render(scene.root, camera, lights);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const width = window.innerWidth;
-  const height = window.innerHeight;
-  const pixelRatio = window.devicePixelRatio || 1;
-  ctx.canvas.width = width * pixelRatio;
-  ctx.canvas.height = height * pixelRatio;
-  ctx.canvas.style.width = `${width}px`;
-  ctx.canvas.style.height = `${height}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = width / height;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 
 requestAnimationFrame(frame);
