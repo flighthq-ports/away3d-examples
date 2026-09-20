@@ -1,4 +1,4 @@
-import { webHostBitmapReadback, webHostImage, webHostNet } from '@flighthq/host-web';
+import { createWebImageResourceFromCanvas, webHostBitmapReadback, webHostImage, webHostNet } from '@flighthq/host-web';
 import { registerWebImageDecoders } from '@flighthq/host-web';
 import type { ImageResource, Mesh, Node3D, PerspectiveProjection } from '@flighthq/sdk';
 import {
@@ -11,7 +11,6 @@ import {
   createCamera3D,
   createEnvironment,
   createFxaaEffect,
-  createImageResource,
   createMesh,
   createOrthographicProjection,
   createPlaneMeshGeometry,
@@ -170,7 +169,7 @@ function skyFace(face: number): ImageResource {
     }
   }
   g.putImageData(image, 0, 0);
-  return createImageResource(canvas);
+  return createWebImageResourceFromCanvas(canvas);
 }
 
 const environment = createEnvironment({

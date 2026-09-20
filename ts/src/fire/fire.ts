@@ -1,8 +1,8 @@
+import { createWebImageResourceFromCanvas } from '@flighthq/host-web';
 import type { HostImageCapability, ImageResource, ParticleEmitter3D, ParticleEmitterConfig, ParticleEmitterState, Scene3D, TextureAtlas } from '@flighthq/sdk';
 import {
   addTextureAtlasRegion,
   addNodeChild,
-  createImageResource,
   createParticleEmitter3D,
   createParticleEmitterConfig,
   createParticleEmitterState,
@@ -48,7 +48,7 @@ function createFireSpriteMask(source: Readonly<ImageResource>): ImageResource {
   context.globalCompositeOperation = 'source-in';
   context.fillStyle = '#fff';
   context.fillRect(0, 0, canvas.width, canvas.height);
-  return createImageResource(canvas);
+  return createWebImageResourceFromCanvas(canvas);
 }
 
 export async function createFireEmitters(

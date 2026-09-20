@@ -1,4 +1,4 @@
-import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
+import { createWebImageResourceFromCanvas, webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
 import type { ImageResource, InstancedMesh, Material, Matrix4, MeshGeometry, PerspectiveProjection, Vector3Like } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -13,7 +13,6 @@ import {
   createFxaaEffect,
   createHemisphereLight,
   createIcosphereMeshGeometry,
-  createImageResource,
   createInstancedMesh,
   createMatrix4,
   createMesh,
@@ -313,7 +312,7 @@ function buildTerrainTexture(): ImageResource {
     }
   }
   context.putImageData(output, 0, 0);
-  return createImageResource(canvas);
+  return createWebImageResourceFromCanvas(canvas);
 }
 
 const terrainGeometry: MeshGeometry = createPlaneMeshGeometry(TERRAIN_SIZE, TERRAIN_SIZE, 96, 96);

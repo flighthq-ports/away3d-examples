@@ -1,4 +1,4 @@
-import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
+import { createWebImageResourceFromCanvas, webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
 import type { ImageResource, LightProbe, Mesh, PerspectiveProjection } from '@flighthq/sdk';
 import {
   LIGHT_PROBE_SH_FLOATS,
@@ -14,7 +14,6 @@ import {
   createScene3DFromObj,
   createScene3DLights,
   createStandardPbrMaterial,
-  createImageResource,
   createTexture,
   createToneMapEffect,
   createVector3,
@@ -238,7 +237,7 @@ neutralCanvas.height = 512;
 const neutralContext = neutralCanvas.getContext('2d')!;
 neutralContext.fillStyle = '#bbbbaa';
 neutralContext.fillRect(0, 0, 512, 512);
-const neutralTexture = createTexture({ source: createImageResource(neutralCanvas) });
+const neutralTexture = createTexture({ source: createWebImageResourceFromCanvas(neutralCanvas) });
 let showingNeutral = false;
 
 window.addEventListener('keyup', (event) => {

@@ -1,5 +1,5 @@
 import type { CanvasRenderState, CanvasRenderTarget, ImageResource, Node2D } from '@flighthq/sdk';
-import { createImageResource, createMatrix, setMatrix, walkNodeDescendants } from '@flighthq/sdk';
+import { createMatrix, setMatrix, walkNodeDescendants } from '@flighthq/sdk';
 import { gotoAndStopMovieClip } from '@flighthq/movieclip';
 import {
   beginCanvasRenderPass,
@@ -12,7 +12,7 @@ import {
   renderCanvasScene2D,
   setCanvasRenderTransform2D,
 } from '@flighthq/scene2d-canvas';
-import { createWebCanvasRenderSurfaceCreator } from '@flighthq/host-web';
+import { createWebCanvasRenderSurfaceCreator, createWebImageResourceFromCanvas } from '@flighthq/host-web';
 import { prepareScene2DRender } from '@flighthq/render';
 import { createScene2DFromSwf } from '@flighthq/swf';
 
@@ -187,6 +187,6 @@ export function createSwfSheetBuilder(swf: Uint8Array) {
         (frame % columns) * cellWidth, Math.floor(frame / columns) * cellHeight, cellWidth, cellHeight,
       );
     }
-    return { columns, frames, resource: createImageResource(sheet), rows };
+    return { columns, frames, resource: createWebImageResourceFromCanvas(sheet), rows };
   };
 }

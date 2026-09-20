@@ -1,4 +1,4 @@
-import { webHostBitmapReadback, webHostImage, webHostNet } from '@flighthq/host-web';
+import { createWebImageResourceFromCanvas, webHostBitmapReadback, webHostImage, webHostNet } from '@flighthq/host-web';
 import { registerWebImageDecoders } from '@flighthq/host-web';
 import type { Mesh, Node3D, PerspectiveProjection } from '@flighthq/sdk';
 import {
@@ -11,7 +11,6 @@ import {
   createCamera3D,
   createEnvironment,
   createFxaaEffect,
-  createImageResource,
   createMesh,
   createOrthographicProjection,
   createParticleEmitter3D,
@@ -240,7 +239,7 @@ for (let arm = 0; arm < 6; arm++) {
   snowflakeContext.lineTo(6, 20);
   snowflakeContext.stroke();
 }
-const snowflake = createImageResource(snowflakeCanvas);
+const snowflake = createWebImageResourceFromCanvas(snowflakeCanvas);
 const snowAtlas = createTextureAtlas({ texture: createTexture({ source: snowflake }) });
 addTextureAtlasRegion(snowAtlas, 0, 0, snowflake.width, snowflake.height);
 const snowfall = createParticleEmitter3D();
