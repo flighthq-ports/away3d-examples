@@ -1,5 +1,5 @@
 import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
-import type { Mesh, MeshGeometry, PerspectiveProjection } from '@flighthq/sdk';
+import type { Mesh, MeshGeometry } from '@flighthq/sdk';
 import {
   addNodeChild,
   bakeGlEnvironmentCaptureIbl,
@@ -8,7 +8,6 @@ import {
   computeMeshGeometryTangents,
   createAmbientLight,
   createEnvironment,
-  createFxaaEffect,
   createGlCubeRenderTarget,
   createMesh,
   createPlaneMeshGeometry,
@@ -18,7 +17,6 @@ import {
   createStandardPbrMaterial,
   createTexture,
   createTilingSampler,
-  createToneMapEffect,
   createVector3,
   findNode,
   getMeshGeometryVertexCount,
@@ -27,7 +25,6 @@ import {
   invalidateNodeLocalTransform,
   isMesh,
   loadImageResourceFromUrl,
-  createScreenSpaceFogEffect,
   renderGlEnvironmentCapture,
   scaleMeshGeometryUvs,
   setMeshGeometryVertexPosition,
@@ -38,7 +35,7 @@ import {
 import { bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
 import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
 import { createDirectionalLightFromAway } from '../../shared/lighting';
-import { createScene3DContext } from './renderer';
+import { CAMERA_FAR, CAMERA_NEAR, setupRenderer } from './render.gl';
 
 const MAX_SPEED = 1;
 const MAX_ROTATION_SPEED = 10;
@@ -48,48 +45,12 @@ const ROTATION_ACCELERATION = 0.5;
 const TERRAIN_SIZE = 5000;
 const TERRAIN_HEIGHT = 300;
 const TERRAIN_SEGMENTS = 250;
-const CAMERA_NEAR = 20;
-const CAMERA_FAR = 4000;
 // FogMethod(500, 2000, 0x5f5e6e).
-const FOG_COLOR = 0x5f5e6e;
-const FOG_FAR = 2000;
 // The fog effect ramps over NON-LINEAR window depth, so the original's world-linear near endpoint
 // cannot be transplanted literally - depth saturates so fast that 500 would haze the subject.
 // This window is chosen for that ramp instead: clear around the head, hazing toward the far dunes.
-const FOG_VISIBLE_NEAR = 900;
 
-// Clear colour and fog are consumed as linear values, so the sRGB constants are converted.
-function linearChannel(channel: number): number {
-  const v = channel / 255;
-  return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-}
-function linearRgba(srgb: number): number {
-  let out = 0;
-  for (let shift = 16; shift >= 0; shift -= 8) {
-    out = (out << 8) | Math.round(linearChannel((srgb >> shift) & 0xff) * 255);
-  }
-  return ((out << 8) | 0xff) >>> 0;
-}
-function depthAt(distance: number): number {
-  const d = Math.max(distance, CAMERA_NEAR);
-  return (CAMERA_FAR * (d - CAMERA_NEAR)) / (d * (CAMERA_FAR - CAMERA_NEAR));
-}
-
-const ctx = createScene3DContext({
-  width: innerWidth,
-  height: innerHeight,
-  backgroundColor: linearRgba(FOG_COLOR),
-  effects: [
-    createScreenSpaceFogEffect({
-      color: linearRgba(FOG_COLOR),
-      near: depthAt(FOG_VISIBLE_NEAR),
-      far: depthAt(FOG_FAR),
-      density: 1,
-    }),
-    createToneMapEffect({ exposure: 1.05 }),
-    createFxaaEffect(),
-  ],
-});
+const renderer = setupRenderer();
 const scene = createScene3D();
 const camera = createCameraFromAway({ near: CAMERA_NEAR, far: CAMERA_FAR });
 const orbit = createOrbitControllerFromAway(camera, {
@@ -104,7 +65,7 @@ const orbit = createOrbitControllerFromAway(camera, {
   // time R2D2 completes a lap.
   wrapPanAngle: true,
 });
-bindOrbitDrag(ctx.canvas, orbit, { minDistance: 350, maxDistance: 1100 });
+bindOrbitDrag(renderer.canvas, orbit, { minDistance: 350, maxDistance: 1100 });
 
 const awayLight = createDirectionalLightFromAway({
   direction: { x: -1, y: -2, z: 1 },
@@ -136,7 +97,7 @@ const skyEnvironment = createEnvironment({
   environment: createCubeTextureFromAwayFaces(webHostBitmapReadback, faceImages),
   intensity: 1.2,
 });
-bakeGlEnvironmentIbl(ctx.state, skyEnvironment);
+bakeGlEnvironmentIbl(renderer.state, skyEnvironment);
 
 if (!heightImage.source) throw new Error('The desert heightmap has no drawable image source');
 const heightCanvas = document.createElement('canvas');
@@ -225,7 +186,7 @@ invalidateNodeLocalTransform(r2Scene.root);
 addNodeChild(scene.root, r2Scene.root);
 
 // CubeReflectionTexture(256), near 50, far 3000, centred on the head at (0, 100, 0).
-const captureTarget = createGlCubeRenderTarget(ctx.state, 256);
+const captureTarget = createGlCubeRenderTarget(renderer.state, 256);
 const capturePosition = createVector3(0, 100, 0);
 // SDK 0.5.1-next.1059 added `environment` to GlEnvironmentCaptureOptions, so the capture draws the
 // sky into each cube face itself. That retired a hand-rolled six-face loop this sample used to
@@ -241,7 +202,7 @@ const CAPTURE_FACE_INTERVAL = 4;
 let captureFaceCountdown = 0;
 function captureEnvironment(): void {
   if (captureFaceCountdown <= 0) {
-    renderGlEnvironmentCapture(ctx.state, capturePosition, scene.root, lights, captureTarget, {
+    renderGlEnvironmentCapture(renderer.state, capturePosition, scene.root, lights, captureTarget, {
       near: 50,
       far: 3000,
       // The head must not reflect itself.
@@ -252,7 +213,7 @@ function captureEnvironment(): void {
   } else {
     captureFaceCountdown--;
   }
-  bakeGlEnvironmentCaptureIbl(ctx.state, captureTarget, 1.2);
+  bakeGlEnvironmentCaptureIbl(renderer.state, captureTarget, 1.2);
 }
 
 const keys = new Set<string>();
@@ -317,7 +278,7 @@ function frame(timestamp: number): void {
   orbit.panAngle = Math.PI / 2 + Math.atan2(r2Scene.root.position.z, r2Scene.root.position.x);
   orbit.update();
 
-  ctx.render(scene.root, camera, lights, skyEnvironment, captureEnvironment);
+  renderer.render(scene.root, camera, lights, skyEnvironment, captureEnvironment);
   requestAnimationFrame(frame);
 }
 
@@ -359,16 +320,7 @@ let framesThisSecond = 0;
 let statsWindowStart = performance.now();
 let displayedFps = 0;
 
-window.addEventListener('resize', () => {
-  const width = innerWidth;
-  const height = innerHeight;
-  const pixelRatio = devicePixelRatio || 1;
-  ctx.canvas.width = width * pixelRatio;
-  ctx.canvas.height = height * pixelRatio;
-  ctx.canvas.style.width = `${width}px`;
-  ctx.canvas.style.height = `${height}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = width / height;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 
 requestAnimationFrame(frame);

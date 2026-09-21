@@ -1,13 +1,12 @@
 import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
 import { createWebImageResourceFromCanvas } from '@flighthq/host-web';
-import type { MeshGeometry, PerspectiveProjection } from '@flighthq/sdk';
+import type { MeshGeometry } from '@flighthq/sdk';
 import {
   addNodeChild,
   bakeGlEnvironmentIbl,
   createAmbientLight,
   createBoxMeshGeometry,
   createEnvironment,
-  createFxaaEffect,
   createMesh,
   createPlaneMeshGeometry,
   createScene3D,
@@ -15,7 +14,6 @@ import {
   createScene3DLights,
   createStandardPbrMaterial,
   createTexture,
-  createToneMapEffect,
   createUnlitMaterial,
   createVector3,
   getMeshGeometryVertexCount,
@@ -34,14 +32,9 @@ import {
 import { bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
 import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
 import { createPointLightFromAway } from '../../shared/lighting';
-import { createScene3DContext } from './renderer';
+import { setupRenderer } from './render.gl';
 
-const ctx = createScene3DContext({
-  width: innerWidth,
-  height: innerHeight,
-  backgroundColor: 0x071a27ff,
-  effects: [createToneMapEffect({ exposure: 1.25 }), createFxaaEffect()],
-});
+const renderer = setupRenderer();
 const scene = createScene3D();
 let disturbing = false;
 // ShallowFluid(gridDimension 200, gridDimension 200, gridSpacing 2, ...): 199 segments of 2 units
@@ -71,7 +64,7 @@ const orbit = createOrbitControllerFromAway(camera, {
 // `if (planeDisturb) { disturb } else if (move) { rotate }` — a drag that starts on the water
 // disturbs it and does NOT also spin the camera. `disturbing` is set by the pointerdown handler
 // further down, which runs first because it is registered first.
-bindOrbitDrag(ctx.canvas, orbit, {
+bindOrbitDrag(renderer.canvas, orbit, {
   minDistance: 120,
   maxDistance: 900,
   shouldStart: () => !disturbing,
@@ -101,7 +94,7 @@ const environment = createEnvironment({
   environment: createCubeTextureFromAwayFaces(webHostBitmapReadback, skyFaces),
   intensity: 1,
 });
-bakeGlEnvironmentIbl(ctx.state, environment);
+bakeGlEnvironmentIbl(renderer.state, environment);
 
 const waterGeometry: MeshGeometry = createPlaneMeshGeometry(
   PLANE_SIZE, PLANE_SIZE, PLANE_SEGMENTS, PLANE_SEGMENTS,
@@ -278,7 +271,7 @@ function solveShallowWater(): void {
 const hit = createScene3DHit();
 const waterPoint = { x: 0, z: 0 };
 function pickWater(event: PointerEvent): boolean {
-  const rect = ctx.canvas.getBoundingClientRect();
+  const rect = renderer.canvas.getBoundingClientRect();
   const screenX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   const screenY = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
   const picked = pickScene3D(scene.root, camera, screenX, screenY, hit);
@@ -287,17 +280,17 @@ function pickWater(event: PointerEvent): boolean {
   waterPoint.z = picked.pointZ;
   return true;
 }
-ctx.canvas.addEventListener('pointerdown', (event) => {
+renderer.canvas.addEventListener('pointerdown', (event) => {
   if (!pickWater(event)) return;
   disturbing = true;
   disturb(waterPoint.x, waterPoint.z, -5);
 });
-ctx.canvas.addEventListener('pointermove', (event) => {
+renderer.canvas.addEventListener('pointermove', (event) => {
   // Latched for the whole drag, but only leaves a wake where the ray still meets the water.
   if (disturbing && pickWater(event)) disturb(waterPoint.x, waterPoint.z, -5);
 });
 for (const done of ['pointerup', 'pointercancel', 'pointerleave']) {
-  ctx.canvas.addEventListener(done, () => { disturbing = false; });
+  renderer.canvas.addEventListener(done, () => { disturbing = false; });
 }
 
 // Stands in for AwayStats, which this sample moves to the top right in onResize
@@ -376,15 +369,10 @@ function frame(ts: number): void {
   orbit.update();
   // The light rides the camera, as in the original.
   setVector3(skyLight.position, orbit.eye.x, orbit.eye.y, orbit.eye.z);
-  ctx.render(scene.root, camera, lights, environment);
+  renderer.render(scene.root, camera, lights, environment);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const width = innerWidth; const height = innerHeight; const pixelRatio = devicePixelRatio || 1;
-  ctx.canvas.width = width * pixelRatio; ctx.canvas.height = height * pixelRatio;
-  ctx.canvas.style.width = `${width}px`; ctx.canvas.style.height = `${height}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = width / height;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 requestAnimationFrame(frame);
