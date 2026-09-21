@@ -1,7 +1,6 @@
 import { createWebImageResourceFromCanvas } from '@flighthq/host-web';
 import type {
   Billboard,
-  PerspectiveProjection,
   ShadedMaterial,
   Texture,
 } from '@flighthq/sdk';
@@ -20,7 +19,6 @@ import {
   createDirectionalLight,
   createEmissiveModifier,
   createEnvironment,
-  createFxaaEffect,
   createMesh,
   createNode3D,
   createQuaternion,
@@ -32,11 +30,8 @@ import {
   createShadedMaterial,
   createSphereMeshGeometry,
   createTexture,
-  createToneMapEffect,
   createUnlitMaterial,
   createVector3,
-  glFxaaEffectRunner,
-  glToneMapEffectRunner,
   DEG_TO_RAD,
   flipBitmapHorizontal,
   flipBitmapVertical,
@@ -49,11 +44,6 @@ import {
   loadImageResourceFromUrl,
   orientScene3DBillboardsToCamera,
   packOpaqueColor,
-  registerBuiltInGlModifierSnippets,
-  registerGlEffect,
-  registerGlShadedMaterial,
-  registerStandardGlTextureResolvers,
-  registerGlUnlitMaterial,
   setCubeTextureFace,
   setNode3DAlpha,
   setQuaternionFromAxisAngle,
@@ -62,41 +52,11 @@ import {
 import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
 
 import { bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
-import { createExampleGlSurface } from '../../shared/glSurface';
 import { awayIntensity } from '../../shared/lighting';
 import { createAtmosphere, loadCloudTexture } from './atmosphere';
-import { registerEarthShader } from './earthShader';
-import type { SkyboxRenderState } from './skybox';
-import { renderSkyboxScene } from './skybox';
+import { setupRenderer } from './render.gl';
 
-const pixelRatio = window.devicePixelRatio || 1;
-
-const mount = document.getElementById('app');
-const { canvas, clear, state } = createExampleGlSurface(
-  window.innerWidth, window.innerHeight, pixelRatio, 0x000005ff,
-);
-if (mount) {
-  mount.replaceWith(canvas);
-} else {
-  document.body.appendChild(canvas);
-}
-document.body.style.margin = '0';
-
-// The earth/clouds use the composable shaded lit base (@flighthq/shading, mirroring the original
-// AwayJS MethodMaterial), the sun is a self-lit disc via an EmissiveModifier, and the atmosphere is
-// an unlit halo billboard. The modifier-snippet registration MUST run before the first draw: the
-// shaded program cache keys a plain Emissive identically whether or not its snippet is registered, so
-// a program compiled before registration would cache modifier-less and never recompile.
-// Textured materials resolve their maps through the backing-kind registry; without this every
-// texture resolves to null and the scene renders untextured.
-registerStandardGlTextureResolvers(state);
-registerGlShadedMaterial(state);
-registerBuiltInGlModifierSnippets(state);
-registerGlUnlitMaterial(state);
-registerGlEffect(state, 'FxaaEffect', glFxaaEffectRunner);
-registerGlEffect(state, 'ToneMapEffect', glToneMapEffectRunner);
-registerEarthShader(state);
-const skyboxRef: SkyboxRenderState = { effectState: null };
+const renderer = setupRenderer();
 
 const scene = createScene3D();
 
@@ -252,7 +212,7 @@ const [dayImage, specImage] = await Promise.all([
   loadImageResourceFromUrl(webHostImage, 'globe/earth_specular_2048.jpg'),
 ]);
 
-// Night-lights texture: the source is a 16384-wide JPG, so downscale it into a 2048x1024 canvas to
+// Night-lights texture: the source is a 16384-wide JPG, so downscale it into a 2048x1024 renderer.canvas to
 // keep GPU memory sane, then bind day/night/specular to the earth shader's samplers.
 const nightSource = await loadImageResourceFromUrl(webHostImage, 'globe/land_lights_16384.jpg');
 const nightCanvas = document.createElement('canvas');
@@ -302,7 +262,7 @@ const orbit = createOrbitControllerFromAway(camera, {
   yFactor: 1,
 });
 
-bindOrbitDrag(canvas, orbit, { minDistance: 400, maxDistance: 10000 });
+bindOrbitDrag(renderer.canvas, orbit, { minDistance: 400, maxDistance: 10000 });
 
 const axisY = createVector3(0, 1, 0);
 const scratchQuat = createQuaternion();
@@ -398,23 +358,11 @@ function frame(ts: number): void {
   orbit.update();
   updateFlares();
   orientScene3DBillboardsToCamera(scene.root, camera);
-  renderSkyboxScene(state, canvas, skyboxRef, clear, environment, scene.root, camera, lights, [
-    createToneMapEffect(),
-    createFxaaEffect(),
-  ]);
+  renderer.render(scene.root, camera, lights, environment);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  const ratio = window.devicePixelRatio || 1;
-  canvas.width = w * ratio;
-  canvas.height = h * ratio;
-  canvas.style.width = `${w}px`;
-  canvas.style.height = `${h}px`;
-  state.gl.viewport(0, 0, canvas.width, canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = w / h;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 
 requestAnimationFrame(frame);

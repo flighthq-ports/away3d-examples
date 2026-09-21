@@ -1,5 +1,4 @@
 import type {
-  PerspectiveProjection,
   Scene3DLights,
 } from '@flighthq/sdk';
 import {
@@ -11,25 +10,17 @@ import {
   createDirectionalLight,
   createEmissiveMaterial,
   createEnvironment,
-  createFxaaEffect,
   createMesh,
   createQuaternion,
   createScene3D,
   createScene3DLights,
   createStandardPbrMaterial,
-  createToneMapEffect,
   createTorusMeshGeometry,
   createVector3,
-  glFxaaEffectRunner,
-  glToneMapEffectRunner,
   DEG_TO_RAD,
   invalidateNodeLocalTransform,
   loadImageResourceFromUrl,
   multiplyQuaternion,
-  registerGlEmissiveMaterial,
-  registerGlEffect,
-  registerStandardGlTextureResolvers,
-  registerGlStandardPbrMaterial,
   setCamera3DViewMatrix4FromLookAt,
   setQuaternionFromAxisAngle,
   setVector3,
@@ -38,31 +29,8 @@ import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
 
 import { awayDirection, createCameraFromAway, setAwayPosition } from '../../shared/camera';
 import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
-import { createExampleGlSurface } from '../../shared/glSurface';
-import type { SkyboxRenderState } from './skybox';
-import { renderSkyboxScene } from './skybox';
-const width = window.innerWidth;
-const height = window.innerHeight;
-const pixelRatio = window.devicePixelRatio || 1;
-
-const mount = document.getElementById('app');
-const { canvas, clear, state } = createExampleGlSurface(width, height, pixelRatio, 0xffff00ff);
-
-if (mount) {
-  mount.replaceWith(canvas);
-} else {
-  document.body.appendChild(canvas);
-}
-
-document.body.style.margin = '0';
-
-// Textured materials resolve their maps through the backing-kind registry; without this every
-// texture resolves to null and the scene renders untextured.
-registerStandardGlTextureResolvers(state);
-registerGlStandardPbrMaterial(state);
-registerGlEmissiveMaterial(state);
-registerGlEffect(state, 'FxaaEffect', glFxaaEffectRunner);
-registerGlEffect(state, 'ToneMapEffect', glToneMapEffectRunner);
+import { setupRenderer } from './render.gl';
+const renderer = setupRenderer();
 const scene = createScene3D();
 
 const torusMaterial = createStandardPbrMaterial({
@@ -132,11 +100,9 @@ const faceImages = await Promise.all(faceUrls.map((url) => loadImageResourceFrom
 const cubeTexture = createCubeTextureFromAwayFaces(webHostBitmapReadback, faceImages);
 
 const environment = createEnvironment({ environment: cubeTexture, intensity: 1 });
-bakeGlEnvironmentIbl(state, environment);
+bakeGlEnvironmentIbl(renderer.state, environment);
 
-const skyboxRef: SkyboxRenderState = { effectState: null };
-
-let mouseX = width / 2;
+let mouseX = window.innerWidth / 2;
 let cameraRotationY = 0;
 
 const eye = createVector3(0, 0, 600);
@@ -172,23 +138,11 @@ function frame(): void {
 
   setCamera3DViewMatrix4FromLookAt(camera, eye, target, up);
 
-  renderSkyboxScene(state, canvas, skyboxRef, clear, environment, scene.root, camera, lights, [
-    createToneMapEffect(),
-    createFxaaEffect(),
-  ]);
+  renderer.render(scene.root, camera, lights, environment);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  const pr = window.devicePixelRatio || 1;
-  canvas.width = w * pr;
-  canvas.height = h * pr;
-  canvas.style.width = `${w}px`;
-  canvas.style.height = `${h}px`;
-  state.gl.viewport(0, 0, canvas.width, canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = w / h;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 
 frame();
