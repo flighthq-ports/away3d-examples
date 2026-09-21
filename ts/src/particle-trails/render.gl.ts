@@ -9,6 +9,7 @@ import {
   // glScene3DRenderRegistries,
   endGlEffectPass,
   registerGlFxaaEffect,
+  registerGlParticleEmitter3DPass,
   registerGlToneMapEffect,
   renderGlScene3D,
   setCamera3DAspect,
@@ -49,6 +50,9 @@ export function setupRenderer() {
 
   registerGlToneMapEffect(state);
   registerGlFxaaEffect(state);
+  // ParticleEmitter3D draws through a registered pass since next.1556; without this the
+  // emitters still step but never reach the screen.
+  registerGlParticleEmitter3DPass(state);
 
   // Unlit shading ignores the light block, so the scene never builds one.
   const lights = createScene3DLights();

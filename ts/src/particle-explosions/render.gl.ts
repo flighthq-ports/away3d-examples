@@ -12,6 +12,7 @@ import {
   createToneMapEffect,
   // glScene3DRenderRegistries,
   endGlEffectPass,
+  registerGlParticleEmitter3DPass,
   registerGlToneMapEffect,
   renderGlScene3D,
   setCamera3DAspect,
@@ -44,6 +45,9 @@ export function setupRenderer() {
   }
 
   registerGlToneMapEffect(state);
+  // ParticleEmitter3D draws through a registered pass since next.1556; without this the
+  // emitters still step but never reach the screen.
+  registerGlParticleEmitter3DPass(state);
 
   const effects = [createToneMapEffect()];
   let effectState: GlEffectState | null = null;

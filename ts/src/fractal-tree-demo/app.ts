@@ -1,5 +1,5 @@
 import { createWebImageResourceFromCanvas, webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
-import type { ImageResource, InstancedMesh, Material, Matrix4, MeshGeometry, Vector3Like } from '@flighthq/sdk';
+import type { ImageResource, InstancedMesh, Material3D, Matrix4, MeshGeometry, Vector3Like } from '@flighthq/sdk';
 import {
   addNodeChild,
   appendInstancedMeshInstance,
@@ -397,7 +397,7 @@ const maxTextureSize = (renderer.state.gl.getParameter(0x0d33) as number | null)
 const INSTANCES_PER_BATCH = Math.max(1, Math.floor(maxTextureSize / 4));
 
 function createInstanceBatches(
-  geometry: MeshGeometry, materials: Material[], total: number,
+  geometry: MeshGeometry, materials: Material3D[], total: number,
 ): InstancedMesh[] {
   const batches: InstancedMesh[] = [];
   for (let placed = 0; placed < total; placed += INSTANCES_PER_BATCH) {

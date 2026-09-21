@@ -19,6 +19,7 @@ import {
   glStandardPbrMeshMaterialRenderer,
   registerGlFxaaEffect,
   registerGlScreenSpaceFogEffect,
+  registerGlParticleEmitter3DPass,
   registerGlToneMapEffect,
   renderGlEnvironmentSkybox,
   renderGlScene3D,
@@ -90,6 +91,9 @@ export function setupRenderer() {
   registerGlToneMapEffect(state);
   registerGlFxaaEffect(state);
   registerGlScreenSpaceFogEffect(state);
+  // ParticleEmitter3D draws through a registered pass since next.1556; without this the
+  // emitters still step but never reach the screen.
+  registerGlParticleEmitter3DPass(state);
 
   const effects = [
     createScreenSpaceFogEffect({
