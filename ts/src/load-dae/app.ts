@@ -1,12 +1,11 @@
 import { webHostImage } from '@flighthq/host-web';
-import type { Mesh, Node3D, PerspectiveProjection } from '@flighthq/sdk';
+import type { Mesh, Node3D } from '@flighthq/sdk';
 import {
   addNodeChild,
   configureDirectionalShadowCamera3D,
   createAabb,
   createBuiltInScene3DResourceResolver,
   createCamera3D,
-  createFxaaEffect,
   createMesh,
   createOrthographicProjection,
   createPlaneMeshGeometry,
@@ -16,9 +15,7 @@ import {
   createStandardPbrMaterial,
   createTexture,
   createTilingSampler,
-  createToneMapEffect,
   createVector3,
-  renderGlScene3DShadowMap,
   findNode,
   invalidateMeshGeometry,
   invalidateNodeLocalTransform,
@@ -34,15 +31,10 @@ import {
 
 import { awayDirection, bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
 import { createDirectionalLightFromAway } from '../../shared/lighting';
-import { createScene3DContext } from './renderer';
+import { setupRenderer } from './render.gl';
 
 const assetRoot = 'away3d/LoadDAE/';
-const ctx = createScene3DContext({
-  width: window.innerWidth,
-  height: window.innerHeight,
-  backgroundColor: 0x1e2125ff,
-  effects: [createToneMapEffect({ exposure: 1.05 }), createFxaaEffect()],
-});
+const renderer = setupRenderer();
 const scene = createScene3D();
 const camera = createCameraFromAway({ far: 5000, fov: 60 });
 const orbit = createOrbitControllerFromAway(camera, {
@@ -53,7 +45,7 @@ const orbit = createOrbitControllerFromAway(camera, {
   minTiltAngle: 0,
   maxTiltAngle: 45,
 });
-bindOrbitDrag(ctx.canvas, orbit, { minDistance: 700, maxDistance: 2200 });
+bindOrbitDrag(renderer.canvas, orbit, { minDistance: 700, maxDistance: 2200 });
 
 const { directional, ambient } = createDirectionalLightFromAway({
   direction: awayDirection(0.4, -0.3, -0.4),
@@ -214,21 +206,12 @@ function frame(time: number): void {
   stats.textContent = `FPS: ${displayedFps}\nPLY: ${triangleCount}`;
 
   configureDirectionalShadowCamera3D(shadowCamera, directional.direction, shadowBounds);
-  renderGlScene3DShadowMap(ctx.state, model.root, shadowCamera, directional);
-  ctx.render(scene.root, camera, lights);
+  renderer.renderShadowMap(model.root, shadowCamera, directional);
+  renderer.render(scene.root, camera, lights);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const width = window.innerWidth;
-  const height = window.innerHeight;
-  const pixelRatio = window.devicePixelRatio || 1;
-  ctx.canvas.width = width * pixelRatio;
-  ctx.canvas.height = height * pixelRatio;
-  ctx.canvas.style.width = `${width}px`;
-  ctx.canvas.style.height = `${height}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = width / height;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 
 requestAnimationFrame(frame);

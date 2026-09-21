@@ -1,61 +1,29 @@
-import type { GlEffectState, PerspectiveProjection, Node3D } from '@flighthq/sdk';
+import type { Node3D } from '@flighthq/sdk';
 import {
   addNodeChild,
-  beginGlEffectPass,
   configureDirectionalShadowCamera3D,
   createAabb,
   createCamera3D,
-  createFxaaEffect,
-  createGlEffectState,
   createOrthographicProjection,
   createScene3D,
   createScene3DFromAwd2,
   createScene3DLights,
   createShadedMaterial,
   createTexture,
-  createToneMapEffect,
-  glFxaaEffectRunner,
-  glToneMapEffectRunner,
-  renderGlScene3D,
-  renderGlScene3DShadowMap,
-  endGlEffectPass,
   getNodeChildren,
   invalidateNodeLocalTransform,
   isMesh,
   loadImageResourceFromUrl,
-  registerGlEffect,
-  registerGlShadedMaterial,
-  registerStandardGlTextureResolvers,
   setVector3,
 } from '@flighthq/sdk';
 import { webHostImage } from '@flighthq/host-web';
 
-import { createExampleGlSurface } from '../../shared/glSurface';
 
 import { bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
 import { createDirectionalLightFromAway, createPointLightFromAway } from '../../shared/lighting';
+import { setupRenderer } from './render.gl';
 
-const pixelRatio = window.devicePixelRatio || 1;
-
-const mount = document.getElementById('app');
-const { canvas, clear, state } = createExampleGlSurface(
-  window.innerWidth, window.innerHeight, pixelRatio, 0x000000ff,
-);
-if (mount) {
-  mount.replaceWith(canvas);
-} else {
-  document.body.appendChild(canvas);
-}
-document.body.style.margin = '0';
-
-
-// Textured materials resolve their maps through the backing-kind registry; without this every
-// texture resolves to null and the scene renders untextured.
-registerStandardGlTextureResolvers(state);
-registerGlShadedMaterial(state);
-registerGlEffect(state, 'FxaaEffect', glFxaaEffectRunner);
-registerGlEffect(state, 'ToneMapEffect', glToneMapEffectRunner);
-let effectState: GlEffectState | null = null;
+const renderer = setupRenderer();
 
 const scene = createScene3D();
 
@@ -185,35 +153,17 @@ const orbit = createOrbitControllerFromAway(camera, {
   maxTiltAngle: 90,
 });
 
-bindOrbitDrag(canvas, orbit);
+bindOrbitDrag(renderer.canvas, orbit);
 
 function frame(): void {
   orbit.update();
-  if (effectState === null) {
-    effectState = createGlEffectState(state, { format: 'rgba16f', depth: 'depth-stencil' });
-  }
-
   configureDirectionalShadowCamera3D(shadowCamera, lightDir, shadowBounds);
-  renderGlScene3DShadowMap(state, scene.root, shadowCamera, directional);
-
-  const pass = beginGlEffectPass(state, effectState, clear);
-  renderGlScene3D(pass, scene.root, camera, lights);
-  // A modest lift keeps the textured mid-tones readable without flattening the black backdrop or
-  // the source's deep Fresnel/shadow contrast.
-  endGlEffectPass(pass, effectState, [createToneMapEffect({ exposure: 1.55 }), createFxaaEffect()]);
+  renderer.renderShadowMap(scene.root, shadowCamera, directional);
+  renderer.render(scene.root, camera, lights);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  const pr = window.devicePixelRatio || 1;
-  canvas.width = w * pr;
-  canvas.height = h * pr;
-  canvas.style.width = `${w}px`;
-  canvas.style.height = `${h}px`;
-  state.gl.viewport(0, 0, canvas.width, canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = w / h;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 
 requestAnimationFrame(frame);

@@ -1,13 +1,9 @@
-import type { GlEffectState, PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
   advanceAnimationPlayer,
-  beginGlEffectPass,
   configureDirectionalShadowCamera3DTightFit,
   createStandardPbrMaterial,
   createCamera3D,
-  createFxaaEffect,
-  createGlEffectState,
   createMesh,
   createOrthographicProjection,
   createPlaneMeshGeometry,
@@ -15,24 +11,14 @@ import {
   createScene3DLights,
   createTexture,
   createTilingSampler,
-  createToneMapEffect,
-  glFxaaEffectRunner,
-  glToneMapEffectRunner,
-  renderGlScene3D,
-  renderGlScene3DShadowMap,
-  endGlEffectPass,
   loadImageResourceFromUrl,
   bakeGlEnvironmentIbl,
-  registerGlStandardPbrMaterial,
-  registerGlEffect,
-  registerStandardGlTextureResolvers,
   sampleAnimationTrack,
   setTextureUvScale,
   updateMeshMorph,
 } from '@flighthq/sdk';
 import { webHostImage } from '@flighthq/host-web';
 
-import { createExampleGlSurface } from '../../shared/glSurface';
 
 import {
   awayDirection,
@@ -42,28 +28,9 @@ import {
 } from '../../shared/camera';
 import { createDirectionalLightFromAway } from '../../shared/lighting';
 import { loadKnights } from './knights';
+import { setupRenderer } from './render.gl';
 
-const pixelRatio = window.devicePixelRatio || 1;
-
-const mount = document.getElementById('app');
-const { canvas, clear, state } = createExampleGlSurface(
-  window.innerWidth, window.innerHeight, pixelRatio, 0x000000ff,
-);
-if (mount) {
-  mount.replaceWith(canvas);
-} else {
-  document.body.appendChild(canvas);
-}
-document.body.style.margin = '0';
-
-
-// Textured materials resolve their maps through the backing-kind registry; without this every
-// texture resolves to null and the scene renders untextured.
-registerStandardGlTextureResolvers(state);
-registerGlStandardPbrMaterial(state);
-registerGlEffect(state, 'FxaaEffect', glFxaaEffectRunner);
-registerGlEffect(state, 'ToneMapEffect', glToneMapEffectRunner);
-let effectState: GlEffectState | null = null;
+const renderer = setupRenderer();
 
 const scene = createScene3D();
 
@@ -121,7 +88,7 @@ const floor = createMesh(floorGeometry, [floorMaterial]);
 addNodeChild(scene.root, floor);
 
 const { animationBuckets, environment } = await loadKnights(webHostImage, scene);
-bakeGlEnvironmentIbl(state, environment);
+bakeGlEnvironmentIbl(renderer.state, environment);
 
 const orbit = createOrbitControllerFromAway(camera, {
   distance: 2000,
@@ -131,7 +98,7 @@ const orbit = createOrbitControllerFromAway(camera, {
   maxTiltAngle: 90,
 });
 
-bindOrbitDrag(canvas, orbit, { minDistance: 100, maxDistance: 2000 });
+bindOrbitDrag(renderer.canvas, orbit, { minDistance: 100, maxDistance: 2000 });
 
 let keyUp = false;
 let keyDown = false;
@@ -223,33 +190,12 @@ function frame(now: number): void {
   }
 
   orbit.update();
-  renderGlScene3DShadowMap(state, scene.root, shadowCamera, directional);
-  if (effectState === null) {
-    effectState = createGlEffectState(state, { format: 'rgba16f', depth: 'depth-stencil' });
-  }
-  const pass = beginGlEffectPass(state, effectState, clear);
-  renderGlScene3D(pass, scene.root, camera, lights);
-  // AwayJS applies no tone mapping at all, so the default ACES curve was the single largest source of
-  // mismatch: its shoulder compressed the mid-tones, crushed the darks and desaturated the armour.
-  // Reinhard with a high white point is near-linear across this scene's range — closest to AwayJS's
-  // straight gamma-space output while still clamping the few specular pixels above 1.
-  endGlEffectPass(pass, effectState, [
-    createToneMapEffect({ operator: 'reinhard', white: 8, exposure: 1.0 }),
-    createFxaaEffect(),
-  ]);
+  renderer.renderShadowMap(scene.root, shadowCamera, directional);
+  renderer.render(scene.root, camera, lights);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  const pixelRatio = window.devicePixelRatio || 1;
-  canvas.width = w * pixelRatio;
-  canvas.height = h * pixelRatio;
-  canvas.style.width = `${w}px`;
-  canvas.style.height = `${h}px`;
-  state.gl.viewport(0, 0, canvas.width, canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = w / h;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 
 requestAnimationFrame(frame);

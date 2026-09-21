@@ -1,7 +1,4 @@
 import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
-import type {
-  PerspectiveProjection,
-} from '@flighthq/sdk';
 import {
   addNodeChild,
   bakeGlEnvironmentIbl,
@@ -13,7 +10,6 @@ import {
   createCamera3D,
   createCubeTexture,
   createEnvironment,
-  createFxaaEffect,
   createHemisphereLight,
   createMesh,
   createOrthographicProjection,
@@ -23,10 +19,8 @@ import {
   createScene3DLights,
   createSphereMeshGeometry,
   createTilingSampler,
-  createToneMapEffect,
   createTorusMeshGeometry,
   createVector3,
-  renderGlScene3DShadowMap,
   invalidateNodeLocalTransform,
   scaleMeshGeometryUvs,
   setCubeTextureFace,
@@ -48,14 +42,9 @@ import {
   createPointLightFromAway,
 } from '../../shared/lighting';
 import { createSceneMaterials, loadSceneTextures } from './materials';
-import { createScene3DContext } from './renderer';
+import { setupRenderer } from './render.gl';
 
-const ctx = createScene3DContext({
-  width: window.innerWidth,
-  height: window.innerHeight,
-  backgroundColor: 0x000000ff,
-  effects: [createToneMapEffect({ exposure: 0.7 }), createFxaaEffect()],
-});
+const renderer = setupRenderer();
 
 // Keep the original black void as the visible backdrop, but give the remastered PBR materials a dim
 // studio to reflect. Broad cool light above, a faint warm bounce below, and dark horizon cards make
@@ -70,7 +59,7 @@ for (let i = 0; i < studioEnvironmentFaces.length; i++) {
   );
 }
 const studioEnvironment = createEnvironment({ environment: studioEnvironmentCube, intensity: 0.35 });
-bakeGlEnvironmentIbl(ctx.state, studioEnvironment);
+bakeGlEnvironmentIbl(renderer.state, studioEnvironment);
 
 const scene = createScene3D();
 
@@ -169,7 +158,7 @@ const orbit = createOrbitControllerFromAway(camera, {
   maxTiltAngle: 90,
 });
 
-bindOrbitDrag(ctx.canvas, orbit, { minDistance: 100, maxDistance: 2000 });
+bindOrbitDrag(renderer.canvas, orbit, { minDistance: 100, maxDistance: 2000 });
 
 function frame(ts: number): void {
   // AwayJS sweeps the white light around the horizon (nearly horizontal, a slight downward tilt) so
@@ -183,21 +172,12 @@ function frame(ts: number): void {
 
   orbit.update();
   configureDirectionalShadowCamera3D(shadowCamera, directional.direction, shadowBounds);
-  renderGlScene3DShadowMap(ctx.state, scene.root, shadowCamera, directional);
-  ctx.render(scene.root, camera, lights);
+  renderer.renderShadowMap(scene.root, shadowCamera, directional);
+  renderer.render(scene.root, camera, lights);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  const pixelRatio = window.devicePixelRatio || 1;
-  ctx.canvas.width = w * pixelRatio;
-  ctx.canvas.height = h * pixelRatio;
-  ctx.canvas.style.width = `${w}px`;
-  ctx.canvas.style.height = `${h}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = w / h;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 
 requestAnimationFrame(frame);
