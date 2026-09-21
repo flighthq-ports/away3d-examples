@@ -13,7 +13,16 @@ import {
 } from '@flighthq/scene2d-canvas';
 import { createWebCanvasRenderSurfaceCreator, createWebImageResourceFromCanvas } from '@flighthq/host-web';
 import { prepareScene2DRender } from '@flighthq/render';
-import { createScene2DFromSwf } from '@flighthq/swf';
+import {
+  createScene2DFromSwfWithTagHandlers,
+  createSwfTagHandlerRegistry,
+  registerSwfControlTagHandlers,
+  registerSwfFontTagHandlers,
+  registerSwfPlacementTagHandlers,
+  registerSwfShapeTagHandlers,
+  registerSwfSpriteTagHandlers,
+  registerSwfTextTagHandlers,
+} from '@flighthq/swf';
 
 // The original builds every animated texture in this sample at runtime out of digits.swf, using
 // SpriteSheetHelper.generateFromMovieClip to lay a MovieClip's frames into a grid. Flight can read
@@ -110,8 +119,25 @@ function scanBounds(
 
 export interface SwfSheet { columns: number; frames: number; resource: ImageResource; rows: number }
 
+// Only the tag families digits.swf actually contains. `explainSwfContent` reports its 56 tags as
+// DefineText/DefineFont3 (text, font), DefineShape (shape), DefineSprite (sprite), PlaceObject2
+// (placement) and ShowFrame/SetBackgroundColor/DefineSceneAndFrameLabelData (control) -- so the
+// bitmap, sound, video and script parsers are left out rather than registered and never reached.
+// The same deal as the renderer's minimal registries: name what the asset needs, not everything.
+function createMinimalSwfTagHandlerRegistry() {
+  const registry = createSwfTagHandlerRegistry();
+  registerSwfControlTagHandlers(registry);
+  registerSwfFontTagHandlers(registry);
+  registerSwfPlacementTagHandlers(registry);
+  registerSwfShapeTagHandlers(registry);
+  registerSwfSpriteTagHandlers(registry);
+  registerSwfTextTagHandlers(registry);
+  return registry;
+}
+
 export function createSwfSheetBuilder(swf: Uint8Array) {
-  const document_ = createScene2DFromSwf(swf);
+  // const document_ = createScene2DFromSwf(swf); // parse with every tag handler
+  const document_ = createScene2DFromSwfWithTagHandlers(swf, createMinimalSwfTagHandlerRegistry());
   if (!document_) throw new Error('digits.swf could not be parsed');
 
   return function buildSheet(
