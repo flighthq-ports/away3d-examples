@@ -1,22 +1,19 @@
 import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
 import { createWebImageResourceFromCanvas } from '@flighthq/host-web';
-import type { MeshGeometry, PerspectiveProjection } from '@flighthq/sdk';
+import type { MeshGeometry } from '@flighthq/sdk';
 import {
   addNodeChild,
   bakeGlEnvironmentIbl,
   computeMeshGeometryNormals,
   computeMeshGeometryTangents,
   createEnvironment,
-  createFxaaEffect,
   createMesh,
   createPlaneMeshGeometry,
   createScene3D,
   createScene3DLights,
-  createScreenSpaceFogEffect,
   createStandardPbrMaterial,
   createTexture,
   createTilingSampler,
-  createToneMapEffect,
   createVector3,
   getMeshGeometryVertexCount,
   getMeshGeometryVertexPosition,
@@ -33,12 +30,10 @@ import {
 import { awayDirection, createCameraFromAway, createFirstPersonControllerFromAway } from '../../shared/camera';
 import { createDirectionalLightFromAway } from '../../shared/lighting';
 import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
-import { createScene3DContext } from './renderer';
+import { CAMERA_FAR, CAMERA_NEAR, setupRenderer } from './render.gl';
 
 // Scene constants from the original. Elevation(terrain, heights, 5000, 1300, 5000, 250, 250) at
 // y = 0, water at y = 285, camera.y = 300 with lens near 1 / far 4000.
-const CAMERA_NEAR = 1;
-const CAMERA_FAR = 4000;
 const TERRAIN_SIZE = 5000;
 const TERRAIN_HEIGHT = 1300;
 const TERRAIN_SEGMENTS = 250;
@@ -47,47 +42,11 @@ const WALK_SPEED = 2 * 60;
 const WATER_SCROLL_X = 0.005 * 60;
 const WATER_SCROLL_Y = 0.007 * 60;
 // FogMethod(0, 8000, 0xcfd9de). Clear colour and fog are consumed as LINEAR values.
-const FOG_COLOR = 0xcfd9de;
 // The effect ramps over NON-LINEAR window depth, and a near plane of 1 crushes that range hard —
 // depth(100) is already 0.990. So the haze window is chosen against that curve rather than by
 // transplanting the original's world-linear 0..8000.
-const FOG_VISIBLE_NEAR = 250;
 
-function linearChannel(channel: number): number {
-  const v = channel / 255;
-  return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-}
-function linearRgba(srgb: number): number {
-  let out = 0;
-  for (let shift = 16; shift >= 0; shift -= 8) {
-    out = (out << 8) | Math.round(linearChannel((srgb >> shift) & 0xff) * 255);
-  }
-  return ((out << 8) | 0xff) >>> 0;
-}
-function depthAt(distance: number): number {
-  const d = Math.max(distance, CAMERA_NEAR);
-  return (CAMERA_FAR * (d - CAMERA_NEAR)) / (d * (CAMERA_FAR - CAMERA_NEAR));
-}
-
-const ctx = createScene3DContext({
-  width: innerWidth,
-  height: innerHeight,
-  backgroundColor: linearRgba(FOG_COLOR),
-  effects: [
-    createScreenSpaceFogEffect({
-      color: linearRgba(FOG_COLOR),
-      near: depthAt(FOG_VISIBLE_NEAR),
-      far: depthAt(CAMERA_FAR),
-      // The effect has no background skip, so whatever it does to the far terrain it also does to
-      // the skybox — and at density 1 that buried the sun and clouds under 63% flat fog. Held
-      // low enough that the sky reads as sky; the mountains keep their haze because the window
-      // starts close in.
-      density: 0.22,
-    }),
-    createToneMapEffect({ exposure: 1.3 }),
-    createFxaaEffect(),
-  ],
-});
+const renderer = setupRenderer();
 const scene = createScene3D();
 const camera = createCameraFromAway({ far: CAMERA_FAR, near: CAMERA_NEAR });
 // FirstPersonController(camera, 180, 0, -80, 80) with camera.y = 300 and no x/z set.
@@ -128,7 +87,7 @@ const environment = createEnvironment({
   environment: createCubeTextureFromAwayFaces(webHostBitmapReadback, skyFaces),
   intensity: 1,
 });
-bakeGlEnvironmentIbl(ctx.state, environment);
+bakeGlEnvironmentIbl(renderer.state, environment);
 
 const terrainSize = TERRAIN_SIZE;
 // Elevation reads one texel per vertex, at row `(segmentsH - zi)` — a row that counts DOWN as
@@ -201,14 +160,14 @@ const keys = new Set<string>();
 window.addEventListener('keydown', (event) => keys.add(event.code));
 window.addEventListener('keyup', (event) => keys.delete(event.code));
 let dragging = false; let lastX = 0; let lastY = 0;
-ctx.canvas.addEventListener('pointerdown', (event) => { dragging = true; lastX = event.clientX; lastY = event.clientY; ctx.canvas.setPointerCapture(event.pointerId); });
-ctx.canvas.addEventListener('pointermove', (event) => {
+renderer.canvas.addEventListener('pointerdown', (event) => { dragging = true; lastX = event.clientX; lastY = event.clientY; renderer.canvas.setPointerCapture(event.pointerId); });
+renderer.canvas.addEventListener('pointermove', (event) => {
   if (!dragging) return;
   controller.yaw -= (event.clientX - lastX) * 0.004;
   controller.pitch += (event.clientY - lastY) * 0.003;
   lastX = event.clientX; lastY = event.clientY;
 });
-ctx.canvas.addEventListener('pointerup', (event) => { dragging = false; ctx.canvas.releasePointerCapture(event.pointerId); });
+renderer.canvas.addEventListener('pointerup', (event) => { dragging = false; renderer.canvas.releasePointerCapture(event.pointerId); });
 
 const forward = createVector3(); const right = createVector3();
 let previousTime = performance.now();
@@ -247,7 +206,7 @@ function frame(ts: number): void {
   // (a StandardPbrMaterial carries a single normal map), so the lake flows but does not get the
   // cross-layer interference the original's two offsets produce.
   setTextureUvOffset(waterScrollCarrier, (ts / 1000) * WATER_SCROLL_X, (ts / 1000) * WATER_SCROLL_Y);
-  ctx.render(scene.root, camera, lights, environment);
+  renderer.render(scene.root, camera, lights, environment);
   requestAnimationFrame(frame);
 }
 
@@ -283,11 +242,6 @@ document.body.appendChild(stats);
 let framesThisSecond = 0;
 let statsWindowStart = performance.now();
 let displayedFps = 0;
-window.addEventListener('resize', () => {
-  const width = innerWidth; const height = innerHeight; const pixelRatio = devicePixelRatio || 1;
-  ctx.canvas.width = width * pixelRatio; ctx.canvas.height = height * pixelRatio;
-  ctx.canvas.style.width = `${width}px`; ctx.canvas.style.height = `${height}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = width / height;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 requestAnimationFrame(frame);

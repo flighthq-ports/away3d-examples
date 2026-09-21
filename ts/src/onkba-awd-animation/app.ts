@@ -1,6 +1,6 @@
 import { createWebImageResourceFromCanvas, webHostBitmapReadback, webHostImage, webHostNet } from '@flighthq/host-web';
 import { registerWebImageDecoders } from '@flighthq/host-web';
-import type { ImageResource, Mesh, Node3D, PerspectiveProjection } from '@flighthq/sdk';
+import type { ImageResource, Mesh, Node3D } from '@flighthq/sdk';
 import {
   addNodeChild,
   bakeGlEnvironmentIbl,
@@ -10,14 +10,12 @@ import {
   createBuiltInScene3DResourceResolver,
   createCamera3D,
   createEnvironment,
-  createFxaaEffect,
   createMesh,
   createOrthographicProjection,
   createPlaneMeshGeometry,
   createScene3D,
   createScene3DFromDocument,
   createScene3DLights,
-  createScreenSpaceFogEffect,
   createStandardPbrMaterial,
   createTexture,
   createTilingSampler,
@@ -40,21 +38,18 @@ import { awayDirection, bindOrbitDrag, createCameraFromAway, createOrbitControll
 import { createDirectionalLightFromAway, createPointLightFromAway } from '../../shared/lighting';
 import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
 import { createAnimationController } from './animation';
-import { createScene3DContext } from './renderer';
+import { CAMERA_FAR, CAMERA_NEAR, SKY_COLOR, setupRenderer } from './render.gl';
 
 registerDeflateDecompressor(); registerWebImageDecoders();
 
 const assetRoot = 'away3d/OnkbaAWDAnimation/onkba/';
 // Scene colours are the original's constants.
-const SKY_COLOR = 0x333338;
 const ZENITH_COLOR = 0x445465;
 const SUN_COLOR = 0xaaaaa9;
 // Where the haze starts to read. The fog effect ramps over NON-LINEAR window depth, so the
 // original's world-linear FogMethod(1000, 10000) range cannot be transplanted literally — depth
 // saturates so fast that mapping its near endpoint fogs the character itself. This window is
 // chosen for that ramp instead, keeping the subject clear and hazing the distance.
-const FOG_VISIBLE_NEAR = 1500;
-const FOG_FAR = 10000;
 const GROUND_Y = -480;
 
 // Clear colour and fog colour are consumed as linear values, so the original's sRGB constants have
@@ -63,37 +58,12 @@ function linearChannel(channel: number): number {
   const v = channel / 255;
   return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
 }
-function linearRgba(srgb: number): number {
-  let out = 0;
-  for (let shift = 16; shift >= 0; shift -= 8) {
-    out = (out << 8) | Math.round(linearChannel((srgb >> shift) & 0xff) * 255);
-  }
-  return ((out << 8) | 0xff) >>> 0;
-}
 
-const CAMERA_NEAR = 1;
-const CAMERA_FAR = 30000;
 // The fog effect works in non-linear depth-buffer space, so the original's world-space fog
 // distances have to be pushed through the same projection curve the depth buffer uses. Dividing
 // them by the far plane instead would start the fog almost at the camera.
-function depthAt(distance: number): number {
-  return (CAMERA_FAR * (distance - CAMERA_NEAR)) / (distance * (CAMERA_FAR - CAMERA_NEAR));
-}
 
-const ctx = createScene3DContext({
-  width: innerWidth,
-  height: innerHeight,
-  backgroundColor: linearRgba(SKY_COLOR),
-  effects: [
-    createScreenSpaceFogEffect({
-      color: linearRgba(SKY_COLOR),
-      near: depthAt(FOG_VISIBLE_NEAR),
-      far: depthAt(FOG_FAR),
-      density: 1,
-    }),
-    createFxaaEffect(),
-  ],
-});
+const renderer = setupRenderer();
 const scene = createScene3D();
 const camera = createCameraFromAway({ fov: 70, near: CAMERA_NEAR, far: CAMERA_FAR });
 // HoverController(view.camera, null, 180, 0, 1000, 10, 90) with the tilt range widened to +/-60,
@@ -111,7 +81,7 @@ const orbit = createOrbitControllerFromAway(camera, {
 });
 // This sample drags the camera 1 degree per pixel, not the 0.3 most Away3D samples use, and its
 // wheel step is `distance -= delta * 5` over Flash's +/-3-per-notch delta.
-bindOrbitDrag(ctx.canvas, orbit, {
+bindOrbitDrag(renderer.canvas, orbit, {
   minDistance: 100,
   maxDistance: 2000,
   degreesPerPixel: 1,
@@ -176,7 +146,7 @@ const environment = createEnvironment({
   environment: createCubeTextureFromAwayFaces(webHostBitmapReadback, [0, 1, 2, 3, 4, 5].map(skyFace)),
   intensity: 2.4,
 });
-bakeGlEnvironmentIbl(ctx.state, environment);
+bakeGlEnvironmentIbl(renderer.state, environment);
 
 const awaySun = createDirectionalLightFromAway({
   // Away3D is left-handed, so the sun vector has to come through the handedness adapter; passing
@@ -272,7 +242,6 @@ walkNodeDescendants(model.root, (node) => {
   return true;
 });
 addNodeChild(scene.root, model.root);
-
 
 // Ground: a 100000-unit plane at y = -480 with the floor set tiled 160x.
 const floorSampler = createTilingSampler();
@@ -466,16 +435,11 @@ function frame(ts: number): void {
   setVector3(skyLight.position, camera.view.m[12]!, camera.view.m[13]!, camera.view.m[14]!);
 
   configureDirectionalShadowCamera3D(shadowCamera, awaySun.directional.direction, shadowBounds);
-  renderGlScene3DShadowMap(ctx.state, model.root, shadowCamera, awaySun.directional);
-  ctx.render(scene.root, camera, lights, environment);
+  renderGlScene3DShadowMap(renderer.state, model.root, shadowCamera, awaySun.directional);
+  renderer.render(scene.root, camera, lights, environment);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const w = innerWidth; const h = innerHeight; const pr = devicePixelRatio || 1;
-  ctx.canvas.width = w * pr; ctx.canvas.height = h * pr;
-  ctx.canvas.style.width = `${w}px`; ctx.canvas.style.height = `${h}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = w / h;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 requestAnimationFrame(frame);

@@ -1,6 +1,6 @@
 import { createWebImageResourceFromCanvas, webHostBitmapReadback, webHostImage, webHostNet } from '@flighthq/host-web';
 import { registerWebImageDecoders } from '@flighthq/host-web';
-import type { Mesh, Node3D, PerspectiveProjection } from '@flighthq/sdk';
+import type { Mesh, Node3D } from '@flighthq/sdk';
 import {
   addNodeChild,
   addTextureAtlasRegion,
@@ -10,7 +10,6 @@ import {
   createBuiltInScene3DResourceResolver,
   createCamera3D,
   createEnvironment,
-  createFxaaEffect,
   createMesh,
   createOrthographicProjection,
   createParticleEmitter3D,
@@ -20,7 +19,6 @@ import {
   createScene3D,
   createScene3DFromDocument,
   createScene3DLights,
-  createScreenSpaceFogEffect,
   createVector3,
   setAabb,
   setCamera3DViewMatrix4FromLookAt,
@@ -28,7 +26,6 @@ import {
   createTexture,
   createTextureAtlas,
   createTilingSampler,
-  createToneMapEffect,
   renderGlScene3DShadowMap,
   invalidateNodeLocalTransform,
   isMesh,
@@ -49,58 +46,19 @@ import { awayDirection, createCameraFromAway } from '../../shared/camera';
 import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
 import { createDirectionalLightFromAway, createPointLightFromAway } from '../../shared/lighting';
 import { createAnimationController } from './animation';
-import { createScene3DContext } from './renderer';
+import { CAMERA_FAR, CAMERA_NEAR, setupRenderer } from './render.gl';
 
 registerDeflateDecompressor();
 registerWebImageDecoders();
 
 // FogMethod(0, 3000, 0x5f5e6e). Clear colour and fog are consumed as LINEAR values, so the sRGB
 // constant has to be converted — passing the raw 0x5f5e6e is what washed the whole scene pale.
-const CAMERA_NEAR = 20;
-const CAMERA_FAR = 5000;
-const FOG_COLOR = 0x5f5e6e;
-const FOG_FAR = 3000;
 // The effect ramps over NON-LINEAR window depth, where distance compresses hard: depth(1000) is
 // already 0.984 and depth(3000) is 0.997. Mapping the original's world-linear 0..3000 range onto
 // that fogs the bear itself, so the near end is chosen to sit just beyond him and let the haze
 // build over the ground behind.
-const FOG_VISIBLE_NEAR = 1200;
 
-function linearChannel(channel: number): number {
-  const v = channel / 255;
-  return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-}
-function linearRgba(srgb: number): number {
-  let out = 0;
-  for (let shift = 16; shift >= 0; shift -= 8) {
-    out = (out << 8) | Math.round(linearChannel((srgb >> shift) & 0xff) * 255);
-  }
-  return ((out << 8) | 0xff) >>> 0;
-}
-function depthAt(distance: number): number {
-  const d = Math.max(distance, CAMERA_NEAR);
-  return (CAMERA_FAR * (d - CAMERA_NEAR)) / (d * (CAMERA_FAR - CAMERA_NEAR));
-}
-
-const ctx = createScene3DContext({
-  width: innerWidth,
-  height: innerHeight,
-  backgroundColor: linearRgba(FOG_COLOR),
-  effects: [
-    // NOTE: this fogs the skybox too. Away3D's FogMethod is a MATERIAL method, so its sky stays
-    // crisp; a screen-space depth fog cannot tell sky from distant ground (both sit at depth ~1),
-    // and the effect has no background skip. The window below is chosen to keep what it does to
-    // the sky mild rather than to hide it.
-    createScreenSpaceFogEffect({
-      color: linearRgba(FOG_COLOR),
-      near: depthAt(FOG_VISIBLE_NEAR),
-      far: depthAt(FOG_FAR),
-      density: 1,
-    }),
-    createToneMapEffect({ exposure: 1.05 }),
-    createFxaaEffect(),
-  ],
-});
+const renderer = setupRenderer();
 const scene = createScene3D();
 const camera = createCameraFromAway({ y: 500, near: CAMERA_NEAR, far: CAMERA_FAR });
 // The original does NOT orbit. `camera.y = 500; camera.z = 0` and a LookAtController whose
@@ -153,7 +111,7 @@ const environment = createEnvironment({
   environment: createCubeTextureFromAwayFaces(webHostBitmapReadback, skyFaces),
   intensity: 0.7,
 });
-bakeGlEnvironmentIbl(ctx.state, environment);
+bakeGlEnvironmentIbl(renderer.state, environment);
 
 const model = createScene3DFromDocument(sceneDocument);
 await loadScene3DResources(model, createBuiltInScene3DResourceResolver(webHostImage));
@@ -202,8 +160,6 @@ const rootRest = rootJoint !== null
   : null;
 
 addNodeChild(scene.root, model.root);
-
-
 
 const groundSampler = createTilingSampler();
 const groundGeometry = createPlaneMeshGeometry(50000, 50000);
@@ -417,7 +373,6 @@ function frame(timestamp: number): void {
   bearMesh.position.z += -strafe * sin + forward * cos;
   invalidateNodeLocalTransform(bearMesh);
 
-
   stepParticleEmitter3D(snowfall, snowState, snowConfig, deltaTime);
 
   // LookAtController: the camera never moves, it just tracks the bear.
@@ -432,21 +387,12 @@ function frame(timestamp: number): void {
   // Only the bear casts. Handing the whole scene to the shadow pass includes the 50000x50000
   // ground plane, which fills the shadow map with a caster that lies exactly on the receiving
   // surface — the bear's own shadow is then lost in the ground's self-shadowing.
-  renderGlScene3DShadowMap(ctx.state, model.root, shadowCamera, awaySun.directional);
-  ctx.render(scene.root, camera, lights, environment);
+  renderGlScene3DShadowMap(renderer.state, model.root, shadowCamera, awaySun.directional);
+  renderer.render(scene.root, camera, lights, environment);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const width = innerWidth;
-  const height = innerHeight;
-  const pixelRatio = devicePixelRatio || 1;
-  ctx.canvas.width = width * pixelRatio;
-  ctx.canvas.height = height * pixelRatio;
-  ctx.canvas.style.width = `${width}px`;
-  ctx.canvas.style.height = `${height}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = width / height;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 
 requestAnimationFrame(frame);
