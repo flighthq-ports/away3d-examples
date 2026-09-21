@@ -1,4 +1,10 @@
-import type { Camera3D, GlEffectState, GlRenderRegistries, Node3D, Scene3DLights } from '@flighthq/sdk';
+import type {
+  Camera3D,
+  GlEffectState,
+  GlRenderRegistries,
+  Node3D,
+  Scene3DLights,
+} from '@flighthq/sdk';
 import {
   allocateEmptyGlRenderRegistries,
   beginGlEffectPass,
