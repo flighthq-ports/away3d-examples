@@ -1,5 +1,5 @@
 import { createWebImageResourceFromCanvas, webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
-import type { ImageResource, InstancedMesh, Material, Matrix4, MeshGeometry, PerspectiveProjection, Vector3Like } from '@flighthq/sdk';
+import type { ImageResource, InstancedMesh, Material, Matrix4, MeshGeometry, Vector3Like } from '@flighthq/sdk';
 import {
   addNodeChild,
   appendInstancedMeshInstance,
@@ -10,7 +10,6 @@ import {
   createAmbientLight,
   createCylinderMeshGeometry,
   createEnvironment,
-  createFxaaEffect,
   createHemisphereLight,
   createIcosphereMeshGeometry,
   createInstancedMesh,
@@ -22,7 +21,6 @@ import {
   createScene3DLights,
   createStandardPbrMaterial,
   createTexture,
-  createToneMapEffect,
   createVector3,
   getMeshGeometryVertexCount,
   getMeshGeometryVertexPosition,
@@ -35,7 +33,7 @@ import {
 import { awayDirection, bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
 import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
 import { createDirectionalLightFromAway } from '../../shared/lighting';
-import { createScene3DContext } from './renderer';
+import { setupRenderer } from './render.gl';
 
 const CAMERA_FAR = 250_000;
 
@@ -61,22 +59,7 @@ const TREE_DEPTH = 7;
 // tips, so each cluster is enlarged to close the gaps rather than instancing 25x that many.
 const LEAF_CLUSTER_RADIUS = 750;
 
-const ctx = createScene3DContext({
-  width: innerWidth,
-  height: innerHeight,
-  backgroundColor: 0x000000ff,
-  effects: [
-    // The original's FogMethod(0, 200000, 0x000000) is deliberately not reproduced. A
-    // screen-space fog works in window depth, and this camera spans near 20 to far 250000, so
-    // depth is crushed to ~1 within a few thousand units: `depthAt(25000)` is already 0.99928,
-    // which fogged the entire mid-field to black — measured (3,17,5) where the original reads
-    // (50,73,41). It also has no background skip, so it dimmed the skybox with it. In the
-    // original the distant ridge stays clearly lit at this framing, so the fog contributes almost
-    // nothing here and dropping it is closer than approximating it.
-    createToneMapEffect({ exposure: 0.85 }),
-    createFxaaEffect(),
-  ],
-});
+const renderer = setupRenderer();
 const scene = createScene3D();
 const camera = createCameraFromAway({ far: CAMERA_FAR });
 const orbit = createOrbitControllerFromAway(camera, {
@@ -87,7 +70,7 @@ const orbit = createOrbitControllerFromAway(camera, {
   minTiltAngle: 0,
   maxTiltAngle: 70,
 });
-bindOrbitDrag(ctx.canvas, orbit, { minDistance: 8000, maxDistance: 80000 });
+bindOrbitDrag(renderer.canvas, orbit, { minDistance: 8000, maxDistance: 80000 });
 
 // The original lights this with three: a moon, a dim sky fill, and a camera lamp.
 //
@@ -151,7 +134,7 @@ const environment = createEnvironment({
   // (23,22,39), so brightness is dialled with the key light and exposure instead.
   intensity: 1,
 });
-bakeGlEnvironmentIbl(ctx.state, environment);
+bakeGlEnvironmentIbl(renderer.state, environment);
 
 function pixels(image: Readonly<ImageResource>): ImageData {
   if (!image.source) throw new Error('The terrain source image is not drawable');
@@ -410,7 +393,7 @@ grow(trunkTop, LIMB_LENGTH * 0.9, LIMB_RADIUS * 0.91, 4.35, 1.08, TREE_DEPTH);
 // why the forest was missing. The trees are therefore spread over as many instanced meshes as the
 // limit requires instead of being capped by it.
 // GlContext does not surface the MAX_TEXTURE_SIZE enum, so it is read by its GL value (0x0D33).
-const maxTextureSize = (ctx.state.gl.getParameter(0x0d33) as number | null) ?? 4096;
+const maxTextureSize = (renderer.state.gl.getParameter(0x0d33) as number | null) ?? 4096;
 const INSTANCES_PER_BATCH = Math.max(1, Math.floor(maxTextureSize / 4));
 
 function createInstanceBatches(
@@ -508,19 +491,10 @@ for (const batch of crownBatches) addNodeChild(scene.root, batch);
 
 function frame(): void {
   orbit.update();
-  ctx.render(scene.root, camera, lights, environment);
+  renderer.render(scene.root, camera, lights, environment);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const width = innerWidth;
-  const height = innerHeight;
-  const pixelRatio = devicePixelRatio || 1;
-  ctx.canvas.width = width * pixelRatio;
-  ctx.canvas.height = height * pixelRatio;
-  ctx.canvas.style.width = `${width}px`;
-  ctx.canvas.style.height = `${height}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = width / height;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 requestAnimationFrame(frame);

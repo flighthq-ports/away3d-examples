@@ -19,13 +19,11 @@ import {
   computeMeshGeometryNormals,
   computeMeshGeometryTangents,
   createEnvironment,
-  createFxaaEffect,
   createMesh,
   createPlaneMeshGeometry,
   createScene3D,
   createScene3DFromObj,
   createScene3DLights,
-  createScreenSpaceFogEffect,
   createStandardPbrMaterial,
   createTexture,
   createTilingSampler,
@@ -46,22 +44,17 @@ import { awayDirection, bindOrbitDrag, createCameraFromAway, createOrbitControll
 import { createDirectionalLightFromAway } from '../../shared/lighting';
 import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
 import { registerMirrorShader } from './mirrorShader';
-import { createScene3DContext } from './renderer';
+import { CAMERA_FAR, CAMERA_NEAR, setupRenderer } from './render.gl';
 
 const assetRoot = 'away3d/PlanarReflections/';
 
 // Scene constants taken from the original.
-const CAMERA_NEAR = 20;
-const CAMERA_FAR = 4000;
-const FOG_FAR = 3000;
 // Where the haze starts to read, chosen for the depth-space ramp above rather than copied.
-const FOG_VISIBLE_NEAR = 500;
 // DELIBERATE DEVIATION from the original, which uses the space skybox and FogMethod(0, 2000,
 // 0x100215). A starfield reads as night, but the desert is lit by a warm sun and the sand renders
 // bright — the two never agreed, and the mirror made it obvious by putting a dark sky next to lit
 // ground. The daytime sky is the one Away3D itself ships with RealTimeEnvMap, whose desert is the
 // same asset set, and the fog colour is the one Away3D pairs with that sky in that sample.
-const FOG_COLOR = 0x5f5e6e;
 const TERRAIN_SIZE = 5000;
 const TERRAIN_HEIGHT = 600;
 const TERRAIN_SEGMENTS = 75;
@@ -79,44 +72,7 @@ const MAX_ROTATION_SPEED = 10;
 const ACCELERATION = 0.5;
 const ROTATION = 0.5;
 
-// Clear colour and fog are consumed as linear values, so the sRGB constants are converted.
-function linearChannel(channel: number): number {
-  const v = channel / 255;
-  return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-}
-function linearRgba(srgb: number): number {
-  let out = 0;
-  for (let shift = 16; shift >= 0; shift -= 8) {
-    out = (out << 8) | Math.round(linearChannel((srgb >> shift) & 0xff) * 255);
-  }
-  return ((out << 8) | 0xff) >>> 0;
-}
-// The fog effect works in non-linear depth-buffer space, so the original's world distances are
-// pushed through the same projection curve the depth buffer uses.
-function depthAt(distance: number): number {
-  const d = Math.max(distance, CAMERA_NEAR);
-  return (CAMERA_FAR * (d - CAMERA_NEAR)) / (d * (CAMERA_FAR - CAMERA_NEAR));
-}
-
-const ctx = createScene3DContext({
-  width: innerWidth,
-  height: innerHeight,
-  backgroundColor: linearRgba(FOG_COLOR),
-  effects: [
-    createScreenSpaceFogEffect({
-      color: linearRgba(FOG_COLOR),
-      // The effect ramps `1 - exp(-density * t)` with t linear in NON-LINEAR window depth, so the
-      // original's world-linear 0..2000 ramp cannot be reproduced by mapping its endpoints:
-      // depth(400) is already ~96% of the way to depth(2000), which fogs the subject almost to the
-      // fog colour. The window is therefore chosen so the haze reads like the original's — clear
-      // around the subject, saturating toward the far terrain.
-      near: depthAt(FOG_VISIBLE_NEAR),
-      far: depthAt(FOG_FAR),
-      density: 1,
-    }),
-    createFxaaEffect(),
-  ],
-});
+const renderer = setupRenderer();
 const scene = createScene3D();
 const camera = createCameraFromAway({ near: CAMERA_NEAR, far: CAMERA_FAR });
 // HoverController(camera, null, 45, 10, 400, 3, 90), aimed at the origin.
@@ -128,7 +84,7 @@ const orbit = createOrbitControllerFromAway(camera, {
   maxTiltAngle: 90,
 });
 // The original binds only mouse drag — it has no wheel listener, so zoom stays out.
-bindOrbitDrag(ctx.canvas, orbit);
+bindOrbitDrag(renderer.canvas, orbit);
 
 const { directional, ambient } = createDirectionalLightFromAway({
   direction: awayDirection(-1, -2, 1),
@@ -152,7 +108,7 @@ const environment = createEnvironment({
   environment: createCubeTextureFromAwayFaces(webHostBitmapReadback, skyFaces),
   intensity: 1,
 });
-bakeGlEnvironmentIbl(ctx.state, environment);
+bakeGlEnvironmentIbl(renderer.state, environment);
 
 // Elevation(desertMaterial, desertHeightMap.jpg, 5000, 600, 5000, 75, 75) at y = -3, UVs 25x.
 if (!heightImage.source) throw new Error('The desert heightmap has no drawable image source');
@@ -229,12 +185,12 @@ function loadR2D2(): Node3D {
 const r2d2 = loadR2D2();
 
 // PlaneGeometry(400, 200, 1, 1, false) is authored upright, sat on the ground (y = maxY) at z = -200.
-registerMirrorShader(ctx.state);
-registerGlRenderTextureResolver(ctx.state);
+registerMirrorShader(renderer.state);
+registerGlRenderTextureResolver(renderer.state);
 const reflectionPool = createGlRenderTexturePool();
-const reflectionTexture = acquireGlRenderTexture(ctx.state, reflectionPool, {
-  width: Math.max(1, Math.floor(ctx.canvas.width)),
-  height: Math.max(1, Math.floor(ctx.canvas.height)),
+const reflectionTexture = acquireGlRenderTexture(renderer.state, reflectionPool, {
+  width: Math.max(1, Math.floor(renderer.canvas.width)),
+  height: Math.max(1, Math.floor(renderer.canvas.height)),
   depth: 'depth-stencil',
   format: 'rgba8',
 });
@@ -242,7 +198,7 @@ const reflectionTexture = acquireGlRenderTexture(ctx.state, reflectionPool, {
 const mirrorMaterial = createCustomShaderMaterial({
   shaderKey: 'planarMirror',
   textures: { u_reflection: reflectionTexture },
-  uniforms: { u_resolution: [ctx.canvas.width, ctx.canvas.height], u_strength: 0.9 },
+  uniforms: { u_resolution: [renderer.canvas.width, renderer.canvas.height], u_strength: 0.9 },
 });
 // The panel is a single quad viewed from either side, so it must not be back-face culled.
 mirrorMaterial.doubleSided = true;
@@ -377,7 +333,7 @@ function frame(timestamp: number): void {
   // mirror is hidden for the pass so it cannot reflect itself. See the note above the mirror plane
   // for why the scene is mirrored rather than the camera.
   mirror.visible = false;
-  renderIntoGlRenderTexture(ctx.state, reflectionTexture, (reflectionPass) => {
+  renderIntoGlRenderTexture(renderer.state, reflectionTexture, (reflectionPass) => {
     const reflectionState = reflectionPass.state;
 
     // Clip at the mirror plane so scenery on the far side of the glass, which mirrors into the
@@ -417,7 +373,7 @@ function frame(timestamp: number): void {
       (camera.projection as PerspectiveProjection).aspect;
     reflectedCamera.nearClipPlane = null;
     renderGlEnvironmentSkybox(
-      reflectionState, environment, reflectedCamera, ctx.canvas.width / ctx.canvas.height,
+      reflectionState, environment, reflectedCamera, renderer.canvas.width / renderer.canvas.height,
     );
 
     setVector3(scene.root.scale, 1, 1, -1);
@@ -435,20 +391,11 @@ function frame(timestamp: number): void {
 
   mirror.visible = true;
 
-  ctx.render(scene.root, camera, lights, environment);
+  renderer.render(scene.root, camera, lights, environment);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const width = innerWidth;
-  const height = innerHeight;
-  const pixelRatio = devicePixelRatio || 1;
-  ctx.canvas.width = width * pixelRatio;
-  ctx.canvas.height = height * pixelRatio;
-  ctx.canvas.style.width = `${width}px`;
-  ctx.canvas.style.height = `${height}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (camera.projection as PerspectiveProjection).aspect = width / height;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 
 requestAnimationFrame(frame);
