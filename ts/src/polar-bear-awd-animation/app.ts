@@ -26,7 +26,6 @@ import {
   createTexture,
   createTextureAtlas,
   createTilingSampler,
-  renderGlScene3DShadowMap,
   invalidateNodeLocalTransform,
   isMesh,
   loadImageResourceFromUrl,
@@ -387,7 +386,7 @@ function frame(timestamp: number): void {
   // Only the bear casts. Handing the whole scene to the shadow pass includes the 50000x50000
   // ground plane, which fills the shadow map with a caster that lies exactly on the receiving
   // surface — the bear's own shadow is then lost in the ground's self-shadowing.
-  renderGlScene3DShadowMap(renderer.state, model.root, shadowCamera, awaySun.directional);
+  renderer.renderShadowMap(model.root, shadowCamera, awaySun.directional);
   renderer.render(scene.root, camera, lights, environment);
   requestAnimationFrame(frame);
 }
