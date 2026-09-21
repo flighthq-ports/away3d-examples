@@ -1,9 +1,7 @@
-import type { PerspectiveProjection } from '@flighthq/sdk';
 import {
   addNodeChild,
   copyQuaternion,
   createBoxMeshGeometry,
-  createFxaaEffect,
   createMesh,
   createQuaternion,
   createScene3D,
@@ -15,17 +13,12 @@ import {
   setQuaternionFromAxisAngle,
 } from '@flighthq/sdk';
 import { createCameraFromAway } from '../../shared/camera';
-import { createScene3DContext } from './renderer';
+import { setupRenderer } from './render.gl';
 
 // The original renders a red/cyan anaglyph, so the two eyes composite into ONE picture rather than
 // being drawn as a side-by-side stereo pair. Tone mapping is deliberately left out: it would shift
 // the channel balance the anaglyph depends on. FXAA stands in for the original's `antiAlias = 4`.
-const ctx = createScene3DContext({
-  width: innerWidth,
-  height: innerHeight,
-  backgroundColor: 0x000000ff,
-  effects: [createFxaaEffect()],
-});
+const renderer = setupRenderer();
 
 const scene = createScene3D();
 const lights = createScene3DLights();
@@ -59,21 +52,11 @@ function frame(timestamp: number): void {
   copyQuaternion(cube.rotation, rotation);
   invalidateNodeLocalTransform(cube);
 
-  ctx.renderAnaglyph(scene.root, leftCamera, rightCamera, lights);
+  renderer.renderAnaglyph(scene.root, leftCamera, rightCamera, lights);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const width = innerWidth;
-  const height = innerHeight;
-  const pixelRatio = devicePixelRatio || 1;
-  ctx.canvas.width = width * pixelRatio;
-  ctx.canvas.height = height * pixelRatio;
-  ctx.canvas.style.width = `${width}px`;
-  ctx.canvas.style.height = `${height}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (leftCamera.projection as PerspectiveProjection).aspect = width / height;
-  (rightCamera.projection as PerspectiveProjection).aspect = width / height;
-});
+renderer.resize(leftCamera, rightCamera);
+window.addEventListener('resize', () => renderer.resize(leftCamera, rightCamera));
 
 requestAnimationFrame(frame);

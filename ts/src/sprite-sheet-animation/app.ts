@@ -1,14 +1,12 @@
 import { webHostBitmapReadback, webHostImage, webHostNet } from '@flighthq/host-web';
 import { registerWebImageDecoders } from '@flighthq/host-web';
-import type { Mesh, PerspectiveProjection, Texture } from '@flighthq/sdk';
+import type { Mesh, Texture } from '@flighthq/sdk';
 import {
   addNodeChild,
   bakeGlEnvironmentIbl,
   createAmbientLight,
-  createBloomEffect,
   createCamera3D,
   createEnvironment,
-  createFxaaEffect,
   createImageResource,
   createPerspectiveProjection,
   createSampler,
@@ -17,7 +15,6 @@ import {
   createScene3DLights,
   createStandardPbrMaterial,
   createTexture,
-  createToneMapEffect,
   createUnlitMaterial,
   createVector3,
   isMesh,
@@ -33,33 +30,12 @@ import {
 import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
 import { createPointLightFromAway } from '../../shared/lighting';
 import { createSwfSheetBuilder } from './swfSheets';
-import { createScene3DContext } from './renderer';
+import { setupRenderer } from './render.gl';
 
 registerDeflateDecompressor();
 registerWebImageDecoders();
 
-const ctx = createScene3DContext({
-  width: innerWidth,
-  height: innerHeight,
-  // Black. The room is a partial set — a wall and a table, no floor — so the clear colour shows
-  // through at the edges of frame, and against a dark bedroom any tint reads as a lit surface.
-  // Note the clear colour is consumed as LINEAR and re-encoded for display, so it comes out much
-  // brighter than the hex suggests: the previous 0x02040a displayed around (16, 23, 56).
-  backgroundColor: 0x000000ff,
-  effects: [
-    // The digits are unlit materials at full texture brightness against a near-black room, so
-    // they are the only thing above the threshold — the bloom reads as the LEDs themselves
-    // emitting rather than as a general haze over the image.
-    // Threshold has to sit below the DIGITS' luminance, which is far lower than their apparent
-    // brightness: 0xff3a08 decodes to linear (1.0, 0.042, 0.002), and red carries only 0.2126 of
-    // luma, so the digits weigh in at 0.243. A 0.35 threshold excluded them entirely and the
-    // bloom did nothing. Anything above this is the white silkscreen on the display face, which
-    // is a small area and reads fine slightly hot.
-    createBloomEffect({ threshold: 0.15, intensity: 1.4, radius: 1.3, passes: 5 }),
-    createToneMapEffect({ exposure: 1.1 }),
-    createFxaaEffect(),
-  ],
-});
+const renderer = setupRenderer();
 const scene = createScene3D();
 const cameraPosition = createVector3(-17850, 12390, 9322);
 const camera3d = createCamera3D({
@@ -151,7 +127,7 @@ addNodeChild(scene.root, clock.root);
 // a light. Baked as scene IBL at 0.7 it behaves as a large ambient source and lights the whole
 // room regardless of the lamps, which is what kept the wallpaper bright in a supposedly dark
 // bedroom. Held low enough to still catch the chrome bezel without illuminating the room.
-bakeGlEnvironmentIbl(ctx.state, createEnvironment({
+bakeGlEnvironmentIbl(renderer.state, createEnvironment({
   environment: createCubeTextureFromAwayFaces(webHostBitmapReadback, environmentFaces),
   intensity: 0.05,
 }));
@@ -317,20 +293,11 @@ function updateCamera(timestamp: number): void {
 function frame(timestamp: number): void {
   updateClock(timestamp);
   updateCamera(timestamp);
-  ctx.render(scene.root, camera3d, lights);
+  renderer.render(scene.root, camera3d, lights);
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => {
-  const width = innerWidth;
-  const height = innerHeight;
-  const pixelRatio = devicePixelRatio || 1;
-  ctx.canvas.width = width * pixelRatio;
-  ctx.canvas.height = height * pixelRatio;
-  ctx.canvas.style.width = `${width}px`;
-  ctx.canvas.style.height = `${height}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
-  (camera3d.projection as PerspectiveProjection).aspect = width / height;
-});
+renderer.resize(camera3d);
+window.addEventListener('resize', () => renderer.resize(camera3d));
 
 requestAnimationFrame(frame);

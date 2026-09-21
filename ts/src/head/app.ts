@@ -1,10 +1,9 @@
 import { webHostImage } from '@flighthq/host-web';
-import type { Mesh, PerspectiveProjection } from '@flighthq/sdk';
+import type { Mesh } from '@flighthq/sdk';
 import {
   addNodeChild,
   createAmbientLight,
   createExtendedPbrMaterial,
-  createFxaaEffect,
   createScene3D,
   createScene3DFromObj,
   createScene3DLights,
@@ -12,7 +11,6 @@ import {
   createStandardPbrMaterial,
   createStandardPbrMaterialProperties,
   createTexture,
-  createToneMapEffect,
   createWrappedDiffusePbrExtension,
   findNode,
   invalidateNodeLocalTransform,
@@ -23,9 +21,9 @@ import {
 } from '@flighthq/sdk';
 import { awayPosition, bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
 import { createPointLightFromAway } from '../../shared/lighting';
-import { createScene3DContext } from './renderer';
+import { setupRenderer } from './render.gl';
 
-const ctx = createScene3DContext({ width: innerWidth, height: innerHeight, effects: [createToneMapEffect({ exposure: 1.2 }), createFxaaEffect()] });
+const renderer = setupRenderer();
 const scene = createScene3D();
 const camera = createCameraFromAway({ far: 3000 });
 // PointLight at x 15000, z 15000, colour 0xffddbb, ambient 1, with ambientColor 0x303040 on the
@@ -40,7 +38,7 @@ const lights = createScene3DLights({
   point: [point],
 });
 const orbit = createOrbitControllerFromAway(camera, { distance: 800, panAngle: 45, tiltAngle: 10, minTiltAngle: -30, maxTiltAngle: 80 });
-bindOrbitDrag(ctx.canvas, orbit, { minDistance: 300, maxDistance: 1400 });
+bindOrbitDrag(renderer.canvas, orbit, { minDistance: 300, maxDistance: 1400 });
 
 const [obj, diffuse, normal] = await Promise.all([
   fetch('head.obj').then((r) => r.text()), loadImageResourceFromUrl(webHostImage, 'head_diffuse.jpg'),
@@ -131,11 +129,8 @@ function frame(timestamp: number): void {
     statsWindowStart = timestamp;
   }
   stats.textContent = `FPS: ${displayedFps}\nPLY: ${triangleCount}`;
-  ctx.render(scene.root, camera, lights); requestAnimationFrame(frame);
+  renderer.render(scene.root, camera, lights); requestAnimationFrame(frame);
 }
-window.addEventListener('resize', () => {
-  const w = innerWidth; const h = innerHeight; const pr = devicePixelRatio || 1;
-  ctx.canvas.width = w * pr; ctx.canvas.height = h * pr; ctx.canvas.style.width = `${w}px`; ctx.canvas.style.height = `${h}px`;
-  ctx.state.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height); (camera.projection as PerspectiveProjection).aspect = w / h;
-});
+renderer.resize(camera);
+window.addEventListener('resize', () => renderer.resize(camera));
 requestAnimationFrame(frame);
