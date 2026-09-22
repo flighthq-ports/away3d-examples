@@ -1,5 +1,4 @@
 import { webHostBitmapReadback, webHostImage, webHostNet } from '@flighthq/host-web';
-import { registerWebImageDecoders } from '@flighthq/host-web';
 import type { Mesh, Texture } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -20,7 +19,7 @@ import {
   isMesh,
   loadImageResourceFromUrl,
   loadScene3DDocumentFromAwd2Url,
-  registerDeflateDecompressor,
+  sdkHostDecompressDeflate,
   setCamera3DViewMatrix4FromLookAt,
   setTextureUvOffset,
   setTextureUvScale,
@@ -32,8 +31,6 @@ import { createPointLightFromAway } from '../../shared/lighting';
 import { createSwfSheetBuilder } from './swfSheets';
 import { setupRenderer } from './render.gl';
 
-registerDeflateDecompressor();
-registerWebImageDecoders();
 
 const renderer = setupRenderer();
 const scene = createScene3D();
@@ -108,7 +105,7 @@ const staticTextureFiles = {
   wire: 'm_wire.jpg',
 } as const;
 const [sceneDocument, environmentFaces, staticTextureEntries, furnitureNormal] = await Promise.all([
-  loadScene3DDocumentFromAwd2Url(webHostNet, `${assetRoot}tictac/tictac.awd`),
+  loadScene3DDocumentFromAwd2Url(webHostNet, `${assetRoot}tictac/tictac.awd`, sdkHostDecompressDeflate, null),
   Promise.all(
     [0, 1, 2, 3, 4, 5].map((face) =>
       loadImageResourceFromUrl(webHostImage, `${assetRoot}spritesheets/textures/back_CB${face}.jpg`),

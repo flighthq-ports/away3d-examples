@@ -1,5 +1,4 @@
 import { createWebImageResourceFromCanvas, webHostBitmapReadback, webHostImage, webHostNet } from '@flighthq/host-web';
-import { registerWebImageDecoders } from '@flighthq/host-web';
 import type { ImageResource, Mesh, Node3D } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -26,8 +25,8 @@ import {
   loadScene3DDocumentFromAwd2Url,
   loadScene3DResources,
   prepareMeshSkinning,
-  registerDeflateDecompressor,
   scaleMeshGeometryUvs,
+  sdkHostDecompressDeflate,
   setQuaternionFromEuler,
   setVector3,
   updateMeshSkin,
@@ -39,7 +38,6 @@ import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
 import { createAnimationController } from './animation';
 import { CAMERA_FAR, CAMERA_NEAR, SKY_COLOR, setupRenderer } from './render.gl';
 
-registerDeflateDecompressor(); registerWebImageDecoders();
 
 const assetRoot = 'away3d/OnkbaAWDAnimation/onkba/';
 // Scene colours are the original's constants.
@@ -173,7 +171,7 @@ const lights = createScene3DLights({
   point: [skyLight],
 });
 
-const document3d = await loadScene3DDocumentFromAwd2Url(webHostNet, `${assetRoot}onkba.awd`);
+const document3d = await loadScene3DDocumentFromAwd2Url(webHostNet, `${assetRoot}onkba.awd`, sdkHostDecompressDeflate, null);
 if (!document3d) throw new Error('Could not load compressed Onkba AWD');
 const model = createScene3DFromDocument(document3d);
 await loadScene3DResources(model, createBuiltInScene3DResourceResolver(webHostImage));

@@ -14,6 +14,7 @@ import {
   invalidateNodeLocalTransform,
   isMesh,
   loadImageResourceFromUrl,
+  sdkHostDecompressDeflate,
   setVector3,
 } from '@flighthq/sdk';
 import { webHostImage } from '@flighthq/host-web';
@@ -122,7 +123,7 @@ if (specularImage)
   });
 if (normalImage) headMaterial.normalMap = createTexture({ source: normalImage, colorSpace: 'linear' });
 
-const awdScene = createScene3DFromAwd2(new Uint8Array(awdBuffer));
+const awdScene = createScene3DFromAwd2(new Uint8Array(awdBuffer), sdkHostDecompressDeflate, null);
 
 function assignMaterialToMeshes(node: Node3D): void {
   if (isMesh(node)) {

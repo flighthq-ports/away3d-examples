@@ -31,16 +31,16 @@ import { createExampleGlSurface } from '../../shared/glSurface';
 // The room shades through StandardPbr; the clock face and its digits are unlit sprite-sheet quads.
 function createMinimalScene3DGlRegistries(): GlRenderRegistries {
   const registries = allocateEmptyGlRenderRegistries();
-  let meshMaterialRenderers = registries.meshMaterialRenderers;
-  meshMaterialRenderers = withRegistryTableEntry(
-    meshMaterialRenderers, StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer,
+  let materialRenderers = registries.materialRenderers;
+  materialRenderers = withRegistryTableEntry(
+    materialRenderers, StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer,
   );
-  meshMaterialRenderers = withRegistryTableEntry(
-    meshMaterialRenderers, UnlitMaterialKind, glUnlitMeshMaterialRenderer,
+  materialRenderers = withRegistryTableEntry(
+    materialRenderers, UnlitMaterialKind, glUnlitMeshMaterialRenderer,
   );
   return {
     ...registries,
-    meshMaterialRenderers,
+    materialRenderers,
     textureResolvers: standardGlTextureResolvers,
   };
 }

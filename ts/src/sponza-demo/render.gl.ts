@@ -38,16 +38,16 @@ import { createExampleGlSurface } from '../../shared/glSurface';
 // The atrium imports as ExtendedPbr with a specular extension; the torch flames are unlit quads.
 function createMinimalScene3DGlRegistries(): GlRenderRegistries {
   const registries = allocateEmptyGlRenderRegistries();
-  let meshMaterialRenderers = registries.meshMaterialRenderers;
-  meshMaterialRenderers = withRegistryTableEntry(
-    meshMaterialRenderers, ExtendedPbrMaterialKind, glExtendedPbrMeshMaterialRenderer,
+  let materialRenderers = registries.materialRenderers;
+  materialRenderers = withRegistryTableEntry(
+    materialRenderers, ExtendedPbrMaterialKind, glExtendedPbrMeshMaterialRenderer,
   );
-  meshMaterialRenderers = withRegistryTableEntry(
-    meshMaterialRenderers, UnlitMaterialKind, glUnlitMeshMaterialRenderer,
+  materialRenderers = withRegistryTableEntry(
+    materialRenderers, UnlitMaterialKind, glUnlitMeshMaterialRenderer,
   );
   return {
     ...registries,
-    meshMaterialRenderers,
+    materialRenderers,
     pbrExtensions: withRegistryTableEntry(
       registries.pbrExtensions,
       SpecularPbrExtensionKind,

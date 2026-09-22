@@ -41,8 +41,8 @@ function createMinimalScene3DGlRegistries(): GlRenderRegistries {
   );
   return {
     ...registries,
-    meshMaterialRenderers: withRegistryTableEntry(
-      registries.meshMaterialRenderers,
+    materialRenderers: withRegistryTableEntry(
+      registries.materialRenderers,
       ExtendedPbrMaterialKind,
       glExtendedPbrMeshMaterialRenderer,
     ),

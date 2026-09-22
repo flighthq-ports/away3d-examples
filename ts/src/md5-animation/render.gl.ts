@@ -39,16 +39,16 @@ import { backgroundAwareFogEffectRunner } from './fog';
 // extension is what the hide's highlight needs.
 function createMinimalScene3DGlRegistries(): GlRenderRegistries {
   const registries = allocateEmptyGlRenderRegistries();
-  let meshMaterialRenderers = registries.meshMaterialRenderers;
-  meshMaterialRenderers = withRegistryTableEntry(
-    meshMaterialRenderers, ExtendedPbrMaterialKind, glExtendedPbrMeshMaterialRenderer,
+  let materialRenderers = registries.materialRenderers;
+  materialRenderers = withRegistryTableEntry(
+    materialRenderers, ExtendedPbrMaterialKind, glExtendedPbrMeshMaterialRenderer,
   );
-  meshMaterialRenderers = withRegistryTableEntry(
-    meshMaterialRenderers, StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer,
+  materialRenderers = withRegistryTableEntry(
+    materialRenderers, StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer,
   );
   return {
     ...registries,
-    meshMaterialRenderers,
+    materialRenderers,
     pbrExtensions: withRegistryTableEntry(
       registries.pbrExtensions,
       SpecularPbrExtensionKind,

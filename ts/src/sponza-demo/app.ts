@@ -12,12 +12,13 @@ import {
   createScene3D,
   createScene3DFromAwd2,
   createScene3DLights,
-  getNodeChildren,
   getNode3DWorldBounds,
+  getNodeChildren,
   getNodeWorldMatrix4,
   isMesh,
   loadImageResourceFromUrl,
   orientScene3DBillboardsToCamera,
+  sdkHostDecompressDeflate,
   setNodeLocalMatrix4,
 } from '@flighthq/sdk';
 
@@ -97,7 +98,7 @@ const [awdBuffer, sponzaTextureImages, skyboxFaceImages, fireImage] = await Prom
 const textureMap = createTextureMap(sponzaTextureFiles, sponzaTextureImages);
 const materialCache = new Map<string, ExtendedPbrMaterial>();
 
-const awdScene = createScene3DFromAwd2(new Uint8Array(awdBuffer));
+const awdScene = createScene3DFromAwd2(new Uint8Array(awdBuffer), sdkHostDecompressDeflate, null);
 
 walkAndAssignMaterials(awdScene.root, materialCache, textureMap);
 

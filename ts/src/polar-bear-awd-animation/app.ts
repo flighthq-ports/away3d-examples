@@ -1,5 +1,4 @@
 import { createWebImageResourceFromCanvas, webHostBitmapReadback, webHostImage, webHostNet } from '@flighthq/host-web';
-import { registerWebImageDecoders } from '@flighthq/host-web';
 import type { Mesh, Node3D } from '@flighthq/sdk';
 import {
   addNodeChild,
@@ -19,13 +18,11 @@ import {
   createScene3D,
   createScene3DFromDocument,
   createScene3DLights,
-  createVector3,
-  setAabb,
-  setCamera3DViewMatrix4FromLookAt,
   createStandardPbrMaterial,
   createTexture,
   createTextureAtlas,
   createTilingSampler,
+  createVector3,
   invalidateNodeLocalTransform,
   isMesh,
   loadImageResourceFromUrl,
@@ -33,8 +30,10 @@ import {
   loadScene3DResources,
   prepareMeshSkinning,
   prewarmParticleEmitter3D,
-  registerDeflateDecompressor,
   scaleMeshGeometryUvs,
+  sdkHostDecompressDeflate,
+  setAabb,
+  setCamera3DViewMatrix4FromLookAt,
   setQuaternionFromEuler,
   setVector3,
   stepParticleEmitter3D,
@@ -47,8 +46,6 @@ import { createDirectionalLightFromAway, createPointLightFromAway } from '../../
 import { createAnimationController } from './animation';
 import { CAMERA_FAR, CAMERA_NEAR, setupRenderer } from './render.gl';
 
-registerDeflateDecompressor();
-registerWebImageDecoders();
 
 // FogMethod(0, 3000, 0x5f5e6e). Clear colour and fog are consumed as LINEAR values, so the sRGB
 // constant has to be converted — passing the raw 0x5f5e6e is what washed the whole scene pale.
@@ -102,7 +99,7 @@ const [bearDiffuse, bearNormal, bearSpecular, snowDiffuse, snowNormal, snowSpecu
       loadImageResourceFromUrl(webHostImage, `${assetRoot}skybox/sky_${face}.jpg`),
     ),
   ),
-  loadScene3DDocumentFromAwd2Url(webHostNet, `${assetRoot}PolarBear.awd`),
+  loadScene3DDocumentFromAwd2Url(webHostNet, `${assetRoot}PolarBear.awd`, sdkHostDecompressDeflate, null),
 ]);
 if (!sceneDocument) throw new Error('Could not load PolarBear.awd');
 

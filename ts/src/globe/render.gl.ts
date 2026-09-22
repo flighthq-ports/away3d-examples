@@ -37,19 +37,19 @@ import { registerEarthShader } from './earthShader';
 // modifier, and the sun disc an unlit quad.
 function createMinimalScene3DGlRegistries(): GlRenderRegistries {
   const registries = allocateEmptyGlRenderRegistries();
-  let meshMaterialRenderers = registries.meshMaterialRenderers;
-  meshMaterialRenderers = withRegistryTableEntry(
-    meshMaterialRenderers, CustomShaderMaterialKind, glCustomShaderMeshMaterialRenderer,
+  let materialRenderers = registries.materialRenderers;
+  materialRenderers = withRegistryTableEntry(
+    materialRenderers, CustomShaderMaterialKind, glCustomShaderMeshMaterialRenderer,
   );
-  meshMaterialRenderers = withRegistryTableEntry(
-    meshMaterialRenderers, ShadedMaterialKind, glShadedMeshMaterialRenderer,
+  materialRenderers = withRegistryTableEntry(
+    materialRenderers, ShadedMaterialKind, glShadedMeshMaterialRenderer,
   );
-  meshMaterialRenderers = withRegistryTableEntry(
-    meshMaterialRenderers, UnlitMaterialKind, glUnlitMeshMaterialRenderer,
+  materialRenderers = withRegistryTableEntry(
+    materialRenderers, UnlitMaterialKind, glUnlitMeshMaterialRenderer,
   );
   return {
     ...registries,
-    meshMaterialRenderers,
+    materialRenderers,
     modifierSnippets: withRegistryTableEntry(
       registries.modifierSnippets,
       EmissiveModifierKind,

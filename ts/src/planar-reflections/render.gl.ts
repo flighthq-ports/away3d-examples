@@ -61,16 +61,16 @@ function linearRgba(srgb: number): number {
 // reflection texture app.ts renders for it.
 function createMinimalScene3DGlRegistries(): GlRenderRegistries {
   const registries = allocateEmptyGlRenderRegistries();
-  let meshMaterialRenderers = registries.meshMaterialRenderers;
-  meshMaterialRenderers = withRegistryTableEntry(
-    meshMaterialRenderers, CustomShaderMaterialKind, glCustomShaderMeshMaterialRenderer,
+  let materialRenderers = registries.materialRenderers;
+  materialRenderers = withRegistryTableEntry(
+    materialRenderers, CustomShaderMaterialKind, glCustomShaderMeshMaterialRenderer,
   );
-  meshMaterialRenderers = withRegistryTableEntry(
-    meshMaterialRenderers, StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer,
+  materialRenderers = withRegistryTableEntry(
+    materialRenderers, StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer,
   );
   return {
     ...registries,
-    meshMaterialRenderers,
+    materialRenderers,
     textureResolvers: standardGlTextureResolvers,
   };
 }

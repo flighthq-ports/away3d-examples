@@ -32,8 +32,8 @@ function createMinimalScene3DGlRegistries(): GlRenderRegistries {
   const registries = allocateEmptyGlRenderRegistries();
   return {
     ...registries,
-    meshMaterialRenderers: withRegistryTableEntry(
-      registries.meshMaterialRenderers,
+    materialRenderers: withRegistryTableEntry(
+      registries.materialRenderers,
       ShadedMaterialKind,
       glShadedMeshMaterialRenderer,
     ),

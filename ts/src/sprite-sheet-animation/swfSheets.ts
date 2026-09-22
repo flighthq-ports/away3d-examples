@@ -1,5 +1,5 @@
 import type { CanvasRenderState, CanvasRenderTarget, ImageResource, Node2D } from '@flighthq/sdk';
-import { createMatrix, setMatrix, walkNodeDescendants } from '@flighthq/sdk';
+import { createMatrix, sdkHostDecompressDeflate, setMatrix, walkNodeDescendants } from '@flighthq/sdk';
 import { gotoAndStopMovieClip } from '@flighthq/movieclip';
 import {
   beginCanvasRenderPass,
@@ -14,14 +14,14 @@ import {
 import { createWebCanvasRenderSurfaceCreator, createWebImageResourceFromCanvas } from '@flighthq/host-web';
 import { prepareScene2DRender } from '@flighthq/render';
 import {
-  createScene2DFromSwfWithTagHandlers,
-  createSwfTagHandlerRegistry,
-  registerSwfControlTagHandlers,
-  registerSwfFontTagHandlers,
-  registerSwfPlacementTagHandlers,
-  registerSwfShapeTagHandlers,
-  registerSwfSpriteTagHandlers,
-  registerSwfTextTagHandlers,
+  createScene2DFromSwf,
+  createSwfTagFamilyRegistry,
+  swfControlTagFamily,
+  swfFontTagFamily,
+  swfPlacementTagFamily,
+  swfShapeTagFamily,
+  swfSpriteTagFamily,
+  swfTextTagFamily,
 } from '@flighthq/swf';
 
 // The original builds every animated texture in this sample at runtime out of digits.swf, using
@@ -122,22 +122,23 @@ export interface SwfSheet { columns: number; frames: number; resource: ImageReso
 // Only the tag families digits.swf actually contains. `explainSwfContent` reports its 56 tags as
 // DefineText/DefineFont3 (text, font), DefineShape (shape), DefineSprite (sprite), PlaceObject2
 // (placement) and ShowFrame/SetBackgroundColor/DefineSceneAndFrameLabelData (control) -- so the
-// bitmap, sound, video and script parsers are left out rather than registered and never reached.
-// The same deal as the renderer's minimal registries: name what the asset needs, not everything.
-function createMinimalSwfTagHandlerRegistry() {
-  const registry = createSwfTagHandlerRegistry();
-  registerSwfControlTagHandlers(registry);
-  registerSwfFontTagHandlers(registry);
-  registerSwfPlacementTagHandlers(registry);
-  registerSwfShapeTagHandlers(registry);
-  registerSwfSpriteTagHandlers(registry);
-  registerSwfTextTagHandlers(registry);
-  return registry;
+// bitmap, sound, video and script families are left out. Each family is its own module, so the
+// parsers for what this asset does not contain never enter the bundle.
+function createMinimalSwfTagFamilyRegistry() {
+  return createSwfTagFamilyRegistry({
+    control: swfControlTagFamily,
+    font: swfFontTagFamily,
+    placement: swfPlacementTagFamily,
+    shape: swfShapeTagFamily,
+    sprite: swfSpriteTagFamily,
+    text: swfTextTagFamily,
+  });
 }
 
 export function createSwfSheetBuilder(swf: Uint8Array) {
-  // const document_ = createScene2DFromSwf(swf); // parse with every tag handler
-  const document_ = createScene2DFromSwfWithTagHandlers(swf, createMinimalSwfTagHandlerRegistry());
+  // const registry = createSwfDefaultTagFamilyRegistry(); // every family
+  const registry = createMinimalSwfTagFamilyRegistry();
+  const document_ = createScene2DFromSwf(swf, registry, sdkHostDecompressDeflate, null);
   if (!document_) throw new Error('digits.swf could not be parsed');
 
   return function buildSheet(

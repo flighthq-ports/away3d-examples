@@ -31,16 +31,16 @@ import { createExampleGlSurface } from '../../shared/glSurface';
 // The torus is a mirror-finish StandardPbr surface; the sky sphere is an emissive material.
 function createMinimalScene3DGlRegistries(): GlRenderRegistries {
   const registries = allocateEmptyGlRenderRegistries();
-  let meshMaterialRenderers = registries.meshMaterialRenderers;
-  meshMaterialRenderers = withRegistryTableEntry(
-    meshMaterialRenderers, StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer,
+  let materialRenderers = registries.materialRenderers;
+  materialRenderers = withRegistryTableEntry(
+    materialRenderers, StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer,
   );
-  meshMaterialRenderers = withRegistryTableEntry(
-    meshMaterialRenderers, EmissiveMaterialKind, glEmissiveMeshMaterialRenderer,
+  materialRenderers = withRegistryTableEntry(
+    materialRenderers, EmissiveMaterialKind, glEmissiveMeshMaterialRenderer,
   );
   return {
     ...registries,
-    meshMaterialRenderers,
+    materialRenderers,
     textureResolvers: standardGlTextureResolvers,
   };
 }
