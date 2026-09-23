@@ -1,5 +1,5 @@
-import type { GlRenderRegistries, GlRenderState, RenderTargetClear } from '@flighthq/sdk';
-import { allocateEmptyGlRenderRegistries, createGlRenderState, unpackColorRgba } from '@flighthq/sdk';
+import type { GlRenderState, GlRenderStateOptions, RenderTargetClear } from '@flighthq/sdk';
+import { createGlRenderState, unpackColorRgba } from '@flighthq/sdk';
 import { createWebGlContext } from '@flighthq/host-web';
 
 export interface ExampleGlSurface {
@@ -13,7 +13,7 @@ export function createExampleGlSurface(
   height: number,
   pixelRatio: number,
   backgroundColor: number,
-  registries: Readonly<GlRenderRegistries> = { ...allocateEmptyGlRenderRegistries() },
+  registries: Readonly<GlRenderStateOptions> = {},
 ): ExampleGlSurface {
   const canvas = document.createElement('canvas');
   canvas.style.width = `${width}px`;
@@ -24,7 +24,7 @@ export function createExampleGlSurface(
   const gl = createWebGlContext(canvas, {
     contextAttributes: { alpha: false, depth: true, preserveDrawingBuffer: false },
   });
-  const state = createGlRenderState(gl, registries, { pixelRatio });
+  const state = createGlRenderState(gl, { ...registries, pixelRatio });
   const color: [number, number, number, number] = [0, 0, 0, 0];
   unpackColorRgba(color, backgroundColor);
 

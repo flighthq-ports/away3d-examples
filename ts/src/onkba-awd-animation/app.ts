@@ -2,6 +2,9 @@ import { createWebImageResourceFromCanvas, webHostBitmapReadback, webHostImage, 
 import type { ImageResource, Mesh, Node3D } from '@flighthq/sdk';
 import {
   addNodeChild,
+  awd2GeometryFamily,
+  awd2SceneStructureFamily,
+  awd2SkeletonFamily,
   bakeGlEnvironmentIbl,
   configureDirectionalShadowCamera3D,
   createAabb,
@@ -171,7 +174,14 @@ const lights = createScene3DLights({
   point: [skyLight],
 });
 
-const document3d = await loadScene3DDocumentFromAwd2Url(webHostNet, `${assetRoot}onkba.awd`, sdkHostDecompressDeflate, null);
+// onkba.awd is a skinned character: one skeleton, five animations and 247 poses over 43 geometries.
+// Its materials are rebuilt below from the sprite sheets, so the material handlers stay out.
+// const blocks = awd2AllBlockHandlers; // read every block family
+const blocks = [...awd2SkeletonFamily, ...awd2GeometryFamily, ...awd2SceneStructureFamily];
+const document3d = await loadScene3DDocumentFromAwd2Url(webHostNet, `${assetRoot}onkba.awd`, {
+  blocks,
+  deflate: sdkHostDecompressDeflate,
+});
 if (!document3d) throw new Error('Could not load compressed Onkba AWD');
 const model = createScene3DFromDocument(document3d);
 await loadScene3DResources(model, createBuiltInScene3DResourceResolver(webHostImage));

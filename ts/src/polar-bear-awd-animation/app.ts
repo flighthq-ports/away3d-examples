@@ -3,6 +3,9 @@ import type { Mesh, Node3D } from '@flighthq/sdk';
 import {
   addNodeChild,
   addTextureAtlasRegion,
+  awd2GeometryFamily,
+  awd2SceneStructureFamily,
+  awd2SkeletonFamily,
   bakeGlEnvironmentIbl,
   configureDirectionalShadowCamera3D,
   createAabb,
@@ -87,6 +90,12 @@ setVector3(skyLight.position, 0, 500, 0);
 const lights = createScene3DLights({ ambient: awaySun.ambient, directional: awaySun.directional, point: [skyLight] });
 
 const assetRoot = 'away3d/PolarBearAWDAnimation/';
+// PolarBear.awd is a skinned character — one skeleton, three animations, 77 poses — inside a
+// 20-node container hierarchy. It carries no materials, lights or camera of its own.
+// const blocks = awd2AllBlockHandlers; // read every block family
+const blocks = [...awd2SkeletonFamily, ...awd2GeometryFamily, ...awd2SceneStructureFamily];
+const awdParse = { blocks, deflate: sdkHostDecompressDeflate };
+
 const [bearDiffuse, bearNormal, bearSpecular, snowDiffuse, snowNormal, snowSpecular, skyFaces, sceneDocument] = await Promise.all([
   loadImageResourceFromUrl(webHostImage, `${assetRoot}polarbear_diffuse.jpg`),
   loadImageResourceFromUrl(webHostImage, `${assetRoot}polarbear_normals.jpg`),
@@ -99,7 +108,7 @@ const [bearDiffuse, bearNormal, bearSpecular, snowDiffuse, snowNormal, snowSpecu
       loadImageResourceFromUrl(webHostImage, `${assetRoot}skybox/sky_${face}.jpg`),
     ),
   ),
-  loadScene3DDocumentFromAwd2Url(webHostNet, `${assetRoot}PolarBear.awd`, sdkHostDecompressDeflate, null),
+  loadScene3DDocumentFromAwd2Url(webHostNet, `${assetRoot}PolarBear.awd`, awdParse),
 ]);
 if (!sceneDocument) throw new Error('Could not load PolarBear.awd');
 

@@ -1,19 +1,18 @@
 import type {
   Camera3D,
   GlEffectState,
-  GlRenderRegistries,
+  GlRenderStateOptions,
   Node3D,
   Scene3DLights,
 } from '@flighthq/sdk';
 import {
-  allocateEmptyGlRenderRegistries,
   beginGlEffectPass,
   BlinnPhongMaterialKind,
   glBlinnPhongMeshMaterialRenderer,
   createFxaaEffect,
   createGlEffectState,
   createToneMapEffect,
-  // glScene3DRenderRegistries,
+  // glScene3DRenderPreset,
   endGlEffectPass,
   registerGlFxaaEffect,
   registerGlParticleEmitter3DPass,
@@ -21,28 +20,21 @@ import {
   renderGlScene3D,
   setCamera3DAspect,
   standardGlTextureResolvers,
-  withRegistryTableEntry,
 } from '@flighthq/sdk';
 import { createExampleGlSurface } from '../../shared/glSurface';
 
 // The floor is the only mesh: a classic Blinn-Phong surface with a normal map. The flames are
 // a particle emitter, which renderGlScene3D draws without a mesh material renderer.
-function createMinimalScene3DGlRegistries(): GlRenderRegistries {
-  const registries = allocateEmptyGlRenderRegistries();
+function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
   return {
-    ...registries,
-    materialRenderers: withRegistryTableEntry(
-      registries.materialRenderers,
-      BlinnPhongMaterialKind,
-      glBlinnPhongMeshMaterialRenderer,
-    ),
+    materialRenderers: new Map([[BlinnPhongMaterialKind, glBlinnPhongMeshMaterialRenderer]]),
     textureResolvers: standardGlTextureResolvers,
   };
 }
 
 export function setupRenderer() {
   const pixelRatio = window.devicePixelRatio || 1;
-  // const registries = glScene3DRenderRegistries; // import all
+  // const registries = glScene3DRenderPreset; // import all
   const registries = createMinimalScene3DGlRegistries();
   const { canvas, clear, state } = createExampleGlSurface(
     window.innerWidth, window.innerHeight, pixelRatio, 0x000000ff, registries,

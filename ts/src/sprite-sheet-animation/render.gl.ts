@@ -1,19 +1,18 @@
 import type {
   Camera3D,
   GlEffectState,
-  GlRenderRegistries,
+  GlRenderStateOptions,
   Node3D,
   Scene3DLights,
 } from '@flighthq/sdk';
 import {
-  allocateEmptyGlRenderRegistries,
   beginGlEffectPass,
   createBloomEffect,
   createFxaaEffect,
   createGlEffectState,
   createToneMapEffect,
   endGlEffectPass,
-  // glScene3DRenderRegistries,
+  // glScene3DRenderPreset,
   glStandardPbrMeshMaterialRenderer,
   glUnlitMeshMaterialRenderer,
   registerGlBloomEffect,
@@ -24,30 +23,23 @@ import {
   standardGlTextureResolvers,
   StandardPbrMaterialKind,
   UnlitMaterialKind,
-  withRegistryTableEntry,
 } from '@flighthq/sdk';
 import { createExampleGlSurface } from '../../shared/glSurface';
 
 // The room shades through StandardPbr; the clock face and its digits are unlit sprite-sheet quads.
-function createMinimalScene3DGlRegistries(): GlRenderRegistries {
-  const registries = allocateEmptyGlRenderRegistries();
-  let materialRenderers = registries.materialRenderers;
-  materialRenderers = withRegistryTableEntry(
-    materialRenderers, StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer,
-  );
-  materialRenderers = withRegistryTableEntry(
-    materialRenderers, UnlitMaterialKind, glUnlitMeshMaterialRenderer,
-  );
+function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
   return {
-    ...registries,
-    materialRenderers,
+    materialRenderers: new Map([
+      [StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer],
+      [UnlitMaterialKind, glUnlitMeshMaterialRenderer],
+    ]),
     textureResolvers: standardGlTextureResolvers,
   };
 }
 
 export function setupRenderer() {
   const pixelRatio = window.devicePixelRatio || 1;
-  // const registries = glScene3DRenderRegistries; // import all
+  // const registries = glScene3DRenderPreset; // import all
   const registries = createMinimalScene3DGlRegistries();
   const { canvas, clear, state } = createExampleGlSurface(
     window.innerWidth, window.innerHeight, pixelRatio, 0x000000ff, registries,

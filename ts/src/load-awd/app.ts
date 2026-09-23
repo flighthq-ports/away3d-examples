@@ -5,6 +5,9 @@ import type {
 } from '@flighthq/sdk';
 import {
   addNodeChild,
+  awd2GeometryFamily,
+  awd2MaterialsFamily,
+  awd2SceneStructureFamily,
   createMatrix4,
   createScene3D,
   createScene3DFromAwd2,
@@ -48,7 +51,15 @@ const { directional, ambient } = createDirectionalLightFromAway({
 const lights = createScene3DLights({ ambient, directional });
 
 const buffer = await fetch('suzanne.awd').then((r) => r.arrayBuffer());
-const modelScene = createScene3DFromAwd2(new Uint8Array(buffer), sdkHostDecompressDeflate, null);
+// suzanne.awd carries one textured material, one geometry and one mesh instance — no skeleton,
+// no lights, no camera. Naming only the families the file contains is what leaves the block
+// handlers for everything else unlinked.
+// const blocks = awd2AllBlockHandlers; // read every block family
+const blocks = [...awd2MaterialsFamily, ...awd2GeometryFamily, ...awd2SceneStructureFamily];
+const modelScene = createScene3DFromAwd2(new Uint8Array(buffer), {
+  blocks,
+  deflate: sdkHostDecompressDeflate,
+});
 
 const templateMesh = findNode(modelScene.root, isMesh) as Mesh | null;
 if (!templateMesh?.geometry) throw new Error('No mesh found in suzanne.awd');

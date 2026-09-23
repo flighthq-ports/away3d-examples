@@ -2,12 +2,11 @@ import type {
   Camera3D,
   Environment,
   GlEffectState,
-  GlRenderRegistries,
+  GlRenderStateOptions,
   Node3D,
   Scene3DLights,
 } from '@flighthq/sdk';
 import {
-  allocateEmptyGlRenderRegistries,
   beginGlEffectPass,
   createFxaaEffect,
   createGlEffectState,
@@ -15,7 +14,7 @@ import {
   EmissiveMaterialKind,
   endGlEffectPass,
   glEmissiveMeshMaterialRenderer,
-  // glScene3DRenderRegistries,
+  // glScene3DRenderPreset,
   glStandardPbrMeshMaterialRenderer,
   registerGlFxaaEffect,
   registerGlToneMapEffect,
@@ -24,30 +23,23 @@ import {
   setCamera3DAspect,
   standardGlTextureResolvers,
   StandardPbrMaterialKind,
-  withRegistryTableEntry,
 } from '@flighthq/sdk';
 import { createExampleGlSurface } from '../../shared/glSurface';
 
 // The torus is a mirror-finish StandardPbr surface; the sky sphere is an emissive material.
-function createMinimalScene3DGlRegistries(): GlRenderRegistries {
-  const registries = allocateEmptyGlRenderRegistries();
-  let materialRenderers = registries.materialRenderers;
-  materialRenderers = withRegistryTableEntry(
-    materialRenderers, StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer,
-  );
-  materialRenderers = withRegistryTableEntry(
-    materialRenderers, EmissiveMaterialKind, glEmissiveMeshMaterialRenderer,
-  );
+function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
   return {
-    ...registries,
-    materialRenderers,
+    materialRenderers: new Map([
+      [StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer],
+      [EmissiveMaterialKind, glEmissiveMeshMaterialRenderer],
+    ]),
     textureResolvers: standardGlTextureResolvers,
   };
 }
 
 export function setupRenderer() {
   const pixelRatio = window.devicePixelRatio || 1;
-  // const registries = glScene3DRenderRegistries; // import all
+  // const registries = glScene3DRenderPreset; // import all
   const registries = createMinimalScene3DGlRegistries();
   const { canvas, clear, state } = createExampleGlSurface(
     window.innerWidth, window.innerHeight, pixelRatio, 0xffff00ff, registries,

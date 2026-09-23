@@ -2,18 +2,17 @@ import type {
   Camera3D,
   Environment,
   GlEffectState,
-  GlRenderRegistries,
+  GlRenderStateOptions,
   Node3D,
   Scene3DLights,
 } from '@flighthq/sdk';
 import {
-  allocateEmptyGlRenderRegistries,
   beginGlEffectPass,
   createFxaaEffect,
   createGlEffectState,
   createToneMapEffect,
   endGlEffectPass,
-  // glScene3DRenderRegistries,
+  // glScene3DRenderPreset,
   glStandardPbrMeshMaterialRenderer,
   glUnlitMeshMaterialRenderer,
   registerGlFxaaEffect,
@@ -24,30 +23,23 @@ import {
   standardGlTextureResolvers,
   StandardPbrMaterialKind,
   UnlitMaterialKind,
-  withRegistryTableEntry,
 } from '@flighthq/sdk';
 import { createExampleGlSurface } from '../../shared/glSurface';
 
 // The water and terrain shade through StandardPbr; the sky dome quad is unlit.
-function createMinimalScene3DGlRegistries(): GlRenderRegistries {
-  const registries = allocateEmptyGlRenderRegistries();
-  let materialRenderers = registries.materialRenderers;
-  materialRenderers = withRegistryTableEntry(
-    materialRenderers, StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer,
-  );
-  materialRenderers = withRegistryTableEntry(
-    materialRenderers, UnlitMaterialKind, glUnlitMeshMaterialRenderer,
-  );
+function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
   return {
-    ...registries,
-    materialRenderers,
+    materialRenderers: new Map([
+      [StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer],
+      [UnlitMaterialKind, glUnlitMeshMaterialRenderer],
+    ]),
     textureResolvers: standardGlTextureResolvers,
   };
 }
 
 export function setupRenderer() {
   const pixelRatio = window.devicePixelRatio || 1;
-  // const registries = glScene3DRenderRegistries; // import all
+  // const registries = glScene3DRenderPreset; // import all
   const registries = createMinimalScene3DGlRegistries();
   const { canvas, clear, state } = createExampleGlSurface(
     window.innerWidth, window.innerHeight, pixelRatio, 0x071a27ff, registries,

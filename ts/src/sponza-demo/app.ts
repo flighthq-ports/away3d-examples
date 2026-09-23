@@ -2,6 +2,9 @@ import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
 import type { ExtendedPbrMaterial, Node3D } from '@flighthq/sdk';
 import {
   addNodeChild,
+  awd2GeometryFamily,
+  awd2MaterialsFamily,
+  awd2SceneStructureFamily,
   bakeGlEnvironmentIbl,
   cloneMesh,
   configureDirectionalShadowCamera3DTightFit,
@@ -98,7 +101,15 @@ const [awdBuffer, sponzaTextureImages, skyboxFaceImages, fireImage] = await Prom
 const textureMap = createTextureMap(sponzaTextureFiles, sponzaTextureImages);
 const materialCache = new Map<string, ExtendedPbrMaterial>();
 
-const awdScene = createScene3DFromAwd2(new Uint8Array(awdBuffer), sdkHostDecompressDeflate, null);
+// sponza.awd is 382 geometries and their mesh instances over 35 materials and 22 textures. The
+// sun and the torch lights below are built here, not read from the file, so the lighting and camera
+// handlers stay out.
+// const blocks = awd2AllBlockHandlers; // read every block family
+const blocks = [...awd2MaterialsFamily, ...awd2GeometryFamily, ...awd2SceneStructureFamily];
+const awdScene = createScene3DFromAwd2(new Uint8Array(awdBuffer), {
+  blocks,
+  deflate: sdkHostDecompressDeflate,
+});
 
 walkAndAssignMaterials(awdScene.root, materialCache, textureMap);
 

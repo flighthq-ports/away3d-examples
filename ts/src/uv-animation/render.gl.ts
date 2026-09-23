@@ -1,12 +1,11 @@
-import type { Camera3D, GlEffectState, GlRenderRegistries, Node3D } from '@flighthq/sdk';
+import type { Camera3D, GlEffectState, GlRenderStateOptions, Node3D } from '@flighthq/sdk';
 import {
-  allocateEmptyGlRenderRegistries,
   beginGlEffectPass,
   createFxaaEffect,
   createGlEffectState,
   createScene3DLights,
   createToneMapEffect,
-  // glScene3DRenderRegistries,
+  // glScene3DRenderPreset,
   endGlEffectPass,
   registerGlFxaaEffect,
   registerGlToneMapEffect,
@@ -15,27 +14,20 @@ import {
   standardGlTextureResolvers,
   UnlitMaterialKind,
   glUnlitMeshMaterialRenderer,
-  withRegistryTableEntry,
 } from '@flighthq/sdk';
 import { createExampleGlSurface } from '../../shared/glSurface';
 
 // Every panel is an unlit textured quad whose UV transform animates.
-function createMinimalScene3DGlRegistries(): GlRenderRegistries {
-  const registries = allocateEmptyGlRenderRegistries();
+function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
   return {
-    ...registries,
-    materialRenderers: withRegistryTableEntry(
-      registries.materialRenderers,
-      UnlitMaterialKind,
-      glUnlitMeshMaterialRenderer,
-    ),
+    materialRenderers: new Map([[UnlitMaterialKind, glUnlitMeshMaterialRenderer]]),
     textureResolvers: standardGlTextureResolvers,
   };
 }
 
 export function setupRenderer() {
   const pixelRatio = window.devicePixelRatio || 1;
-  // const registries = glScene3DRenderRegistries; // import all
+  // const registries = glScene3DRenderPreset; // import all
   const registries = createMinimalScene3DGlRegistries();
   const { canvas, clear, state } = createExampleGlSurface(
     window.innerWidth, window.innerHeight, pixelRatio, 0x000000ff, registries,

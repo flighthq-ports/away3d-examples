@@ -2,19 +2,18 @@ import type {
   Camera3D,
   Environment,
   GlEffectState,
-  GlRenderRegistries,
+  GlRenderStateOptions,
   Node3D,
   Scene3DLights,
 } from '@flighthq/sdk';
 import {
-  allocateEmptyGlRenderRegistries,
   beginGlEffectPass,
   createFxaaEffect,
   createGlEffectState,
   createScreenSpaceFogEffect,
   createToneMapEffect,
   endGlEffectPass,
-  // glScene3DRenderRegistries,
+  // glScene3DRenderPreset,
   glStandardPbrMeshMaterialRenderer,
   registerGlFxaaEffect,
   registerGlScreenSpaceFogEffect,
@@ -24,7 +23,6 @@ import {
   setCamera3DAspect,
   standardGlTextureResolvers,
   StandardPbrMaterialKind,
-  withRegistryTableEntry,
 } from '@flighthq/sdk';
 import { createExampleGlSurface } from '../../shared/glSurface';
 
@@ -57,22 +55,16 @@ function linearRgba(srgb: number): number {
 }
 
 // The terrain and the water plane both shade through StandardPbr.
-function createMinimalScene3DGlRegistries(): GlRenderRegistries {
-  const registries = allocateEmptyGlRenderRegistries();
+function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
   return {
-    ...registries,
-    materialRenderers: withRegistryTableEntry(
-      registries.materialRenderers,
-      StandardPbrMaterialKind,
-      glStandardPbrMeshMaterialRenderer,
-    ),
+    materialRenderers: new Map([[StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer]]),
     textureResolvers: standardGlTextureResolvers,
   };
 }
 
 export function setupRenderer() {
   const pixelRatio = window.devicePixelRatio || 1;
-  // const registries = glScene3DRenderRegistries; // import all
+  // const registries = glScene3DRenderPreset; // import all
   const registries = createMinimalScene3DGlRegistries();
   const { canvas, clear, state } = createExampleGlSurface(
     window.innerWidth, window.innerHeight, pixelRatio, linearRgba(FOG_COLOR), registries,

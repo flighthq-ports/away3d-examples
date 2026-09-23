@@ -1,6 +1,8 @@
 import type { Node3D } from '@flighthq/sdk';
 import {
   addNodeChild,
+  awd2GeometryFamily,
+  awd2SceneStructureFamily,
   configureDirectionalShadowCamera3D,
   createAabb,
   createCamera3D,
@@ -123,7 +125,14 @@ if (specularImage)
   });
 if (normalImage) headMaterial.normalMap = createTexture({ source: normalImage, colorSpace: 'linear' });
 
-const awdScene = createScene3DFromAwd2(new Uint8Array(awdBuffer), sdkHostDecompressDeflate, null);
+// MonsterHead.awd is geometry and hierarchy only — the material above is built here rather than
+// read from the file, so the material and texture handlers have nothing to claim and are left out.
+// const blocks = awd2AllBlockHandlers; // read every block family
+const blocks = [...awd2GeometryFamily, ...awd2SceneStructureFamily];
+const awdScene = createScene3DFromAwd2(new Uint8Array(awdBuffer), {
+  blocks,
+  deflate: sdkHostDecompressDeflate,
+});
 
 function assignMaterialToMeshes(node: Node3D): void {
   if (isMesh(node)) {

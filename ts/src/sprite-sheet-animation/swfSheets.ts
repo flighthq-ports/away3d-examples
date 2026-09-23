@@ -7,7 +7,7 @@ import {
   createCanvasRenderState,
   createCanvasRenderSurface,
   createCanvasTextureResolvers,
-  canvasScene2DRenderRegistries,
+  canvasScene2DRenderPreset,
   endCanvasRenderPass,
   renderCanvasScene2D,
 } from '@flighthq/scene2d-canvas';
@@ -15,13 +15,12 @@ import { createWebCanvasRenderSurfaceCreator, createWebImageResourceFromCanvas }
 import { prepareScene2DRender } from '@flighthq/render';
 import {
   createScene2DFromSwf,
-  createSwfTagFamilyRegistry,
-  swfControlTagFamily,
-  swfFontTagFamily,
-  swfPlacementTagFamily,
-  swfShapeTagFamily,
-  swfSpriteTagFamily,
-  swfTextTagFamily,
+  swfControlHandler,
+  swfDefineShapeHandler,
+  swfFontHandler,
+  swfPlaceObjectHandler,
+  swfSpriteHandler,
+  swfStaticTextHandler,
 } from '@flighthq/swf';
 
 // The original builds every animated texture in this sample at runtime out of digits.swf, using
@@ -55,7 +54,7 @@ interface CanvasContext {
 
 function canvasStateFor(canvas: HTMLCanvasElement): CanvasContext {
   const state = createCanvasRenderState(
-    canvasScene2DRenderRegistries,
+    canvasScene2DRenderPreset,
     createCanvasTextureResolvers(surfaceCreator),
   );
   const surface = createCanvasRenderSurface(surfaceCreator, canvas);
@@ -119,26 +118,25 @@ function scanBounds(
 
 export interface SwfSheet { columns: number; frames: number; resource: ImageResource; rows: number }
 
-// Only the tag families digits.swf actually contains. `explainSwfContent` reports its 56 tags as
-// DefineText/DefineFont3 (text, font), DefineShape (shape), DefineSprite (sprite), PlaceObject2
-// (placement) and ShowFrame/SetBackgroundColor/DefineSceneAndFrameLabelData (control) -- so the
-// bitmap, sound, video and script families are left out. Each family is its own module, so the
+// Only the tags digits.swf actually contains. `explainSwfContent` reports its 56 tags as
+// ShowFrame/SetBackgroundColor/DefineSceneAndFrameLabelData (control), DefineShape, DefineText,
+// PlaceObject2, DefineSprite and DefineFont3 -- so bitmaps, sound, video and script are left out,
+// and so are the three handlers their families would have dragged in alongside the ones named
+// here: morph shapes, editable text and PlaceObject3. Each handler is its own module, so the
 // parsers for what this asset does not contain never enter the bundle.
-function createMinimalSwfTagFamilyRegistry() {
-  return createSwfTagFamilyRegistry({
-    control: swfControlTagFamily,
-    font: swfFontTagFamily,
-    placement: swfPlacementTagFamily,
-    shape: swfShapeTagFamily,
-    sprite: swfSpriteTagFamily,
-    text: swfTextTagFamily,
-  });
-}
+const minimalSwfTagHandlers = [
+  swfControlHandler,
+  swfDefineShapeHandler,
+  swfFontHandler,
+  swfPlaceObjectHandler,
+  swfSpriteHandler,
+  swfStaticTextHandler,
+];
 
 export function createSwfSheetBuilder(swf: Uint8Array) {
-  // const registry = createSwfDefaultTagFamilyRegistry(); // every family
-  const registry = createMinimalSwfTagFamilyRegistry();
-  const document_ = createScene2DFromSwf(swf, registry, sdkHostDecompressDeflate, null);
+  // const tags = swfAllTagHandlers; // read every tag
+  const tags = minimalSwfTagHandlers;
+  const document_ = createScene2DFromSwf(swf, { tags, deflate: sdkHostDecompressDeflate });
   if (!document_) throw new Error('digits.swf could not be parsed');
 
   return function buildSheet(

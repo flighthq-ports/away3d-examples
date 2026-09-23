@@ -1,16 +1,15 @@
 import type {
   Camera3D,
   GlEffectState,
-  GlRenderRegistries,
+  GlRenderStateOptions,
   Node3D,
   Scene3DLights,
 } from '@flighthq/sdk';
 import {
-  allocateEmptyGlRenderRegistries,
   beginGlEffectPass,
   createGlEffectState,
   createToneMapEffect,
-  // glScene3DRenderRegistries,
+  // glScene3DRenderPreset,
   endGlEffectPass,
   registerGlParticleEmitter3DPass,
   registerGlToneMapEffect,
@@ -22,17 +21,15 @@ import { createExampleGlSurface } from '../../shared/glSurface';
 
 // Both emitters are ParticleEmitter3D nodes, which renderGlScene3D draws without consulting the
 // mesh material registry; only the atlas texture has to resolve.
-function createMinimalScene3DGlRegistries(): GlRenderRegistries {
-  const registries = allocateEmptyGlRenderRegistries();
+function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
   return {
-    ...registries,
     textureResolvers: standardGlTextureResolvers,
   };
 }
 
 export function setupRenderer() {
   const pixelRatio = window.devicePixelRatio || 1;
-  // const registries = glScene3DRenderRegistries; // import all
+  // const registries = glScene3DRenderPreset; // import all
   const registries = createMinimalScene3DGlRegistries();
   const { canvas, clear, state } = createExampleGlSurface(
     window.innerWidth, window.innerHeight, pixelRatio, 0x000000ff, registries,

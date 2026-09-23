@@ -2,12 +2,11 @@ import type {
   Camera3D,
   Environment,
   GlEffectState,
-  GlRenderRegistries,
+  GlRenderStateOptions,
   Node3D,
   Scene3DLights,
 } from '@flighthq/sdk';
 import {
-  allocateEmptyGlRenderRegistries,
   beginGlEffectPass,
   createFxaaEffect,
   createGlEffectState,
@@ -17,7 +16,7 @@ import {
   EmissiveModifierKind,
   endGlEffectPass,
   glCustomShaderMeshMaterialRenderer,
-  // glScene3DRenderRegistries,
+  // glScene3DRenderPreset,
   glShadedMeshMaterialRenderer,
   glUnlitMeshMaterialRenderer,
   registerGlFxaaEffect,
@@ -28,40 +27,27 @@ import {
   ShadedMaterialKind,
   standardGlTextureResolvers,
   UnlitMaterialKind,
-  withRegistryTableEntry,
 } from '@flighthq/sdk';
 import { createExampleGlSurface } from '../../shared/glSurface';
 import { registerEarthShader } from './earthShader';
 
 // The earth is a custom-shader material, the atmosphere a ShadedMaterial with an emissive
 // modifier, and the sun disc an unlit quad.
-function createMinimalScene3DGlRegistries(): GlRenderRegistries {
-  const registries = allocateEmptyGlRenderRegistries();
-  let materialRenderers = registries.materialRenderers;
-  materialRenderers = withRegistryTableEntry(
-    materialRenderers, CustomShaderMaterialKind, glCustomShaderMeshMaterialRenderer,
-  );
-  materialRenderers = withRegistryTableEntry(
-    materialRenderers, ShadedMaterialKind, glShadedMeshMaterialRenderer,
-  );
-  materialRenderers = withRegistryTableEntry(
-    materialRenderers, UnlitMaterialKind, glUnlitMeshMaterialRenderer,
-  );
+function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
   return {
-    ...registries,
-    materialRenderers,
-    modifierSnippets: withRegistryTableEntry(
-      registries.modifierSnippets,
-      EmissiveModifierKind,
-      emissiveGlModifierSnippet,
-    ),
+    materialRenderers: new Map([
+      [CustomShaderMaterialKind, glCustomShaderMeshMaterialRenderer],
+      [ShadedMaterialKind, glShadedMeshMaterialRenderer],
+      [UnlitMaterialKind, glUnlitMeshMaterialRenderer],
+    ]),
+    modifierSnippets: new Map([[EmissiveModifierKind, emissiveGlModifierSnippet]]),
     textureResolvers: standardGlTextureResolvers,
   };
 }
 
 export function setupRenderer() {
   const pixelRatio = window.devicePixelRatio || 1;
-  // const registries = glScene3DRenderRegistries; // import all
+  // const registries = glScene3DRenderPreset; // import all
   const registries = createMinimalScene3DGlRegistries();
   const { canvas, clear, state } = createExampleGlSurface(
     window.innerWidth, window.innerHeight, pixelRatio, 0x000005ff, registries,

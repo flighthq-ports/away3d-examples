@@ -3,12 +3,11 @@ import type {
   DirectionalLight,
   Environment,
   GlEffectState,
-  GlRenderRegistries,
+  GlRenderStateOptions,
   Node3D,
   Scene3DLights,
 } from '@flighthq/sdk';
 import {
-  allocateEmptyGlRenderRegistries,
   beginGlEffectPass,
   createFxaaEffect,
   createGlEffectState,
@@ -17,7 +16,7 @@ import {
   endGlEffectPass,
   ExtendedPbrMaterialKind,
   glExtendedPbrMeshMaterialRenderer,
-  // glScene3DRenderRegistries,
+  // glScene3DRenderPreset,
   glUnlitMeshMaterialRenderer,
   packOpaqueColor,
   registerGlFxaaEffect,
@@ -31,35 +30,24 @@ import {
   specularPbrGlExtension,
   standardGlTextureResolvers,
   UnlitMaterialKind,
-  withRegistryTableEntry,
 } from '@flighthq/sdk';
 import { createExampleGlSurface } from '../../shared/glSurface';
 
 // The atrium imports as ExtendedPbr with a specular extension; the torch flames are unlit quads.
-function createMinimalScene3DGlRegistries(): GlRenderRegistries {
-  const registries = allocateEmptyGlRenderRegistries();
-  let materialRenderers = registries.materialRenderers;
-  materialRenderers = withRegistryTableEntry(
-    materialRenderers, ExtendedPbrMaterialKind, glExtendedPbrMeshMaterialRenderer,
-  );
-  materialRenderers = withRegistryTableEntry(
-    materialRenderers, UnlitMaterialKind, glUnlitMeshMaterialRenderer,
-  );
+function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
   return {
-    ...registries,
-    materialRenderers,
-    pbrExtensions: withRegistryTableEntry(
-      registries.pbrExtensions,
-      SpecularPbrExtensionKind,
-      specularPbrGlExtension,
-    ),
+    materialRenderers: new Map([
+      [ExtendedPbrMaterialKind, glExtendedPbrMeshMaterialRenderer],
+      [UnlitMaterialKind, glUnlitMeshMaterialRenderer],
+    ]),
+    pbrExtensions: new Map([[SpecularPbrExtensionKind, specularPbrGlExtension]]),
     textureResolvers: standardGlTextureResolvers,
   };
 }
 
 export function setupRenderer() {
   const pixelRatio = window.devicePixelRatio || 1;
-  // const registries = glScene3DRenderRegistries; // import all
+  // const registries = glScene3DRenderPreset; // import all
   const registries = createMinimalScene3DGlRegistries();
   const { canvas, clear, state } = createExampleGlSurface(
     window.innerWidth, window.innerHeight, pixelRatio, packOpaqueColor(0x9090e7), registries,

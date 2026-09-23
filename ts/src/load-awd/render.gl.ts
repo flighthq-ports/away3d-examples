@@ -1,18 +1,17 @@
 import type {
   Camera3D,
   GlEffectState,
-  GlRenderRegistries,
+  GlRenderStateOptions,
   Node3D,
   Scene3DLights,
 } from '@flighthq/sdk';
 import {
-  allocateEmptyGlRenderRegistries,
   beginGlEffectPass,
   createFxaaEffect,
   createGlEffectState,
   createToneMapEffect,
   endGlEffectPass,
-  // glScene3DRenderRegistries,
+  // glScene3DRenderPreset,
   glShadedMeshMaterialRenderer,
   registerGlFxaaEffect,
   registerGlToneMapEffect,
@@ -20,28 +19,21 @@ import {
   setCamera3DAspect,
   ShadedMaterialKind,
   standardGlTextureResolvers,
-  withRegistryTableEntry,
 } from '@flighthq/sdk';
 import { createExampleGlSurface } from '../../shared/glSurface';
 
 // createScene3DFromAwd2 builds ShadedMaterial for every AWD material block, and this sample keeps
 // the imported material rather than substituting its own.
-function createMinimalScene3DGlRegistries(): GlRenderRegistries {
-  const registries = allocateEmptyGlRenderRegistries();
+function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
   return {
-    ...registries,
-    materialRenderers: withRegistryTableEntry(
-      registries.materialRenderers,
-      ShadedMaterialKind,
-      glShadedMeshMaterialRenderer,
-    ),
+    materialRenderers: new Map([[ShadedMaterialKind, glShadedMeshMaterialRenderer]]),
     textureResolvers: standardGlTextureResolvers,
   };
 }
 
 export function setupRenderer() {
   const pixelRatio = window.devicePixelRatio || 1;
-  // const registries = glScene3DRenderRegistries; // import all
+  // const registries = glScene3DRenderPreset; // import all
   const registries = createMinimalScene3DGlRegistries();
   const { canvas, clear, state } = createExampleGlSurface(
     window.innerWidth, window.innerHeight, pixelRatio, 0x030404ff, registries,

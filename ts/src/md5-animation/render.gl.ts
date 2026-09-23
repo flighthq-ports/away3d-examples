@@ -5,18 +5,17 @@ import type {
   Effect,
   Environment,
   GlEffectState,
-  GlRenderRegistries,
+  GlRenderStateOptions,
   Node3D,
   Scene3DLights,
 } from '@flighthq/sdk';
 import {
-  allocateEmptyGlRenderRegistries,
   beginGlEffectPass,
   createGlEffectState,
   endGlEffectPass,
   ExtendedPbrMaterialKind,
   glExtendedPbrMeshMaterialRenderer,
-  // glScene3DRenderRegistries,
+  // glScene3DRenderPreset,
   glStandardPbrMeshMaterialRenderer,
   registerGlEffect,
   registerGlSmaaEffect,
@@ -30,30 +29,19 @@ import {
   specularPbrGlExtension,
   standardGlTextureResolvers,
   StandardPbrMaterialKind,
-  withRegistryTableEntry,
 } from '@flighthq/sdk';
 import { createExampleGlSurface } from '../../shared/glSurface';
 import { backgroundAwareFogEffectRunner } from './fog';
 
 // The hellknight and the ground shade through ExtendedPbr and StandardPbr; the specular
 // extension is what the hide's highlight needs.
-function createMinimalScene3DGlRegistries(): GlRenderRegistries {
-  const registries = allocateEmptyGlRenderRegistries();
-  let materialRenderers = registries.materialRenderers;
-  materialRenderers = withRegistryTableEntry(
-    materialRenderers, ExtendedPbrMaterialKind, glExtendedPbrMeshMaterialRenderer,
-  );
-  materialRenderers = withRegistryTableEntry(
-    materialRenderers, StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer,
-  );
+function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
   return {
-    ...registries,
-    materialRenderers,
-    pbrExtensions: withRegistryTableEntry(
-      registries.pbrExtensions,
-      SpecularPbrExtensionKind,
-      specularPbrGlExtension,
-    ),
+    materialRenderers: new Map([
+      [ExtendedPbrMaterialKind, glExtendedPbrMeshMaterialRenderer],
+      [StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer],
+    ]),
+    pbrExtensions: new Map([[SpecularPbrExtensionKind, specularPbrGlExtension]]),
     textureResolvers: standardGlTextureResolvers,
   };
 }
@@ -62,7 +50,7 @@ function createMinimalScene3DGlRegistries(): GlRenderRegistries {
 // produced by loadEnvironment(), so the stack does not exist until that await resolves.
 export function setupRenderer(effects: ReadonlyArray<Effect | Adjustment>) {
   const pixelRatio = window.devicePixelRatio || 1;
-  // const registries = glScene3DRenderRegistries; // import all
+  // const registries = glScene3DRenderPreset; // import all
   const registries = createMinimalScene3DGlRegistries();
   const { canvas, clear, state } = createExampleGlSurface(
     window.innerWidth, window.innerHeight, pixelRatio, 0x000000ff, registries,

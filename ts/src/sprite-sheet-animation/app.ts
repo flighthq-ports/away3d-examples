@@ -2,6 +2,9 @@ import { webHostBitmapReadback, webHostImage, webHostNet } from '@flighthq/host-
 import type { Mesh, Texture } from '@flighthq/sdk';
 import {
   addNodeChild,
+  awd2GeometryFamily,
+  awd2MaterialsFamily,
+  awd2SceneStructureFamily,
   bakeGlEnvironmentIbl,
   createAmbientLight,
   createCamera3D,
@@ -104,8 +107,14 @@ const staticTextureFiles = {
   wall: 'm_wall.jpg',
   wire: 'm_wire.jpg',
 } as const;
+// tictac.awd is 13 textured meshes in one container — static geometry with no skeleton, no lights
+// and no camera, so those handlers never link.
+// const blocks = awd2AllBlockHandlers; // read every block family
+const blocks = [...awd2MaterialsFamily, ...awd2GeometryFamily, ...awd2SceneStructureFamily];
+const awdParse = { blocks, deflate: sdkHostDecompressDeflate };
+
 const [sceneDocument, environmentFaces, staticTextureEntries, furnitureNormal] = await Promise.all([
-  loadScene3DDocumentFromAwd2Url(webHostNet, `${assetRoot}tictac/tictac.awd`, sdkHostDecompressDeflate, null),
+  loadScene3DDocumentFromAwd2Url(webHostNet, `${assetRoot}tictac/tictac.awd`, awdParse),
   Promise.all(
     [0, 1, 2, 3, 4, 5].map((face) =>
       loadImageResourceFromUrl(webHostImage, `${assetRoot}spritesheets/textures/back_CB${face}.jpg`),
