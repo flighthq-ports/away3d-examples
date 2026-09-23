@@ -1,17 +1,22 @@
 import type { CanvasRenderState, CanvasRenderTarget, ImageResource, Node2D } from '@flighthq/sdk';
-import { createMatrix, sdkHostDecompressDeflate, setMatrix, walkNodeDescendants } from '@flighthq/sdk';
+import {
+  createCanvasSurfaceFromNativeHandle,
+  createMatrix,
+  sdkHostDecompressDeflate,
+  setMatrix,
+  walkNodeDescendants,
+} from '@flighthq/sdk';
 import { gotoAndStopMovieClip } from '@flighthq/movieclip';
 import {
   beginCanvasRenderPass,
   createCanvasScreenRenderTarget,
   createCanvasRenderState,
-  createCanvasRenderSurface,
   createCanvasTextureResolvers,
   canvasScene2DRenderPreset,
   endCanvasRenderPass,
   renderCanvasScene2D,
 } from '@flighthq/scene2d-canvas';
-import { createWebCanvasRenderSurfaceCreator, createWebImageResourceFromCanvas } from '@flighthq/host-web';
+import { createWebImageResourceFromCanvas, webHostCanvas } from '@flighthq/host-web';
 import { prepareScene2DRender } from '@flighthq/render';
 import {
   createScene2DFromSwf,
@@ -46,7 +51,6 @@ const placement = createMatrix();
 // edge to edge puts the digits hard against the bezel and reads as oversized.
 const CONTENT_FILL = 0.84;
 
-const surfaceCreator = createWebCanvasRenderSurfaceCreator();
 interface CanvasContext {
   state: CanvasRenderState;
   target: CanvasRenderTarget;
@@ -55,9 +59,12 @@ interface CanvasContext {
 function canvasStateFor(canvas: HTMLCanvasElement): CanvasContext {
   const state = createCanvasRenderState(
     canvasScene2DRenderPreset,
-    createCanvasTextureResolvers(surfaceCreator),
+    createCanvasTextureResolvers(webHostCanvas),
   );
-  const surface = createCanvasRenderSurface(surfaceCreator, canvas);
+  // The web host's native surface handle is the canvas element itself, so the measuring and sheet
+  // canvases this module creates are wrapped directly rather than allocated through the host.
+  const surface = createCanvasSurfaceFromNativeHandle(webHostCanvas, canvas);
+  if (!surface) throw new Error('Could not acquire a 2D context for the sprite sheet');
   return { state, target: createCanvasScreenRenderTarget(surface) };
 }
 
