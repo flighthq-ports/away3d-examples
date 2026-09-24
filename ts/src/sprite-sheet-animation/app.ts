@@ -2,9 +2,6 @@ import { webHostBitmapReadback, webHostImage, webHostNet } from '@flighthq/host-
 import type { Mesh, Texture } from '@flighthq/sdk';
 import {
   addNodeChild,
-  awd2GeometryFamily,
-  awd2MaterialsFamily,
-  awd2SceneStructureFamily,
   bakeGlEnvironmentIbl,
   createAmbientLight,
   createCamera3D,
@@ -31,6 +28,9 @@ import {
 } from '@flighthq/sdk';
 import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
 import { createPointLightFromAway } from '../../shared/lighting';
+// Generated from tictac.awd at build time; see the note in swfSheets.ts.
+import { parserOptions as awdParserOptions } from '../../../assets/away3d/SpriteSheetAnimation/tictac/tictac.awd?manifest';
+
 import { createSwfSheetBuilder } from './swfSheets';
 import { setupRenderer } from './render.gl';
 
@@ -107,11 +107,7 @@ const staticTextureFiles = {
   wall: 'm_wall.jpg',
   wire: 'm_wire.jpg',
 } as const;
-// tictac.awd is 13 textured meshes in one container — static geometry with no skeleton, no lights
-// and no camera, so those handlers never link.
-// const blocks = awd2AllBlockHandlers; // read every block family
-const blocks = [...awd2MaterialsFamily, ...awd2GeometryFamily, ...awd2SceneStructureFamily];
-const awdParse = { blocks, deflate: sdkHostDecompressDeflate };
+const awdParse = { ...awdParserOptions, deflate: sdkHostDecompressDeflate };
 
 const [sceneDocument, environmentFaces, staticTextureEntries, furnitureNormal] = await Promise.all([
   loadScene3DDocumentFromAwd2Url(webHostNet, `${assetRoot}tictac/tictac.awd`, awdParse),

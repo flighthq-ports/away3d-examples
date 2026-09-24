@@ -18,15 +18,13 @@ import {
 } from '@flighthq/scene2d-canvas';
 import { createWebImageResourceFromCanvas, webHostCanvas } from '@flighthq/host-web';
 import { prepareScene2DRender } from '@flighthq/render';
-import {
-  createScene2DFromSwf,
-  swfControlHandler,
-  swfDefineShapeHandler,
-  swfFontHandler,
-  swfPlaceObjectHandler,
-  swfSpriteHandler,
-  swfStaticTextHandler,
-} from '@flighthq/swf';
+import { createScene2DFromSwf } from '@flighthq/swf';
+
+// The tag list for this file, generated at build time by @flighthq/vite-plugin-manifest from
+// digits.swf itself. It reads the same tag stream the importer will, so the handlers named here
+// cannot drift from what the asset contains — which a hand-written list did every time the artwork
+// was re-exported.
+import { parserOptions } from '../../../assets/away3d/SpriteSheetAnimation/spritesheets/digits.swf?manifest';
 
 // The original builds every animated texture in this sample at runtime out of digits.swf, using
 // SpriteSheetHelper.generateFromMovieClip to lay a MovieClip's frames into a grid. Flight can read
@@ -126,25 +124,9 @@ function scanBounds(
 
 export interface SwfSheet { columns: number; frames: number; resource: ImageResource; rows: number }
 
-// Only the tags digits.swf actually contains. `explainSwfContent` reports its 56 tags as
-// ShowFrame/SetBackgroundColor/DefineSceneAndFrameLabelData (control), DefineShape, DefineText,
-// PlaceObject2, DefineSprite and DefineFont3 -- so bitmaps, sound, video and script are left out,
-// and so are the three handlers their families would have dragged in alongside the ones named
-// here: morph shapes, editable text and PlaceObject3. Each handler is its own module, so the
-// parsers for what this asset does not contain never enter the bundle.
-const minimalSwfTagHandlers = [
-  swfControlHandler,
-  swfDefineShapeHandler,
-  swfFontHandler,
-  swfPlaceObjectHandler,
-  swfSpriteHandler,
-  swfStaticTextHandler,
-];
 
 export function createSwfSheetBuilder(swf: Uint8Array) {
-  // const tags = swfAllTagHandlers; // read every tag
-  const tags = minimalSwfTagHandlers;
-  const document_ = createScene2DFromSwf(swf, { tags, deflate: sdkHostDecompressDeflate });
+  const document_ = createScene2DFromSwf(swf, { ...parserOptions, deflate: sdkHostDecompressDeflate });
   if (!document_) throw new Error('digits.swf could not be parsed');
 
   return function buildSheet(
