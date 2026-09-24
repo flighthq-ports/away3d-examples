@@ -5,9 +5,6 @@ import type {
 } from '@flighthq/sdk';
 import {
   addNodeChild,
-  awd2GeometryFamily,
-  awd2MaterialsFamily,
-  awd2SceneStructureFamily,
   createMatrix4,
   createScene3D,
   createScene3DFromAwd2,
@@ -26,6 +23,13 @@ import {
   setNodeLocalMatrix4,
   translateMatrix4,
 } from '@flighthq/sdk';
+
+// The handler list for this file, generated at build time by @flighthq/vite-plugin-manifest: it
+// reads suzanne.awd with the SDK's own `parseAwd2Requirements` walk and resolves what it finds
+// against the catalog in scripts/manifestCatalog.ts. Naming the asset instead of a family list is
+// what keeps the two from drifting -- and it is tighter than the families were, since suzanne.awd
+// has no Container block and so never links awd2ContainerHandler.
+import { parserOptions } from '../../../assets/suzanne.awd?manifest';
 
 import { awayDirection, createCameraFromAway } from '../../shared/camera';
 import { applyAwayGloss, createDirectionalLightFromAway } from '../../shared/lighting';
@@ -51,13 +55,8 @@ const { directional, ambient } = createDirectionalLightFromAway({
 const lights = createScene3DLights({ ambient, directional });
 
 const buffer = await fetch('suzanne.awd').then((r) => r.arrayBuffer());
-// suzanne.awd carries one textured material, one geometry and one mesh instance — no skeleton,
-// no lights, no camera. Naming only the families the file contains is what leaves the block
-// handlers for everything else unlinked.
-// const blocks = awd2AllBlockHandlers; // read every block family
-const blocks = [...awd2MaterialsFamily, ...awd2GeometryFamily, ...awd2SceneStructureFamily];
 const modelScene = createScene3DFromAwd2(new Uint8Array(buffer), {
-  blocks,
+  ...parserOptions,
   deflate: sdkHostDecompressDeflate,
 });
 

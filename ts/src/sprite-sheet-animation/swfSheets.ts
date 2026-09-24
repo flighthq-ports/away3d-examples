@@ -57,10 +57,11 @@ interface CanvasContext {
 }
 
 function canvasStateFor(canvas: HTMLCanvasElement): CanvasContext {
-  const state = createCanvasRenderState(
-    canvasScene2DRenderPreset,
-    createCanvasTextureResolvers(webHostCanvas),
-  );
+  const state = createCanvasRenderState({
+    ...canvasScene2DRenderPreset,
+    canvasHost: webHostCanvas,
+    canvasTextureResolvers: createCanvasTextureResolvers(webHostCanvas),
+  });
   // The web host's native surface handle is the canvas element itself, so the measuring and sheet
   // canvases this module creates are wrapped directly rather than allocated through the host.
   const surface = createCanvasSurfaceFromNativeHandle(webHostCanvas, canvas);

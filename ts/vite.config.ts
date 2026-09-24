@@ -1,6 +1,7 @@
 import { cpSync, readdirSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { build } from 'esbuild';
 import { defineConfig, type Plugin } from 'vite';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -46,6 +47,34 @@ function injectBase(sitePath: string): Plugin {
   };
 }
 
+/**
+ * Serves `./asset.awd?manifest` as a generated module naming exactly the handlers that file needs.
+ * The plugin reads the bytes with the SDK's own `parse*Requirements` walk and resolves the result
+ * against the catalog, so an example's handler list is derived from its asset rather than kept in
+ * sync with it by hand. The catalog rows are ours — @flighthq/requirement-catalog ships none yet.
+ *
+ * Bundled here rather than imported directly because @flighthq/vite-plugin-manifest declares
+ * "type": "module" but its dist uses relative EXTENSIONLESS imports (`from './contentAnalyzers'`),
+ * which Node's ESM resolver rejects — so `import { createManifestPlugin } from
+ * '@flighthq/vite-plugin-manifest'` throws ERR_MODULE_NOT_FOUND when Node loads this config. esbuild
+ * resolves them, so one in-memory bundle of the wiring gets the plugin loadable. Remove this once
+ * the package ships Node-resolvable specifiers.
+ */
+async function manifest(): Promise<Plugin> {
+  const bundled = await build({
+    bundle: true,
+    entryPoints: [resolve(here, 'scripts/manifestPlugin.ts')],
+    format: 'esm',
+    platform: 'node',
+    write: false,
+    external: ['node:*'],
+  });
+  const module_ = (await import(
+    `data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`
+  )) as { createFlightManifestPlugin: () => Plugin };
+  return module_.createFlightManifestPlugin();
+}
+
 /** thumbs/ is generated for publishing and gitignored; copy it into the build when it exists. */
 function copyThumbs(): Plugin {
   return {
@@ -70,7 +99,7 @@ function copySizes(): Plugin {
   };
 }
 
-export default defineConfig(() => {
+export default defineConfig(async () => {
   // GitHub Pages serves a project site from /<repo>/, not the domain root. BASE_PATH is set by the
   // publish workflow; locally it stays '/'.
   const sitePath = process.env.BASE_PATH ?? '/';
@@ -96,7 +125,7 @@ export default defineConfig(() => {
     // directory layout should not show up in the URL a visitor sees.
     root: srcDir,
     base: sitePath,
-    plugins: [injectBase(sitePath), copyThumbs(), copySizes()],
+    plugins: [await manifest(), injectBase(sitePath), copyThumbs(), copySizes()],
     publicDir,
     build: { target: 'es2022', outDir, emptyOutDir: true, rollupOptions: { input } },
   };
