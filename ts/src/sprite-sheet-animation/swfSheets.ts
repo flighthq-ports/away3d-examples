@@ -11,8 +11,6 @@ import {
   beginCanvasRenderPass,
   createCanvasScreenRenderTarget,
   createCanvasRenderState,
-  applyCanvasBlendMode,
-  canvasShapeCommandTable,
   createCanvasTextureResolvers,
   endCanvasRenderPass,
   renderCanvasScene2D,
@@ -56,18 +54,12 @@ interface CanvasContext {
 }
 
 function canvasStateFor(canvas: HTMLCanvasElement): CanvasContext {
-  // `canvasOptions` is generated from digits.swf alongside the tag list: the node renderers its own
-  // content needs, and no others. That is ~6 KB gz smaller than spreading canvasScene2DRenderPreset,
-  // which carries all thirteen.
-  //
-  // The two fields below are added by hand because the fragment cannot carry them: catalog rows exist
-  // only for the `scene.node-kind` facet, so nothing resolves into `canvasShapeCommands`, and
-  // `blendModeApplication` is not kind-keyed at all. Spreading the fragment alone typechecks and
-  // renders a fully black frame — every shape rasterises to nothing without the command table.
+  // Everything this canvas needs to draw digits.swf, generated from the file itself: the node
+  // renderers for the kinds it contains, and the fourteen shape commands its artwork actually uses
+  // out of the sixteen that exist. ~8 KB gz smaller than spreading canvasScene2DRenderPreset, which
+  // carries all thirteen renderers and the whole command table.
   const state = createCanvasRenderState({
     ...canvasOptions,
-    blendModeApplication: applyCanvasBlendMode,
-    canvasShapeCommands: canvasShapeCommandTable(),
     canvasHost: webHostCanvas,
     canvasTextureResolvers: createCanvasTextureResolvers(webHostCanvas),
   });

@@ -3,7 +3,7 @@
 Gzipped JS per sample, one build per renderer — each measured from a build containing only
 that sample, so the number is the program rather than a share of the gallery.
 
-Measured against `@flighthq/sdk` **0.5.1-next.1704.1832e8b** on 2026-09-25. Regenerate with `npm run sizes`.
+Measured against `@flighthq/sdk` **0.5.1-next.1717.f605ef3** on 2026-09-25. Regenerate with `npm run sizes`.
 
 | Sample | gl |
 |---|---|
@@ -34,7 +34,7 @@ Measured against `@flighthq/sdk` **0.5.1-next.1704.1832e8b** on 2026-09-25. Rege
 | `shallow-water-demo` | 45.4 KB |
 | `skybox` | 41.4 KB |
 | `sponza-demo` | 57.4 KB |
-| `sprite-sheet-animation` | 78.6 KB |
+| `sprite-sheet-animation` | 77.1 KB |
 | `stereo` | 26.7 KB |
 | `terrain-demo` | 43.3 KB |
 | `tweening-3d` | 31.1 KB |
