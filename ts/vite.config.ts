@@ -1,8 +1,9 @@
 import { cpSync, readdirSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { build } from 'esbuild';
 import { defineConfig, type Plugin } from 'vite';
+
+import { createFlightManifestPlugin } from './scripts/manifestPlugin';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const srcDir = resolve(here, 'src');
@@ -47,34 +48,6 @@ function injectBase(sitePath: string): Plugin {
   };
 }
 
-/**
- * Serves `./asset.awd?manifest` as a generated module naming exactly the handlers that file needs.
- * The plugin reads the bytes with the SDK's own `parse*Requirements` walk and resolves the result
- * against the catalog, so an example's handler list is derived from its asset rather than kept in
- * sync with it by hand. The catalog rows are ours — @flighthq/requirement-catalog ships none yet.
- *
- * Bundled here rather than imported directly because @flighthq/requirement-catalog — where the
- * built-in ownership rows live — declares "type": "module" but its dist/index.js imports
- * `'./builtInRequirementCatalogEntries'` without the `.js`, which Node's ESM resolver rejects. The
- * plugin package itself became Node-importable in next.1700; the catalog it needs did not, so the
- * config still cannot reach the rows directly. esbuild resolves them, so one in-memory bundle of the
- * wiring gets both loaded. Remove this once that specifier carries its extension.
- */
-async function manifest(): Promise<Plugin> {
-  const bundled = await build({
-    bundle: true,
-    entryPoints: [resolve(here, 'scripts/manifestPlugin.ts')],
-    format: 'esm',
-    platform: 'node',
-    write: false,
-    external: ['node:*'],
-  });
-  const module_ = (await import(
-    `data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`
-  )) as { createFlightManifestPlugin: () => Plugin };
-  return module_.createFlightManifestPlugin();
-}
-
 /** thumbs/ is generated for publishing and gitignored; copy it into the build when it exists. */
 function copyThumbs(): Plugin {
   return {
@@ -99,7 +72,7 @@ function copySizes(): Plugin {
   };
 }
 
-export default defineConfig(async () => {
+export default defineConfig(() => {
   // GitHub Pages serves a project site from /<repo>/, not the domain root. BASE_PATH is set by the
   // publish workflow; locally it stays '/'.
   const sitePath = process.env.BASE_PATH ?? '/';
@@ -125,7 +98,7 @@ export default defineConfig(async () => {
     // directory layout should not show up in the URL a visitor sees.
     root: srcDir,
     base: sitePath,
-    plugins: [await manifest(), injectBase(sitePath), copyThumbs(), copySizes()],
+    plugins: [createFlightManifestPlugin(), injectBase(sitePath), copyThumbs(), copySizes()],
     publicDir,
     build: { target: 'es2022', outDir, emptyOutDir: true, rollupOptions: { input } },
   };

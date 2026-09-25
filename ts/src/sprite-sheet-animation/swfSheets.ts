@@ -11,8 +11,9 @@ import {
   beginCanvasRenderPass,
   createCanvasScreenRenderTarget,
   createCanvasRenderState,
+  applyCanvasBlendMode,
+  canvasShapeCommandTable,
   createCanvasTextureResolvers,
-  canvasScene2DRenderPreset,
   endCanvasRenderPass,
   renderCanvasScene2D,
 } from '@flighthq/scene2d-canvas';
@@ -24,7 +25,7 @@ import { createScene2DFromSwf } from '@flighthq/swf';
 // digits.swf itself. It reads the same tag stream the importer will, so the handlers named here
 // cannot drift from what the asset contains — which a hand-written list did every time the artwork
 // was re-exported.
-import { parserOptions } from '../../../assets/away3d/SpriteSheetAnimation/spritesheets/digits.swf?manifest';
+import { canvasOptions, parserOptions } from '../../../assets/away3d/SpriteSheetAnimation/spritesheets/digits.swf?manifest';
 
 // The original builds every animated texture in this sample at runtime out of digits.swf, using
 // SpriteSheetHelper.generateFromMovieClip to lay a MovieClip's frames into a grid. Flight can read
@@ -55,12 +56,18 @@ interface CanvasContext {
 }
 
 function canvasStateFor(canvas: HTMLCanvasElement): CanvasContext {
-  // The full 2D preset, deliberately, even though this file's manifest also exports a `canvasOptions`
-  // fragment. That fragment carries `nodeRenderers` and nothing else -- no `canvasShapeCommands` and
-  // no `blendModeApplication` -- because the catalog has rows only for the `scene.node-kind` facet.
-  // Spreading it in place of the preset typechecks and renders a fully black frame.
+  // `canvasOptions` is generated from digits.swf alongside the tag list: the node renderers its own
+  // content needs, and no others. That is ~6 KB gz smaller than spreading canvasScene2DRenderPreset,
+  // which carries all thirteen.
+  //
+  // The two fields below are added by hand because the fragment cannot carry them: catalog rows exist
+  // only for the `scene.node-kind` facet, so nothing resolves into `canvasShapeCommands`, and
+  // `blendModeApplication` is not kind-keyed at all. Spreading the fragment alone typechecks and
+  // renders a fully black frame — every shape rasterises to nothing without the command table.
   const state = createCanvasRenderState({
-    ...canvasScene2DRenderPreset,
+    ...canvasOptions,
+    blendModeApplication: applyCanvasBlendMode,
+    canvasShapeCommands: canvasShapeCommandTable(),
     canvasHost: webHostCanvas,
     canvasTextureResolvers: createCanvasTextureResolvers(webHostCanvas),
   });

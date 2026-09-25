@@ -1,8 +1,10 @@
 import { inflateRawSync, inflateSync } from 'node:zlib';
 
 import type { Plugin } from 'vite';
-import type { HostDecompressDeflateCapability, RequirementCatalog } from '@flighthq/types/contract';
-import { CompressionFraming } from '@flighthq/types/contract';
+// Type-only, deliberately: @flighthq/types ships 1,968 relative EXTENSIONLESS specifiers, so a
+// RUNTIME import of it throws ERR_MODULE_NOT_FOUND when Node loads the Vite config. A type import is
+// erased, and comparing the framing against its literal keeps the check just as type-safe.
+import type { CompressionFraming, HostDecompressDeflateCapability } from '@flighthq/types/contract';
 import {
   BUILT_IN_REQUIREMENT_CATALOG_ENTRIES,
   BUILT_IN_REQUIREMENT_TRANSLATIONS,
@@ -20,10 +22,10 @@ import { createManifestPlugin } from '@flighthq/vite-plugin-manifest';
  * an assumption.
  */
 const nodeDeflate: HostDecompressDeflateCapability = {
-  decompress(compressed, _uncompressedLength, framing) {
+  decompress(compressed, _uncompressedLength, framing: CompressionFraming) {
     try {
       const input = Buffer.from(compressed.buffer, compressed.byteOffset, compressed.byteLength);
-      return new Uint8Array(framing === CompressionFraming.Raw ? inflateRawSync(input) : inflateSync(input));
+      return new Uint8Array(framing === 'Raw' ? inflateRawSync(input) : inflateSync(input));
     } catch {
       // null is the contract's "this codec could not read it", which the analyzer turns into a
       // diagnostic. Throwing here would fail the whole build on one malformed asset.
@@ -33,22 +35,21 @@ const nodeDeflate: HostDecompressDeflateCapability = {
 };
 
 /**
- * Flight's own ownership rows, which cover every SWF tag and AWD2 block its handlers claim. The
- * translations are spread in separately because `createRequirementCatalog` takes only entries — they
- * are what carries a `document.format` requirement over to the node kinds a renderer needs, so
- * without them the parser fragment resolves and every render fragment comes back empty.
+ * Serves `./asset.awd?manifest` as a generated module naming exactly the handlers that file needs.
+ * The plugin reads the bytes with the SDK's own `parse*Requirements` walk and resolves the result
+ * against Flight's shipped ownership rows, so an example's handler list is derived from its asset
+ * rather than kept in sync with it by hand.
+ *
+ * The translations are the second argument rather than an afterthought: they carry a
+ * `document.format` requirement over to the node kinds a renderer needs, and a catalog built without
+ * them resolves the parser fragment while every render fragment comes back empty.
  */
-function builtInCatalog(): RequirementCatalog {
-  return {
-    ...createRequirementCatalog(BUILT_IN_REQUIREMENT_CATALOG_ENTRIES),
-    translations: BUILT_IN_REQUIREMENT_TRANSLATIONS,
-  };
-}
-
-/** Bundled by vite.config.ts and invoked there; see the comment on `manifest()` for why. */
 export function createFlightManifestPlugin(): Plugin {
   return createManifestPlugin({
-    catalog: builtInCatalog(),
+    catalog: createRequirementCatalog(
+      BUILT_IN_REQUIREMENT_CATALOG_ENTRIES,
+      BUILT_IN_REQUIREMENT_TRANSLATIONS,
+    ),
     deflate: nodeDeflate,
     onDiagnostic: (message) => console.warn(`[flight-manifest] ${message}`),
   }) as unknown as Plugin;
