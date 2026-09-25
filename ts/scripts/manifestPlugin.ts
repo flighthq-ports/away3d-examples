@@ -1,12 +1,14 @@
 import { inflateRawSync, inflateSync } from 'node:zlib';
 
 import type { Plugin } from 'vite';
-import type { HostDecompressDeflateCapability } from '@flighthq/types/contract';
+import type { HostDecompressDeflateCapability, RequirementCatalog } from '@flighthq/types/contract';
 import { CompressionFraming } from '@flighthq/types/contract';
-import { createRequirementCatalog } from '@flighthq/requirement-catalog/contract';
+import {
+  BUILT_IN_REQUIREMENT_CATALOG_ENTRIES,
+  BUILT_IN_REQUIREMENT_TRANSLATIONS,
+  createRequirementCatalog,
+} from '@flighthq/requirement-catalog/contract';
 import { createManifestPlugin } from '@flighthq/vite-plugin-manifest';
-
-import { FLIGHT_CATALOG_ENTRIES } from './manifestCatalog';
 
 /**
  * The build-time decompressor the analyzers need. Without one every compressed asset analyzes to
@@ -31,31 +33,23 @@ const nodeDeflate: HostDecompressDeflateCapability = {
 };
 
 /**
- * Content kinds Flight reads but deliberately implements nowhere, so no catalog row can exist for
- * them: SWF tags the timeline walker consumes structurally (`ShowFrame`), and authoring metadata the
- * importer ignores. The plugin reports every unresolved requirement — correctly, since it cannot
- * know which gaps are intentional — but a catalog row is a fact about an IMPLEMENTATION and there is
- * nothing to point these at. Without this filter a complete, correct build warns six times per SWF,
- * which trains the reader to ignore exactly the channel that reports a real missing handler.
+ * Flight's own ownership rows, which cover every SWF tag and AWD2 block its handlers claim. The
+ * translations are spread in separately because `createRequirementCatalog` takes only entries — they
+ * are what carries a `document.format` requirement over to the node kinds a renderer needs, so
+ * without them the parser fragment resolves and every render fragment comes back empty.
  */
-const STRUCTURAL_KINDS = new Set([
-  'CSMTextSettings',
-  'DefineFontAlignZones',
-  'DefineFontName',
-  'FileAttributes',
-  'Metadata',
-  'ShowFrame',
-]);
+function builtInCatalog(): RequirementCatalog {
+  return {
+    ...createRequirementCatalog(BUILT_IN_REQUIREMENT_CATALOG_ENTRIES),
+    translations: BUILT_IN_REQUIREMENT_TRANSLATIONS,
+  };
+}
 
 /** Bundled by vite.config.ts and invoked there; see the comment on `manifest()` for why. */
 export function createFlightManifestPlugin(): Plugin {
   return createManifestPlugin({
-    catalog: createRequirementCatalog(FLIGHT_CATALOG_ENTRIES),
+    catalog: builtInCatalog(),
     deflate: nodeDeflate,
-    onDiagnostic(message) {
-      const kind = /^no catalog entry for document\.format (\S+):/.exec(message)?.[1];
-      if (kind !== undefined && STRUCTURAL_KINDS.has(kind)) return;
-      console.warn(`[flight-manifest] ${message}`);
-    },
+    onDiagnostic: (message) => console.warn(`[flight-manifest] ${message}`),
   }) as unknown as Plugin;
 }

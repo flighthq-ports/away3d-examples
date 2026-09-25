@@ -53,12 +53,12 @@ function injectBase(sitePath: string): Plugin {
  * against the catalog, so an example's handler list is derived from its asset rather than kept in
  * sync with it by hand. The catalog rows are ours — @flighthq/requirement-catalog ships none yet.
  *
- * Bundled here rather than imported directly because @flighthq/vite-plugin-manifest declares
- * "type": "module" but its dist uses relative EXTENSIONLESS imports (`from './contentAnalyzers'`),
- * which Node's ESM resolver rejects — so `import { createManifestPlugin } from
- * '@flighthq/vite-plugin-manifest'` throws ERR_MODULE_NOT_FOUND when Node loads this config. esbuild
- * resolves them, so one in-memory bundle of the wiring gets the plugin loadable. Remove this once
- * the package ships Node-resolvable specifiers.
+ * Bundled here rather than imported directly because @flighthq/requirement-catalog — where the
+ * built-in ownership rows live — declares "type": "module" but its dist/index.js imports
+ * `'./builtInRequirementCatalogEntries'` without the `.js`, which Node's ESM resolver rejects. The
+ * plugin package itself became Node-importable in next.1700; the catalog it needs did not, so the
+ * config still cannot reach the rows directly. esbuild resolves them, so one in-memory bundle of the
+ * wiring gets both loaded. Remove this once that specifier carries its extension.
  */
 async function manifest(): Promise<Plugin> {
   const bundled = await build({

@@ -55,6 +55,10 @@ interface CanvasContext {
 }
 
 function canvasStateFor(canvas: HTMLCanvasElement): CanvasContext {
+  // The full 2D preset, deliberately, even though this file's manifest also exports a `canvasOptions`
+  // fragment. That fragment carries `nodeRenderers` and nothing else -- no `canvasShapeCommands` and
+  // no `blendModeApplication` -- because the catalog has rows only for the `scene.node-kind` facet.
+  // Spreading it in place of the preset typechecks and renders a fully black frame.
   const state = createCanvasRenderState({
     ...canvasScene2DRenderPreset,
     canvasHost: webHostCanvas,
