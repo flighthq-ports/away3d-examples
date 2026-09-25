@@ -1,8 +1,6 @@
 import type { Node3D } from '@flighthq/sdk';
 import {
   addNodeChild,
-  awd2GeometryFamily,
-  awd2SceneStructureFamily,
   configureDirectionalShadowCamera3D,
   createAabb,
   createCamera3D,
@@ -21,6 +19,11 @@ import {
 } from '@flighthq/sdk';
 import { webHostImage } from '@flighthq/host-web';
 
+
+// The block handlers for this file, generated at build time by
+// @flighthq/vite-plugin-manifest: it walks the same block headers the importer will, so the
+// list cannot drift from the asset.
+import { parserOptions } from '../../../assets/monsterhead/MonsterHead.awd?manifest';
 
 import { bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
 import { createDirectionalLightFromAway, createPointLightFromAway } from '../../shared/lighting';
@@ -125,12 +128,8 @@ if (specularImage)
   });
 if (normalImage) headMaterial.normalMap = createTexture({ source: normalImage, colorSpace: 'linear' });
 
-// MonsterHead.awd is geometry and hierarchy only — the material above is built here rather than
-// read from the file, so the material and texture handlers have nothing to claim and are left out.
-// const blocks = awd2AllBlockHandlers; // read every block family
-const blocks = [...awd2GeometryFamily, ...awd2SceneStructureFamily];
 const awdScene = createScene3DFromAwd2(new Uint8Array(awdBuffer), {
-  blocks,
+  ...parserOptions,
   deflate: sdkHostDecompressDeflate,
 });
 

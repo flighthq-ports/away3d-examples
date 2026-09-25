@@ -3,7 +3,7 @@
 Gzipped JS per sample, one build per renderer — each measured from a build containing only
 that sample, so the number is the program rather than a share of the gallery.
 
-Measured against `@flighthq/sdk` **0.5.1-next.1717.f605ef3** on 2026-09-25. Regenerate with `npm run sizes`.
+Measured against `@flighthq/sdk` **0.5.1-next.1723.553fc7a** on 2026-09-25. Regenerate with `npm run sizes`.
 
 | Sample | gl |
 |---|---|
@@ -22,7 +22,7 @@ Measured against `@flighthq/sdk` **0.5.1-next.1717.f605ef3** on 2026-09-25. Rege
 | `mip-mapping` | 28.8 KB |
 | `monster-head-shading` | 44.1 KB |
 | `mouse-interaction` | 42.7 KB |
-| `onkba-awd-animation` | 62.7 KB |
+| `onkba-awd-animation` | 62.6 KB |
 | `particle-explosions` | 24.7 KB |
 | `particle-trails` | 34.0 KB |
 | `particles` | 28.9 KB |
@@ -33,8 +33,8 @@ Measured against `@flighthq/sdk` **0.5.1-next.1717.f605ef3** on 2026-09-25. Rege
 | `shading` | 42.7 KB |
 | `shallow-water-demo` | 45.4 KB |
 | `skybox` | 41.4 KB |
-| `sponza-demo` | 57.4 KB |
-| `sprite-sheet-animation` | 77.1 KB |
+| `sponza-demo` | 57.2 KB |
+| `sprite-sheet-animation` | 77.0 KB |
 | `stereo` | 26.7 KB |
 | `terrain-demo` | 43.3 KB |
 | `tweening-3d` | 31.1 KB |

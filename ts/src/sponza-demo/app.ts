@@ -2,9 +2,6 @@ import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
 import type { ExtendedPbrMaterial, Node3D } from '@flighthq/sdk';
 import {
   addNodeChild,
-  awd2GeometryFamily,
-  awd2MaterialsFamily,
-  awd2SceneStructureFamily,
   bakeGlEnvironmentIbl,
   cloneMesh,
   configureDirectionalShadowCamera3DTightFit,
@@ -30,6 +27,11 @@ import {
   createCameraFromAway,
   createFirstPersonControllerFromAway,
 } from '../../shared/camera';
+// The block handlers for this file, generated at build time by
+// @flighthq/vite-plugin-manifest: it walks the same block headers the importer will, so the
+// list cannot drift from the asset.
+import { parserOptions } from '../../../assets/sponza/sponza.awd?manifest';
+
 import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
 import { createDirectionalLightFromAway } from '../../shared/lighting';
 import { bindFirstPersonControls } from './controls';
@@ -101,13 +103,8 @@ const [awdBuffer, sponzaTextureImages, skyboxFaceImages, fireImage] = await Prom
 const textureMap = createTextureMap(sponzaTextureFiles, sponzaTextureImages);
 const materialCache = new Map<string, ExtendedPbrMaterial>();
 
-// sponza.awd is 382 geometries and their mesh instances over 35 materials and 22 textures. The
-// sun and the torch lights below are built here, not read from the file, so the lighting and camera
-// handlers stay out.
-// const blocks = awd2AllBlockHandlers; // read every block family
-const blocks = [...awd2MaterialsFamily, ...awd2GeometryFamily, ...awd2SceneStructureFamily];
 const awdScene = createScene3DFromAwd2(new Uint8Array(awdBuffer), {
-  blocks,
+  ...parserOptions,
   deflate: sdkHostDecompressDeflate,
 });
 

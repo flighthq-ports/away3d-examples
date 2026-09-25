@@ -23,25 +23,21 @@
     "check": "npm run typecheck && npm run lint:assets && npm run build"
   },
   "dependencies": {
-    "@flighthq/effects-gl": "0.5.1-next.1717.f605ef3",
-    "@flighthq/host-web": "0.5.1-next.1717.f605ef3",
-    "@flighthq/movieclip": "0.5.1-next.1717.f605ef3",
-    "@flighthq/render": "0.5.1-next.1717.f605ef3",
-    "@flighthq/render-gl": "0.5.1-next.1717.f605ef3",
-    "@flighthq/scene2d-canvas": "0.5.1-next.1717.f605ef3",
-    "@flighthq/sdk": "0.5.1-next.1717.f605ef3",
-    "@flighthq/swf": "0.5.1-next.1717.f605ef3"
+    "@flighthq/effects-gl": "0.5.1-next.1723.553fc7a",
+    "@flighthq/host-web": "0.5.1-next.1723.553fc7a",
+    "@flighthq/movieclip": "0.5.1-next.1723.553fc7a",
+    "@flighthq/render": "0.5.1-next.1723.553fc7a",
+    "@flighthq/render-gl": "0.5.1-next.1723.553fc7a",
+    "@flighthq/scene2d-canvas": "0.5.1-next.1723.553fc7a",
+    "@flighthq/sdk": "0.5.1-next.1723.553fc7a",
+    "@flighthq/swf": "0.5.1-next.1723.553fc7a"
   },
   "devDependencies": {
-    "@flighthq/vite-plugin-manifest": "0.5.1-next.1717.f605ef3",
+    "@flighthq/vite-plugin-manifest": "0.5.1-next.1723.553fc7a",
     "@types/node": "^24.0.0",
     "playwright": "^1.61.1",
     "tsx": "^4.22.4",
     "typescript": "^5.9.2",
     "vite": "^7.0.2"
-  },
-  "_overridesNote": "@flighthq/font has no 0.5.1-next.1717 publish (its `next` tag still points at 1710); the other 156 packages in the closure do. Pinned back so 1717 installs. Remove once font publishes at 1717.",
-  "overrides": {
-    "@flighthq/font": "0.5.1-next.1710.81c05dd"
   }
 }

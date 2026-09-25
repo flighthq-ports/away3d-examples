@@ -2,9 +2,6 @@ import { createWebImageResourceFromCanvas, webHostBitmapReadback, webHostImage, 
 import type { ImageResource, Mesh, Node3D } from '@flighthq/sdk';
 import {
   addNodeChild,
-  awd2GeometryFamily,
-  awd2SceneStructureFamily,
-  awd2SkeletonFamily,
   bakeGlEnvironmentIbl,
   configureDirectionalShadowCamera3D,
   createAabb,
@@ -35,6 +32,15 @@ import {
   updateMeshSkin,
   walkNodeDescendants,
 } from '@flighthq/sdk';
+// The block handlers for this file, generated at build time by
+// @flighthq/vite-plugin-manifest: it walks the same block headers the importer will, so the
+// list cannot drift from the asset.
+//
+// Safe here, unlike the polar bear, only because onkba.awd has no Container blocks: the manifest
+// emits handlers in alphabetical order, and a Container ahead of the skeleton handlers breaks joint
+// binding silently. See the note in ../polar-bear-awd-animation/app.ts.
+import { parserOptions } from '../../../assets/away3d/OnkbaAWDAnimation/onkba/onkba.awd?manifest';
+
 import { awayDirection, bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
 import { createDirectionalLightFromAway, createPointLightFromAway } from '../../shared/lighting';
 import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
@@ -174,12 +180,8 @@ const lights = createScene3DLights({
   point: [skyLight],
 });
 
-// onkba.awd is a skinned character: one skeleton, five animations and 247 poses over 43 geometries.
-// Its materials are rebuilt below from the sprite sheets, so the material handlers stay out.
-// const blocks = awd2AllBlockHandlers; // read every block family
-const blocks = [...awd2SkeletonFamily, ...awd2GeometryFamily, ...awd2SceneStructureFamily];
 const document3d = await loadScene3DDocumentFromAwd2Url(webHostNet, `${assetRoot}onkba.awd`, {
-  blocks,
+  ...parserOptions,
   deflate: sdkHostDecompressDeflate,
 });
 if (!document3d) throw new Error('Could not load compressed Onkba AWD');

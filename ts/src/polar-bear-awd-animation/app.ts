@@ -92,6 +92,12 @@ const lights = createScene3DLights({ ambient: awaySun.ambient, directional: away
 const assetRoot = 'away3d/PolarBearAWDAnimation/';
 // PolarBear.awd is a skinned character — one skeleton, three animations, 77 poses — inside a
 // 20-node container hierarchy. It carries no materials, lights or camera of its own.
+//
+// NOT taken from `PolarBear.awd?manifest`, though the manifest names exactly these six handlers.
+// It emits them in requirement-set order, which is alphabetical, so `awd2ContainerHandler` lands
+// ahead of the skeleton handlers — and the skeleton builds the joint nodes the containers' mesh
+// instances bind to. The result renders a completely black frame rather than erroring. Switch to
+// the manifest once the generated order respects that dependency.
 // const blocks = awd2AllBlockHandlers; // read every block family
 const blocks = [...awd2SkeletonFamily, ...awd2GeometryFamily, ...awd2SceneStructureFamily];
 const awdParse = { blocks, deflate: sdkHostDecompressDeflate };

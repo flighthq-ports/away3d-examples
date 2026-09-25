@@ -12,21 +12,25 @@ import {
   createToneMapEffect,
   endGlEffectPass,
   // glScene3DRenderPreset,
-  glShadedMeshMaterialRenderer,
   registerGlFxaaEffect,
   registerGlToneMapEffect,
   renderGlScene3D,
   setCamera3DAspect,
-  ShadedMaterialKind,
   standardGlTextureResolvers,
 } from '@flighthq/sdk';
+// The material renderers suzanne.awd needs, generated from the file itself. This sample keeps the
+// material the importer builds rather than substituting its own, which is what makes the asset's
+// own manifest the truth here — the sibling AWD examples all re-material after import, so theirs
+// would describe a scene they do not draw.
+import { glOptions } from '../../../assets/suzanne.awd?manifest';
+
 import { createExampleGlSurface } from '../../shared/glSurface';
 
-// createScene3DFromAwd2 builds ShadedMaterial for every AWD material block, and this sample keeps
-// the imported material rather than substituting its own.
 function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
   return {
-    materialRenderers: new Map([[ShadedMaterialKind, glShadedMeshMaterialRenderer]]),
+    ...glOptions,
+    // Not derivable from content: a texture resolver is chosen by how the host supplies pixels, not
+    // by anything the AWD file says.
     textureResolvers: standardGlTextureResolvers,
   };
 }
