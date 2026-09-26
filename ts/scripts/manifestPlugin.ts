@@ -1,10 +1,8 @@
 import { inflateRawSync, inflateSync } from 'node:zlib';
 
 import type { Plugin } from 'vite';
-// Type-only, deliberately: @flighthq/types ships 1,968 relative EXTENSIONLESS specifiers, so a
-// RUNTIME import of it throws ERR_MODULE_NOT_FOUND when Node loads the Vite config. A type import is
-// erased, and comparing the framing against its literal keeps the check just as type-safe.
-import type { CompressionFraming, HostDecompressDeflateCapability } from '@flighthq/types/contract';
+import type { HostDecompressDeflateCapability } from '@flighthq/types/contract';
+import { CompressionFraming } from '@flighthq/types/contract';
 import {
   BUILT_IN_REQUIREMENT_CATALOG_ENTRIES,
   BUILT_IN_REQUIREMENT_TRANSLATIONS,
@@ -22,10 +20,10 @@ import { createManifestPlugin } from '@flighthq/vite-plugin-manifest';
  * an assumption.
  */
 const nodeDeflate: HostDecompressDeflateCapability = {
-  decompress(compressed, _uncompressedLength, framing: CompressionFraming) {
+  decompress(compressed, _uncompressedLength, framing) {
     try {
       const input = Buffer.from(compressed.buffer, compressed.byteOffset, compressed.byteLength);
-      return new Uint8Array(framing === 'Raw' ? inflateRawSync(input) : inflateSync(input));
+      return new Uint8Array(framing === CompressionFraming.Raw ? inflateRawSync(input) : inflateSync(input));
     } catch {
       // null is the contract's "this codec could not read it", which the analyzer turns into a
       // diagnostic. Throwing here would fail the whole build on one malformed asset.

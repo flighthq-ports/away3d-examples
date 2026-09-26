@@ -3,9 +3,6 @@ import type { Mesh, Node3D } from '@flighthq/sdk';
 import {
   addNodeChild,
   addTextureAtlasRegion,
-  awd2GeometryFamily,
-  awd2SceneStructureFamily,
-  awd2SkeletonFamily,
   bakeGlEnvironmentIbl,
   configureDirectionalShadowCamera3D,
   createAabb,
@@ -43,6 +40,13 @@ import {
   updateMeshSkin,
   walkNodeDescendants,
 } from '@flighthq/sdk';
+// The block handlers for this file, generated at build time by @flighthq/vite-plugin-manifest.
+// The manifest emits handlers sorted by kind rather than in the declared family order, which used to
+// matter: this file's containers were built before the skeleton that their mesh instances bind to,
+// and the bear rendered as a black frame. Handlers now carry their own build phase and the importer
+// sorts by it, so the emitted order no longer decides the outcome.
+import { parserOptions } from '../../../assets/away3d/PolarBearAWDAnimation/PolarBear.awd?manifest';
+
 import { awayDirection, createCameraFromAway } from '../../shared/camera';
 import { createCubeTextureFromAwayFaces } from '../../shared/cubemap';
 import { createDirectionalLightFromAway, createPointLightFromAway } from '../../shared/lighting';
@@ -93,14 +97,7 @@ const assetRoot = 'away3d/PolarBearAWDAnimation/';
 // PolarBear.awd is a skinned character — one skeleton, three animations, 77 poses — inside a
 // 20-node container hierarchy. It carries no materials, lights or camera of its own.
 //
-// NOT taken from `PolarBear.awd?manifest`, though the manifest names exactly these six handlers.
-// It emits them in requirement-set order, which is alphabetical, so `awd2ContainerHandler` lands
-// ahead of the skeleton handlers — and the skeleton builds the joint nodes the containers' mesh
-// instances bind to. The result renders a completely black frame rather than erroring. Switch to
-// the manifest once the generated order respects that dependency.
-// const blocks = awd2AllBlockHandlers; // read every block family
-const blocks = [...awd2SkeletonFamily, ...awd2GeometryFamily, ...awd2SceneStructureFamily];
-const awdParse = { blocks, deflate: sdkHostDecompressDeflate };
+const awdParse = { ...parserOptions, deflate: sdkHostDecompressDeflate };
 
 const [bearDiffuse, bearNormal, bearSpecular, snowDiffuse, snowNormal, snowSpecular, skyFaces, sceneDocument] = await Promise.all([
   loadImageResourceFromUrl(webHostImage, `${assetRoot}polarbear_diffuse.jpg`),

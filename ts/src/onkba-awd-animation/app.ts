@@ -35,10 +35,6 @@ import {
 // The block handlers for this file, generated at build time by
 // @flighthq/vite-plugin-manifest: it walks the same block headers the importer will, so the
 // list cannot drift from the asset.
-//
-// Safe here, unlike the polar bear, only because onkba.awd has no Container blocks: the manifest
-// emits handlers in alphabetical order, and a Container ahead of the skeleton handlers breaks joint
-// binding silently. See the note in ../polar-bear-awd-animation/app.ts.
 import { parserOptions } from '../../../assets/away3d/OnkbaAWDAnimation/onkba/onkba.awd?manifest';
 
 import { awayDirection, bindOrbitDrag, createCameraFromAway, createOrbitControllerFromAway } from '../../shared/camera';
