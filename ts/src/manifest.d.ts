@@ -16,6 +16,17 @@ declare module '*.awd?manifest' {
   export const parserOptions: { readonly blocks: readonly Awd2BlockHandler[] };
 }
 
+// The static 3D formats carry no handler list to select — `parserOptions` is empty for them — so only
+// the render fragments are declared here.
+declare module '*.dae?manifest' {
+  import type { CanvasRenderStateOptions, GlRenderStateOptions } from '@flighthq/sdk';
+
+  export const canvasOptions: Readonly<CanvasRenderStateOptions>;
+  export const domOptions: Readonly<Record<string, never>>;
+  export const glOptions: Readonly<GlRenderStateOptions>;
+  export const wgpuOptions: Readonly<Record<string, never>>;
+}
+
 declare module '*.swf?manifest' {
   import type { CanvasRenderStateOptions, GlRenderStateOptions, SwfTagHandler } from '@flighthq/sdk';
 

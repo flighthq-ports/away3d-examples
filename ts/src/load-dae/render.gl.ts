@@ -13,21 +13,22 @@ import {
   createToneMapEffect,
   endGlEffectPass,
   // glScene3DRenderPreset,
-  glStandardPbrMeshMaterialRenderer,
   registerGlFxaaEffect,
   registerGlToneMapEffect,
   renderGlScene3D,
   renderGlScene3DShadowMap,
   setCamera3DAspect,
   standardGlTextureResolvers,
-  StandardPbrMaterialKind,
 } from '@flighthq/sdk';
+// The material renderers hobbelpaard.dae needs, generated from the file's format. COLLADA carries no
+// handler list to select, so unlike SWF and AWD only this render fragment comes from the manifest.
+import { glOptions } from '../../../assets/away3d/LoadDAE/hobbelpaard.dae?manifest';
+
 import { createExampleGlSurface } from '../../shared/glSurface';
 
-// The scene shades entirely through the standard PBR material, so that is the only renderer it needs.
 function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
   return {
-    materialRenderers: new Map([[StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer]]),
+    ...glOptions,
     textureResolvers: standardGlTextureResolvers,
   };
 }
