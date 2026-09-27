@@ -35,20 +35,22 @@ import {
 import { glOptions } from '../../../assets/hellknight/hellknight.md5mesh?manifest';
 
 import { createExampleGlSurface } from '../../shared/glSurface';
-import { mergeGlRegistries } from '../../shared/registries';
 import { backgroundAwareFogEffectRunner } from './fog';
 
 // The hellknight and the ground shade through ExtendedPbr and StandardPbr; the specular
 // extension is what the hide's highlight needs.
 function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
-  return mergeGlRegistries(glOptions, {
+  return {
+    ...glOptions,
+    // hellknight.md5mesh carries BlinnPhong materials, but character.ts assigns its own to every
+    // mesh, so this deliberately REPLACES the file's material renderers rather than adding to them.
     materialRenderers: new Map([
       [ExtendedPbrMaterialKind, glExtendedPbrMeshMaterialRenderer],
       [StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer],
     ]),
     pbrExtensions: new Map([[SpecularPbrExtensionKind, specularPbrGlExtension]]),
     textureResolvers: standardGlTextureResolvers,
-  });
+  };
 }
 
 // Unlike the other examples this one takes its post-process stack as an argument: the fog effect is

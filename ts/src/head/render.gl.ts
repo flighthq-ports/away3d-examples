@@ -29,19 +29,19 @@ import {
 import { glOptions } from '../../../assets/head.obj?manifest';
 
 import { createExampleGlSurface } from '../../shared/glSurface';
-import { mergeGlRegistries } from '../../shared/registries';
 
 // The head draws with a single ExtendedPbr skin material; its two PBR extensions are the only
 // other things the registries carry.
 function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
-  return mergeGlRegistries(glOptions, {
+  return {
+    ...glOptions,
     materialRenderers: new Map([[ExtendedPbrMaterialKind, glExtendedPbrMeshMaterialRenderer]]),
     pbrExtensions: new Map([
       [SpecularPbrExtensionKind, specularPbrGlExtension],
       [WrappedDiffusePbrExtensionKind, wrappedDiffusePbrGlExtension],
     ]),
     textureResolvers: standardGlTextureResolvers,
-  });
+  };
 }
 
 export function setupRenderer() {

@@ -25,14 +25,14 @@ import {
 import { glOptions } from '../../../assets/suzanne.awd?manifest';
 
 import { createExampleGlSurface } from '../../shared/glSurface';
-import { mergeGlRegistries } from '../../shared/registries';
 
 function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
-  return mergeGlRegistries(glOptions, {
+  return {
+    ...glOptions,
     // Not derivable from content: a texture resolver is chosen by how the host supplies pixels, not
     // by anything the AWD file says.
     textureResolvers: standardGlTextureResolvers,
-  });
+  };
 }
 
 export function setupRenderer() {

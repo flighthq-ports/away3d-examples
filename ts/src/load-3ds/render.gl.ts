@@ -31,19 +31,21 @@ import {
 import { glOptions } from '../../../assets/soldier_ant.3ds?manifest';
 
 import { createExampleGlSurface } from '../../shared/glSurface';
-import { mergeGlRegistries } from '../../shared/registries';
 
 // The ant imports as StandardPbr; the ground plane adds an ExtendedPbr material carrying a
 // specular extension.
 function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
-  return mergeGlRegistries(glOptions, {
+  return {
+    ...glOptions,
+    // soldier_ant.3ds carries BlinnPhong materials, but every mesh is re-materialled below
+    // (app.ts), so this deliberately REPLACES the file's material renderers rather than adding to them.
     materialRenderers: new Map([
       [ExtendedPbrMaterialKind, glExtendedPbrMeshMaterialRenderer],
       [StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer],
     ]),
     pbrExtensions: new Map([[SpecularPbrExtensionKind, specularPbrGlExtension]]),
     textureResolvers: standardGlTextureResolvers,
-  });
+  };
 }
 
 export function setupRenderer() {

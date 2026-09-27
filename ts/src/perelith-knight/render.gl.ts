@@ -27,14 +27,14 @@ import {
 import { glOptions } from '../../../assets/pknight.md2?manifest';
 
 import { createExampleGlSurface } from '../../shared/glSurface';
-import { mergeGlRegistries } from '../../shared/registries';
 
 // Every knight shades through one StandardPbr material; the MD2 import is re-materialled on load.
 function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
-  return mergeGlRegistries(glOptions, {
+  return {
+    ...glOptions,
     materialRenderers: new Map([[StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer]]),
     textureResolvers: standardGlTextureResolvers,
-  });
+  };
 }
 
 export function setupRenderer() {

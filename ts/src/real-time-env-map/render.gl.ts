@@ -29,7 +29,6 @@ import {
 import { glOptions } from '../../../assets/away3d/RealTimeEnvMap/R2D2.obj?manifest';
 
 import { createExampleGlSurface } from '../../shared/glSurface';
-import { mergeGlRegistries } from '../../shared/registries';
 
 // Camera depth range and the distance fog derived from it. These live beside the renderer because
 // the fog effect is expressed in WINDOW depth, which only means anything against this near/far
@@ -63,10 +62,13 @@ function linearRgba(srgb: number): number {
 // Every surface shades through StandardPbr, including the mirrored head that samples the
 // captured environment.
 function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
-  return mergeGlRegistries(glOptions, {
+  return {
+    ...glOptions,
+    // R2D2.obj's MTL yields BlinnPhong and standard PBR, but app.ts assigns its own material to
+    // every mesh, so this deliberately REPLACES the file's material renderers.
     materialRenderers: new Map([[StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer]]),
     textureResolvers: standardGlTextureResolvers,
-  });
+  };
 }
 
 export function setupRenderer() {
