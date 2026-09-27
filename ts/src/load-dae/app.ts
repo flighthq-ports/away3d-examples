@@ -34,6 +34,7 @@ import { createDirectionalLightFromAway } from '../../shared/lighting';
 import { setupRenderer } from './render.gl';
 
 const assetRoot = 'away3d/LoadDAE/';
+import { parserOptions } from '../../../assets/away3d/LoadDAE/hobbelpaard.dae?manifest';
 const renderer = setupRenderer();
 const scene = createScene3D();
 const camera = createCameraFromAway({ far: 5000, fov: 60 });
@@ -67,7 +68,7 @@ const [source, carpetImage, wallpaperImage] = await Promise.all([
   loadImageResourceFromUrl(webHostImage, `${assetRoot}carpet.jpg`),
   loadImageResourceFromUrl(webHostImage, `${assetRoot}wallpaper.jpg`),
 ]);
-const imported = parseCollada(source, { baseUrl: assetRoot });
+const imported = parseCollada(source, { ...parserOptions, baseUrl: assetRoot });
 const model = createScene3DFromDocument(imported.document);
 const resolver = createBuiltInScene3DResourceResolver(webHostImage, {
   // The source document refers to ../images/*.jpg; the sample archive stores those files beside the DAE.

@@ -24,7 +24,12 @@ import {
   standardGlTextureResolvers,
   StandardPbrMaterialKind,
 } from '@flighthq/sdk';
+// What R2D2.obj itself needs, generated at build time; merged with the renderers this example
+// adds on its own.
+import { glOptions } from '../../../assets/away3d/PlanarReflections/R2D2.obj?manifest';
+
 import { createExampleGlSurface } from '../../shared/glSurface';
+import { mergeGlRegistries } from '../../shared/registries';
 
 // Camera depth range and the distance fog derived from it. These live beside the renderer because
 // the fog effect is expressed in WINDOW depth, which only means anything against this near/far
@@ -58,13 +63,13 @@ function linearRgba(srgb: number): number {
 // The desert shades through StandardPbr; the mirror is a custom-shader material that samples the
 // reflection texture app.ts renders for it.
 function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
-  return {
+  return mergeGlRegistries(glOptions, {
     materialRenderers: new Map([
       [CustomShaderMaterialKind, glCustomShaderMeshMaterialRenderer],
       [StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer],
     ]),
     textureResolvers: standardGlTextureResolvers,
-  };
+  });
 }
 
 export function setupRenderer() {

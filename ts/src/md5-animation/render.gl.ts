@@ -30,20 +30,25 @@ import {
   standardGlTextureResolvers,
   StandardPbrMaterialKind,
 } from '@flighthq/sdk';
+// What hellknight.md5mesh itself needs, generated at build time; merged with the renderers this example
+// adds on its own.
+import { glOptions } from '../../../assets/hellknight/hellknight.md5mesh?manifest';
+
 import { createExampleGlSurface } from '../../shared/glSurface';
+import { mergeGlRegistries } from '../../shared/registries';
 import { backgroundAwareFogEffectRunner } from './fog';
 
 // The hellknight and the ground shade through ExtendedPbr and StandardPbr; the specular
 // extension is what the hide's highlight needs.
 function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
-  return {
+  return mergeGlRegistries(glOptions, {
     materialRenderers: new Map([
       [ExtendedPbrMaterialKind, glExtendedPbrMeshMaterialRenderer],
       [StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer],
     ]),
     pbrExtensions: new Map([[SpecularPbrExtensionKind, specularPbrGlExtension]]),
     textureResolvers: standardGlTextureResolvers,
-  };
+  });
 }
 
 // Unlike the other examples this one takes its post-process stack as an argument: the fog effect is

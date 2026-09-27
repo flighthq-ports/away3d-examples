@@ -24,19 +24,24 @@ import {
   WrappedDiffusePbrExtensionKind,
   wrappedDiffusePbrGlExtension,
 } from '@flighthq/sdk';
+// What head.obj itself needs, generated at build time; merged with the renderers this example
+// adds on its own.
+import { glOptions } from '../../../assets/head.obj?manifest';
+
 import { createExampleGlSurface } from '../../shared/glSurface';
+import { mergeGlRegistries } from '../../shared/registries';
 
 // The head draws with a single ExtendedPbr skin material; its two PBR extensions are the only
 // other things the registries carry.
 function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
-  return {
+  return mergeGlRegistries(glOptions, {
     materialRenderers: new Map([[ExtendedPbrMaterialKind, glExtendedPbrMeshMaterialRenderer]]),
     pbrExtensions: new Map([
       [SpecularPbrExtensionKind, specularPbrGlExtension],
       [WrappedDiffusePbrExtensionKind, wrappedDiffusePbrGlExtension],
     ]),
     textureResolvers: standardGlTextureResolvers,
-  };
+  });
 }
 
 export function setupRenderer() {

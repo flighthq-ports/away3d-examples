@@ -27,6 +27,48 @@ declare module '*.dae?manifest' {
   export const wgpuOptions: Readonly<Record<string, never>>;
 }
 
+declare module '*.3ds?manifest' {
+  import type { GlRenderStateOptions, ThreeDsImportOptions } from '@flighthq/sdk';
+
+  export const glOptions: Readonly<GlRenderStateOptions>;
+  export const parserOptions: Readonly<ThreeDsImportOptions>;
+}
+
+declare module '*.dae?manifest' {
+  import type { ColladaImportOptions, GlRenderStateOptions } from '@flighthq/sdk';
+
+  export const glOptions: Readonly<GlRenderStateOptions>;
+  export const parserOptions: Readonly<ColladaImportOptions>;
+}
+
+declare module '*.fnt?manifest' {
+  import type { BitmapFontImportOptions, GlRenderStateOptions } from '@flighthq/sdk';
+
+  export const glOptions: Readonly<GlRenderStateOptions>;
+  export const parserOptions: Readonly<BitmapFontImportOptions>;
+}
+
+declare module '*.md2?manifest' {
+  import type { GlRenderStateOptions, Md2ImportOptions } from '@flighthq/sdk';
+
+  export const glOptions: Readonly<GlRenderStateOptions>;
+  export const parserOptions: Readonly<Md2ImportOptions>;
+}
+
+declare module '*.md5mesh?manifest' {
+  import type { GlRenderStateOptions, Md5ImportOptions } from '@flighthq/sdk';
+
+  export const glOptions: Readonly<GlRenderStateOptions>;
+  export const parserOptions: Readonly<Md5ImportOptions>;
+}
+
+declare module '*.obj?manifest' {
+  import type { GlRenderStateOptions, ObjImportOptions } from '@flighthq/sdk';
+
+  export const glOptions: Readonly<GlRenderStateOptions>;
+  export const parserOptions: Readonly<ObjImportOptions>;
+}
+
 declare module '*.swf?manifest' {
   import type { CanvasRenderStateOptions, GlRenderStateOptions, SwfTagHandler } from '@flighthq/sdk';
 

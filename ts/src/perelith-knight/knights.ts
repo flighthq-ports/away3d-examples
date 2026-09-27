@@ -18,6 +18,7 @@ import {
   setCubeTextureFace,
   setVector3,
 } from '@flighthq/sdk';
+import { parserOptions } from '../../../assets/pknight.md2?manifest';
 
 export interface KnightAnimationBucket {
   driver: Mesh;
@@ -177,7 +178,7 @@ export async function loadKnights(host: Readonly<HostImageCapability>, scene: Re
   }
 
   const md2Buffer = await fetch('pknight.md2').then((r) => r.arrayBuffer());
-  const md2Scene = await createScene3DFromMd2(new Uint8Array(md2Buffer));
+  const md2Scene = await createScene3DFromMd2(new Uint8Array(md2Buffer), undefined, parserOptions);
   const md2Clips = Object.values(md2Scene.animations);
 
   let templateMesh: Mesh | null = null;

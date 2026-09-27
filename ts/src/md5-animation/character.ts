@@ -15,6 +15,7 @@ import {
   loadImageResourceFromUrl,
   parseMd5Anim,
 } from '@flighthq/sdk';
+import { parserOptions } from '../../../assets/hellknight/hellknight.md5mesh?manifest';
 
 /** Roughness at the dull end of the specular map — bare hide, the great majority of the body. */
 const HIDE_ROUGHNESS = 0.66;
@@ -186,7 +187,7 @@ export async function loadCharacter(host: Readonly<HostImageCapability>): Promis
   gobMaterial.doubleSided = true;
 
   const meshText = await fetchText('hellknight/hellknight.md5mesh');
-  const md5Scene = createScene3DFromMd5Mesh(meshText);
+  const md5Scene = createScene3DFromMd5Mesh(meshText, undefined, parserOptions);
 
   const md5Children = getNodeChildren(md5Scene.root);
   const characterPositionNode = createScene3D();

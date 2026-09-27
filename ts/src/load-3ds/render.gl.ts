@@ -26,19 +26,24 @@ import {
   standardGlTextureResolvers,
   StandardPbrMaterialKind,
 } from '@flighthq/sdk';
+// What soldier_ant.3ds itself needs, generated at build time; merged with the renderers this example
+// adds on its own.
+import { glOptions } from '../../../assets/soldier_ant.3ds?manifest';
+
 import { createExampleGlSurface } from '../../shared/glSurface';
+import { mergeGlRegistries } from '../../shared/registries';
 
 // The ant imports as StandardPbr; the ground plane adds an ExtendedPbr material carrying a
 // specular extension.
 function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
-  return {
+  return mergeGlRegistries(glOptions, {
     materialRenderers: new Map([
       [ExtendedPbrMaterialKind, glExtendedPbrMeshMaterialRenderer],
       [StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer],
     ]),
     pbrExtensions: new Map([[SpecularPbrExtensionKind, specularPbrGlExtension]]),
     textureResolvers: standardGlTextureResolvers,
-  };
+  });
 }
 
 export function setupRenderer() {

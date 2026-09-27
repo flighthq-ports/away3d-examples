@@ -1,5 +1,6 @@
 import { webHostImage } from '@flighthq/host-web';
 import type { BitmapFont, MeshGeometry } from '@flighthq/sdk';
+import { parserOptions } from '../../../assets/away3d/BitmapFont/fonts/BerberRevKC_260.fnt?manifest';
 import {
   addNodeChild,
   createMesh,
@@ -11,7 +12,8 @@ import {
   createUnlitMaterial,
   invalidateNodeLocalTransform,
   loadImageResourceFromUrl,
-  parseBitmapFontXml,
+  applyBitmapFontImportOptions,
+  parseBitmapFont,
   setQuaternionFromEuler,
   setVector3,
 } from '@flighthq/sdk';
@@ -25,8 +27,11 @@ const camera = createCameraFromAway({ y: 200, z: -600, near: 20, far: 3000 });
 const assetRoot = 'away3d/BitmapFont/fonts/';
 const image = await loadImageResourceFromUrl(webHostImage, `${assetRoot}BerberRevKC_260.png`);
 const atlas = createTextureAtlasFromImageResource(image);
-const fnt = await fetch(`${assetRoot}BerberRevKC_260.fnt`).then((response) => response.text());
-const font = parseBitmapFontXml(fnt, { resolvePage: () => atlas });
+// BMFont writes binary, text, XML and JSON all as `.fnt`; the manifest identifies which form this
+// file is, so only that reader is linked.
+const fnt = await fetch(`${assetRoot}BerberRevKC_260.fnt`).then((response) => response.arrayBuffer());
+applyBitmapFontImportOptions(parserOptions);
+const font = parseBitmapFont(new Uint8Array(fnt), undefined, { resolvePage: () => atlas });
 if (!font) throw new Error('Could not parse BerberRevKC_260.fnt');
 
 function createTextGeometry(bitmapFont: Readonly<BitmapFont>, text: string, fontSize: number): MeshGeometry {

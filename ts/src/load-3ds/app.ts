@@ -24,6 +24,8 @@ import {
 import { webHostImage } from '@flighthq/host-web';
 
 
+import { parserOptions } from '../../../assets/soldier_ant.3ds?manifest';
+
 import {
   awayDirection,
   bindOrbitDrag,
@@ -85,7 +87,7 @@ const [modelBuffer, antImage, sandImage] = await Promise.all([
 
 groundMaterial.standard.baseColorMap = createTexture({ source: sandImage });
 
-const modelScene = createScene3DFrom3ds(new Uint8Array(modelBuffer));
+const modelScene = createScene3DFrom3ds(new Uint8Array(modelBuffer), undefined, parserOptions);
 const antTexture = createTexture({ source: antImage });
 
 const antMaterial = createAwayMatteMaterial(0xffffffff);

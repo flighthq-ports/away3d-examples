@@ -20,14 +20,19 @@ import {
   standardGlTextureResolvers,
   StandardPbrMaterialKind,
 } from '@flighthq/sdk';
+// What head.obj itself needs, generated at build time; merged with the renderers this example
+// adds on its own.
+import { glOptions } from '../../../assets/away3d/LightProbes/head.obj?manifest';
+
 import { createExampleGlSurface } from '../../shared/glSurface';
+import { mergeGlRegistries } from '../../shared/registries';
 
 // The scene shades entirely through the standard PBR material, so that is the only renderer it needs.
 function createMinimalScene3DGlRegistries(): GlRenderStateOptions {
-  return {
+  return mergeGlRegistries(glOptions, {
     materialRenderers: new Map([[StandardPbrMaterialKind, glStandardPbrMeshMaterialRenderer]]),
     textureResolvers: standardGlTextureResolvers,
-  };
+  });
 }
 
 export function setupRenderer() {
