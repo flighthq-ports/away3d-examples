@@ -23,17 +23,17 @@
     "check": "npm run typecheck && npm run lint:assets && npm run build"
   },
   "dependencies": {
-    "@flighthq/effects-gl": "0.5.1-next.1801.21234f6",
-    "@flighthq/host-web": "0.5.1-next.1801.21234f6",
-    "@flighthq/movieclip": "0.5.1-next.1801.21234f6",
-    "@flighthq/render": "0.5.1-next.1801.21234f6",
-    "@flighthq/render-gl": "0.5.1-next.1801.21234f6",
-    "@flighthq/scene2d-canvas": "0.5.1-next.1801.21234f6",
-    "@flighthq/sdk": "0.5.1-next.1801.21234f6",
-    "@flighthq/swf": "0.5.1-next.1801.21234f6"
+    "@flighthq/effects-gl": "0.5.1-next.1850.5adb645",
+    "@flighthq/host-web": "0.5.1-next.1850.5adb645",
+    "@flighthq/movieclip": "0.5.1-next.1850.5adb645",
+    "@flighthq/render": "0.5.1-next.1850.5adb645",
+    "@flighthq/render-gl": "0.5.1-next.1850.5adb645",
+    "@flighthq/scene2d-canvas": "0.5.1-next.1850.5adb645",
+    "@flighthq/sdk": "0.5.1-next.1850.5adb645",
+    "@flighthq/swf": "0.5.1-next.1850.5adb645"
   },
   "devDependencies": {
-    "@flighthq/vite-plugin-manifest": "0.5.1-next.1801.21234f6",
+    "@flighthq/vite-plugin-manifest": "0.5.1-next.1850.5adb645",
     "@types/node": "^24.0.0",
     "playwright": "^1.61.1",
     "tsx": "^4.22.4",
