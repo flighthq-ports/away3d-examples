@@ -41,13 +41,6 @@ declare module '*.dae?manifest' {
   export const parserOptions: Readonly<ColladaImportOptions>;
 }
 
-declare module '*.fnt?manifest' {
-  import type { BitmapFontImportOptions, GlRenderStateOptions } from '@flighthq/sdk';
-
-  export const glOptions: Readonly<GlRenderStateOptions>;
-  export const parserOptions: Readonly<BitmapFontImportOptions>;
-}
-
 declare module '*.md2?manifest' {
   import type { GlRenderStateOptions, Md2ImportOptions } from '@flighthq/sdk';
 
