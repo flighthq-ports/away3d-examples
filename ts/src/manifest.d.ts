@@ -62,6 +62,22 @@ declare module '*.obj?manifest' {
   export const parserOptions: Readonly<ObjImportOptions>;
 }
 
+declare module '*.fnt?manifest' {
+  import type { BitmapFont, BitmapFontParseOptions, ImportDiagnostic } from '@flighthq/sdk';
+
+  /**
+   * The one BMFont reader this file's bytes actually need. BMFont writes binary, text, XML and JSON
+   * all as `.fnt`, so the manifest resolves the format from the content and names the reader for it
+   * — which is why there is no handler list here, and why the source type is the union: the binary
+   * reader takes bytes where the three text ones take a string.
+   */
+  export const contentParser: (
+    source: string & Uint8Array extends never ? never : string,
+    options?: Readonly<BitmapFontParseOptions>,
+    diagnostics?: ImportDiagnostic[],
+  ) => BitmapFont | null;
+}
+
 declare module '*.swf?manifest' {
   import type { CanvasRenderStateOptions, GlRenderStateOptions, SwfTagHandler } from '@flighthq/sdk';
 

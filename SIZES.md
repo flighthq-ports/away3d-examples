@@ -3,12 +3,12 @@
 Gzipped JS per sample, one build per renderer — each measured from a build containing only
 that sample, so the number is the program rather than a share of the gallery.
 
-Measured against `@flighthq/sdk` **0.5.1-next.1892.cbd15bd** on 2026-09-28. Regenerate with `npm run sizes`.
+Measured against `@flighthq/sdk` **0.5.1-next.1899.4b1311e** on 2026-09-28. Regenerate with `npm run sizes`.
 
 | Sample | gl |
 |---|---|
 | `basic-sprite-sheet` | 28.4 KB |
-| `bitmap-font` | 29.6 KB |
+| `bitmap-font` | 29.8 KB |
 | `fire` | 41.6 KB |
 | `fractal-tree-demo` | 45.1 KB |
 | `globe` | 44.3 KB |
@@ -17,7 +17,7 @@ Measured against `@flighthq/sdk` **0.5.1-next.1892.cbd15bd** on 2026-09-28. Rege
 | `lines` | 34.3 KB |
 | `load-3ds` | 48.9 KB |
 | `load-awd` | 44.0 KB |
-| `load-dae` | 55.3 KB |
+| `load-dae` | 55.4 KB |
 | `md5-animation` | 56.1 KB |
 | `mip-mapping` | 28.8 KB |
 | `monster-head-shading` | 44.1 KB |

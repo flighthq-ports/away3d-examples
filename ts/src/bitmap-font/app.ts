@@ -1,5 +1,6 @@
 import { webHostImage } from '@flighthq/host-web';
 import type { BitmapFont, MeshGeometry } from '@flighthq/sdk';
+import { contentParser } from '../../../assets/away3d/BitmapFont/fonts/BerberRevKC_260.fnt?manifest';
 import {
   addNodeChild,
   createMesh,
@@ -11,7 +12,6 @@ import {
   createUnlitMaterial,
   invalidateNodeLocalTransform,
   loadImageResourceFromUrl,
-  parseBitmapFontXml,
   setQuaternionFromEuler,
   setVector3,
 } from '@flighthq/sdk';
@@ -25,11 +25,10 @@ const camera = createCameraFromAway({ y: 200, z: -600, near: 20, far: 3000 });
 const assetRoot = 'away3d/BitmapFont/fonts/';
 const image = await loadImageResourceFromUrl(webHostImage, `${assetRoot}BerberRevKC_260.png`);
 const atlas = createTextureAtlasFromImageResource(image);
-// Parsed through the XML reader directly rather than through `.fnt?manifest`: next.1892 dropped the
-// `.fnt` analyzer, so the manifest resolves to nothing and the format registry falls back to
-// registering all four BMFont readers. Naming the one this file uses links only that reader.
+// BMFont writes binary, text, XML and JSON all as `.fnt`. The manifest reads which one this file
+// actually is and names that reader, so only it is linked.
 const fnt = await fetch(`${assetRoot}BerberRevKC_260.fnt`).then((response) => response.text());
-const font = parseBitmapFontXml(fnt, { resolvePage: () => atlas });
+const font = contentParser(fnt, { resolvePage: () => atlas });
 if (!font) throw new Error('Could not parse BerberRevKC_260.fnt');
 
 function createTextGeometry(bitmapFont: Readonly<BitmapFont>, text: string, fontSize: number): MeshGeometry {
