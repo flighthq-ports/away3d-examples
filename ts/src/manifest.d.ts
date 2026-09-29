@@ -68,11 +68,13 @@ declare module '*.fnt?manifest' {
   /**
    * The one BMFont reader this file's bytes actually need. BMFont writes binary, text, XML and JSON
    * all as `.fnt`, so the manifest resolves the format from the content and names the reader for it
-   * — which is why there is no handler list here, and why the source type is the union: the binary
-   * reader takes bytes where the three text ones take a string.
+   * — which is why there is no handler list here.
+   *
+   * Always takes BYTES. The three text readers are wrapped in `decodeUTF8` by the generator so that
+   * every format presents the same signature; handing this a string parses to nothing.
    */
   export const contentParser: (
-    source: string & Uint8Array extends never ? never : string,
+    source: Readonly<Uint8Array>,
     options?: Readonly<BitmapFontParseOptions>,
     diagnostics?: ImportDiagnostic[],
   ) => BitmapFont | null;

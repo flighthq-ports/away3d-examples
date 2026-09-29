@@ -27,8 +27,8 @@ const image = await loadImageResourceFromUrl(webHostImage, `${assetRoot}BerberRe
 const atlas = createTextureAtlasFromImageResource(image);
 // BMFont writes binary, text, XML and JSON all as `.fnt`. The manifest reads which one this file
 // actually is and names that reader, so only it is linked.
-const fnt = await fetch(`${assetRoot}BerberRevKC_260.fnt`).then((response) => response.text());
-const font = contentParser(fnt, { resolvePage: () => atlas });
+const fnt = await fetch(`${assetRoot}BerberRevKC_260.fnt`).then((response) => response.arrayBuffer());
+const font = contentParser(new Uint8Array(fnt), { resolvePage: () => atlas });
 if (!font) throw new Error('Could not parse BerberRevKC_260.fnt');
 
 function createTextGeometry(bitmapFont: Readonly<BitmapFont>, text: string, fontSize: number): MeshGeometry {
