@@ -2,6 +2,7 @@ import { webHostBitmapReadback, webHostImage } from '@flighthq/host-web';
 import type { MeshGeometry, Node3D, PerspectiveProjection } from '@flighthq/sdk';
 import {
   acquireGlRenderTexture,
+  releaseGlRenderTexture,
   createCustomShaderMaterial,
   addNodeChild,
   bakeGlEnvironmentIbl,
@@ -188,12 +189,15 @@ const r2d2 = loadR2D2();
 registerMirrorShader(renderer.state);
 registerGlRenderTextureResolver(renderer.state);
 const reflectionPool = createGlRenderTexturePool();
-const reflectionTexture = acquireGlRenderTexture(renderer.state, reflectionPool, {
-  width: Math.max(1, Math.floor(renderer.canvas.width)),
-  height: Math.max(1, Math.floor(renderer.canvas.height)),
-  depth: 'depth-stencil',
-  format: 'rgba8',
-});
+function acquireReflectionTexture() {
+  return acquireGlRenderTexture(renderer.state, reflectionPool, {
+    width: Math.max(1, Math.floor(renderer.canvas.width)),
+    height: Math.max(1, Math.floor(renderer.canvas.height)),
+    depth: 'depth-stencil',
+    format: 'rgba8',
+  });
+}
+let reflectionTexture = acquireReflectionTexture();
 
 const mirrorMaterial = createCustomShaderMaterial({
   shaderKey: 'planarMirror',
@@ -395,7 +399,23 @@ function frame(timestamp: number): void {
   requestAnimationFrame(frame);
 }
 
+// The mirror shader samples the reflection by SCREEN position — `gl_FragCoord.xy / u_resolution` —
+// so the render texture and that uniform both have to track the canvas. Sizing them once at startup
+// leaves the lookup reading a stale rectangle after any resize: the reflection stretches along the
+// axis that grew and the ground falls outside the sampled region, showing sky in its place.
+function resizeReflection(): void {
+  releaseGlRenderTexture(renderer.state, reflectionPool, reflectionTexture);
+  reflectionTexture = acquireReflectionTexture();
+  if (mirrorMaterial.textures) mirrorMaterial.textures.u_reflection = reflectionTexture;
+  if (mirrorMaterial.uniforms) {
+    mirrorMaterial.uniforms.u_resolution = [renderer.canvas.width, renderer.canvas.height];
+  }
+}
+
 renderer.resize(camera);
-window.addEventListener('resize', () => renderer.resize(camera));
+window.addEventListener('resize', () => {
+  renderer.resize(camera);
+  resizeReflection();
+});
 
 requestAnimationFrame(frame);
